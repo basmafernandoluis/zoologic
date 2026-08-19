@@ -1,0 +1,857 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using TMPro;
+using Zoodoku.Core;
+
+namespace Zoodoku
+{
+    public class LevelMapBuilder : MonoBehaviour
+    {
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void RegisterCallback()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+
+        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (scene.name != "LevelMap") return;
+            var go = new GameObject("LevelMapBuilder");
+            go.AddComponent<LevelMapBuilder>();
+        }
+
+        // ------------------------------------------------------------------
+        // Constantes de layout (référence 1080×1920).
+        // ------------------------------------------------------------------
+
+        private const int TotalLevels = 100;
+        private const int Columns = 4;
+        private const float HeaderHeight = 110f;
+        private const float ContentPad = 30f;
+        private const float CellGap = 20f;
+        private const float SeparatorHeight = 50f;
+        private const float SeparatorMargin = 12f;
+
+        // ------------------------------------------------------------------
+        // Palette pastel cohérente avec l'écran de jeu.
+        // ------------------------------------------------------------------
+
+        private static readonly Color BgTop = new Color(0.97f, 0.96f, 0.93f);
+        private static readonly Color BgBottom = new Color(0.84f, 0.91f, 0.97f);
+        private static readonly Color HeaderBg = new Color(1f, 1f, 1f, 0.92f);
+        private static readonly Color HeaderSepColor = new Color(0f, 0f, 0f, 0.08f);
+        private static readonly Color TitleColor = new Color(0.13f, 0.13f, 0.15f);
+        private static readonly Color BubbleWhite = new Color(0.97f, 0.97f, 0.98f, 1f);
+        private static readonly Color BubbleLocked = new Color(0.90f, 0.91f, 0.93f, 1f);
+        private static readonly Color BubbleBorderLight = new Color(0.88f, 0.89f, 0.92f, 1f);
+        private static readonly Color NumberColor = new Color(0.15f, 0.15f, 0.18f, 1f);
+        private static readonly Color GoldStar = new Color(1f, 0.85f, 0.2f, 1f);
+        private static readonly Color EmptyStar = new Color(0.82f, 0.82f, 0.85f, 1f);
+        private static readonly Color LockedStar = new Color(0.88f, 0.88f, 0.90f, 1f);
+        private static readonly Color LockColor = new Color(0.70f, 0.70f, 0.73f, 1f);
+        private static readonly Color SeparatorBg = new Color(0.26f, 0.55f, 0.88f, 1f);
+        private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.08f);
+
+        // ------------------------------------------------------------------
+        // Champs.
+        // ------------------------------------------------------------------
+
+        private ScrollRect _scrollRect;
+        private RectTransform _content;
+        private readonly List<LevelBubble> _bubbles = new List<LevelBubble>();
+        private int _loadedCount;
+        private bool _loading;
+        private float _cellSize;
+        private int _lastGridSize;
+        private TMP_FontAsset _fontTitle;
+        private TMP_FontAsset _fontBody;
+
+        private struct LevelBubble
+        {
+            public int Level;
+            public GameObject Root;
+            public Image BubbleImage;
+            public TMP_Text NumberText;
+            public List<Image> StarImages;
+        }
+
+        // ------------------------------------------------------------------
+        // Lifecycle.
+        // ------------------------------------------------------------------
+
+        private void Awake()
+        {
+            Application.targetFrameRate = 60;
+            Screen.orientation = ScreenOrientation.Portrait;
+        }
+
+        private void Start()
+        {
+            _fontTitle = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
+            _fontBody = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF");
+
+            _cellSize = (1080f - 2f * ContentPad - (Columns - 1) * CellGap) / Columns;
+
+            BuildScene();
+            LoadBubbles(40);
+            StartCoroutine(ScrollToHighestUnlocked());
+        }
+
+        private void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                if (SettingsPanel.HandleBackButton()) return;
+                SFXManager.Instance.PlayMenuClose();
+                SceneManager.LoadScene("MainMenu");
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Construction de la scène.
+        // ------------------------------------------------------------------
+
+        private void BuildScene()
+        {
+            var canvasGO = new GameObject("Canvas");
+            var canvas = canvasGO.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 0;
+
+            var scaler = canvasGO.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            canvasGO.AddComponent<GraphicRaycaster>();
+
+            if (EventSystem.current == null)
+            {
+                canvasGO.AddComponent<EventSystem>();
+                canvasGO.AddComponent<StandaloneInputModule>();
+            }
+
+            BuildBackground(canvasGO.transform);
+            BuildHeader(canvasGO.transform);
+            _scrollRect = BuildScrollArea(canvasGO.transform);
+            _content = _scrollRect.content;
+        }
+
+        // ------------------------------------------------------------------
+        // Fond : dégradé vertical pastel identique à l'écran de jeu.
+        // ------------------------------------------------------------------
+
+        private void BuildBackground(Transform parent)
+        {
+            var go = new GameObject("Background");
+            go.transform.SetParent(parent, false);
+            var rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            var img = go.AddComponent<Image>();
+            img.sprite = CreateGradientSprite(BgTop, BgBottom);
+            img.raycastTarget = false;
+        }
+
+        // ------------------------------------------------------------------
+        // Header : barre blanche avec bouton retour (gauche) et titre centré.
+        // ------------------------------------------------------------------
+
+        private void BuildHeader(Transform parent)
+        {
+            var header = new GameObject("Header");
+            header.transform.SetParent(parent, false);
+            var rect = header.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.sizeDelta = new Vector2(0f, HeaderHeight);
+            rect.anchoredPosition = Vector2.zero;
+
+            var img = header.AddComponent<Image>();
+            img.color = HeaderBg;
+            img.raycastTarget = false;
+
+            var sep = new GameObject("Separateur");
+            sep.transform.SetParent(header.transform, false);
+            var sepRect = sep.AddComponent<RectTransform>();
+            sepRect.anchorMin = new Vector2(0f, 0f);
+            sepRect.anchorMax = new Vector2(1f, 0f);
+            sepRect.pivot = new Vector2(0.5f, 1f);
+            sepRect.sizeDelta = new Vector2(0f, 2f);
+            sepRect.anchoredPosition = Vector2.zero;
+            var sepImg = sep.AddComponent<Image>();
+            sepImg.color = HeaderSepColor;
+            sepImg.raycastTarget = false;
+
+            CreerBoutonRetour(header.transform);
+
+            var titleGO = new GameObject("Title");
+            titleGO.transform.SetParent(header.transform, false);
+            var titleRect = titleGO.AddComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0f, 0f);
+            titleRect.anchorMax = new Vector2(1f, 1f);
+            titleRect.offsetMin = new Vector2(80f, 0f);
+            titleRect.offsetMax = new Vector2(-20f, 0f);
+
+            var titleText = titleGO.AddComponent<TextMeshProUGUI>();
+            titleText.font = _fontTitle;
+            titleText.text = "ZOODOKU";
+            titleText.fontSize = 36;
+            titleText.fontStyle = FontStyles.Bold;
+            titleText.color = TitleColor;
+            titleText.alignment = TextAlignmentOptions.Center;
+            titleText.raycastTarget = false;
+        }
+
+        private void CreerBoutonRetour(Transform parent)
+        {
+            var btnGO = new GameObject("BtnRetour");
+            btnGO.transform.SetParent(parent, false);
+            var btnRect = btnGO.AddComponent<RectTransform>();
+            btnRect.anchorMin = new Vector2(0f, 0.5f);
+            btnRect.anchorMax = new Vector2(0f, 0.5f);
+            btnRect.pivot = new Vector2(0f, 0.5f);
+            btnRect.sizeDelta = new Vector2(56f, 56f);
+            btnRect.anchoredPosition = new Vector2(20f, 0f);
+
+            var btnImg = btnGO.AddComponent<Image>();
+            btnImg.sprite = CreerFlecheRetourSprite();
+            btnImg.color = TitleColor;
+            btnImg.raycastTarget = true;
+
+            var btn = btnGO.AddComponent<Button>();
+            btn.targetGraphic = btnImg;
+            btn.transition = Selectable.Transition.ColorTint;
+            var colors = btn.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(0.9f, 0.9f, 0.9f);
+            colors.pressedColor = new Color(0.7f, 0.7f, 0.7f);
+            btn.colors = colors;
+
+            btn.onClick.AddListener(() =>
+            {
+                SFXManager.Instance.PlayMenuClose();
+                SceneManager.LoadScene("MainMenu");
+            });
+        }
+
+        // ------------------------------------------------------------------
+        // Zone de scroll : Viewport → Content (VLG) → ScrollRect.
+        // ------------------------------------------------------------------
+
+        private ScrollRect BuildScrollArea(Transform parent)
+        {
+            var viewportGO = new GameObject("Viewport");
+            viewportGO.transform.SetParent(parent, false);
+            var viewportRect = viewportGO.AddComponent<RectTransform>();
+            viewportRect.anchorMin = Vector2.zero;
+            viewportRect.anchorMax = Vector2.one;
+            viewportRect.offsetMin = new Vector2(0f, HeaderHeight);
+            viewportRect.offsetMax = Vector2.zero;
+
+            var viewportImg = viewportGO.AddComponent<Image>();
+            viewportImg.color = new Color(0f, 0f, 0f, 0.01f);
+            viewportImg.raycastTarget = true;
+
+            var mask = viewportGO.AddComponent<Mask>();
+            mask.showMaskGraphic = false;
+
+            var contentGO = new GameObject("Content");
+            contentGO.transform.SetParent(viewportGO.transform, false);
+            var contentRect = contentGO.AddComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.offsetMin = Vector2.zero;
+            contentRect.offsetMax = Vector2.zero;
+
+            var vlg = contentGO.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = SeparatorMargin;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            vlg.padding = new RectOffset((int)ContentPad, (int)ContentPad, 15, 15);
+
+            var fitter = contentGO.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var scrollGO = new GameObject("ScrollRect");
+            scrollGO.transform.SetParent(viewportGO.transform, false);
+            var scrollRectComp = scrollGO.AddComponent<RectTransform>();
+            scrollRectComp.anchorMin = Vector2.zero;
+            scrollRectComp.anchorMax = Vector2.one;
+            scrollRectComp.offsetMin = Vector2.zero;
+            scrollRectComp.offsetMax = Vector2.zero;
+
+            var scrollRect = scrollGO.AddComponent<ScrollRect>();
+            scrollRect.movementType = ScrollRect.MovementType.Elastic;
+            scrollRect.elasticity = 0.1f;
+            scrollRect.scrollSensitivity = 40f;
+            scrollRect.viewport = viewportRect;
+            scrollRect.content = contentRect;
+            scrollRect.horizontal = false;
+            scrollRect.vertical = true;
+
+            scrollGO.AddComponent<DragScrollHandler>();
+
+            return scrollRect;
+        }
+
+        // ------------------------------------------------------------------
+        // Chargement progressif des bulles.
+        // ------------------------------------------------------------------
+
+        private void LoadBubbles(int count)
+        {
+            if (_loading || _loadedCount >= TotalLevels) return;
+            _loading = true;
+
+            int fromLevel = _loadedCount + 1;
+            int toLevel = Mathf.Min(_loadedCount + count, TotalLevels);
+
+            var currentRow = new List<int>();
+
+            for (int level = fromLevel; level <= toLevel; level++)
+            {
+                int gridSize = LevelConfig.GetGridSize(level);
+
+                if (gridSize != _lastGridSize)
+                {
+                    if (currentRow.Count > 0)
+                    {
+                        CreerLigneBulles(currentRow);
+                        currentRow.Clear();
+                    }
+
+                    CreerBandeauSeparateur(gridSize);
+                    _lastGridSize = gridSize;
+                }
+
+                currentRow.Add(level);
+
+                if (currentRow.Count == Columns)
+                {
+                    CreerLigneBulles(currentRow);
+                    currentRow.Clear();
+                }
+            }
+
+            if (currentRow.Count > 0)
+            {
+                CreerLigneBulles(currentRow);
+                currentRow.Clear();
+            }
+
+            _loadedCount = toLevel;
+            _loading = false;
+
+            if (_loadedCount < TotalLevels)
+                StartCoroutine(CheckLoadMore());
+        }
+
+        // ------------------------------------------------------------------
+        // Bandeau séparateur horizontal (badge pilule pleine largeur).
+        // ------------------------------------------------------------------
+
+        private void CreerBandeauSeparateur(int gridSize)
+        {
+            var go = new GameObject("Separator_" + gridSize);
+            go.transform.SetParent(_content, false);
+
+            var img = go.AddComponent<Image>();
+            img.sprite = CreerSpriteArrondi(128, 0.35f);
+            img.color = SeparatorBg;
+            img.raycastTarget = false;
+
+            var le = go.AddComponent<LayoutElement>();
+            le.preferredHeight = SeparatorHeight;
+            le.flexibleWidth = 1f;
+
+            var txtGO = new GameObject("Label");
+            txtGO.transform.SetParent(go.transform, false);
+            var txtRect = txtGO.AddComponent<RectTransform>();
+            txtRect.anchorMin = Vector2.zero;
+            txtRect.anchorMax = Vector2.one;
+            txtRect.offsetMin = Vector2.zero;
+            txtRect.offsetMax = Vector2.zero;
+
+            var txt = txtGO.AddComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.text = "Grilles " + gridSize + "\u00D7" + gridSize;
+            txt.fontSize = 22;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = Color.white;
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.raycastTarget = false;
+        }
+
+        // ------------------------------------------------------------------
+        // Ligne de 4 bulles.
+        // ------------------------------------------------------------------
+
+        private void CreerLigneBulles(List<int> levels)
+        {
+            var rowGO = new GameObject("Row_" + levels[0]);
+            rowGO.transform.SetParent(_content, false);
+
+            var rowLayout = rowGO.AddComponent<LayoutElement>();
+            rowLayout.preferredHeight = _cellSize;
+            rowLayout.flexibleWidth = 1f;
+
+            var hlg = rowGO.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = CellGap;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            for (int i = 0; i < levels.Count; i++)
+                CreerBulleNiveau(levels[i], rowGO.transform);
+        }
+
+        // ------------------------------------------------------------------
+        // Bulle de niveau (case arrondie + numéro + étoiles + cadenas).
+        // ------------------------------------------------------------------
+
+        private void CreerBulleNiveau(int level, Transform parent)
+        {
+            bool unlocked = level <= LevelProgressManager.GetHighestUnlockedLevel();
+            int stars = LevelProgressManager.GetStars(level);
+
+            var bubbleGO = new GameObject("Bubble_" + level);
+            bubbleGO.transform.SetParent(parent, false);
+
+            var bubbleRect = bubbleGO.AddComponent<RectTransform>();
+            bubbleRect.anchorMin = new Vector2(0.5f, 0.5f);
+            bubbleRect.anchorMax = new Vector2(0.5f, 0.5f);
+            bubbleRect.pivot = new Vector2(0.5f, 0.5f);
+
+            var bubbleLayout = bubbleGO.AddComponent<LayoutElement>();
+            bubbleLayout.preferredWidth = _cellSize;
+            bubbleLayout.preferredHeight = _cellSize;
+
+            CreerOmbreArrondie(bubbleGO.transform);
+            CreerFondArrondi(bubbleGO);
+
+            var bubbleImg = bubbleGO.GetComponent<Image>();
+            bubbleImg.color = unlocked ? BubbleWhite : BubbleLocked;
+            bubbleImg.raycastTarget = unlocked;
+
+            if (unlocked)
+            {
+                var btn = bubbleGO.AddComponent<Button>();
+                btn.targetGraphic = bubbleImg;
+                btn.transition = Selectable.Transition.ColorTint;
+                var colors = btn.colors;
+                colors.normalColor = BubbleWhite;
+                colors.highlightedColor = new Color(0.90f, 0.93f, 1f);
+                colors.pressedColor = new Color(0.82f, 0.86f, 0.95f);
+                btn.colors = colors;
+
+                int capturedLevel = level;
+                btn.onClick.AddListener(() =>
+                {
+                    SFXManager.Instance.PlayMenuOpen();
+                    PuzzleGameController.SelectedLevel = capturedLevel;
+                    SceneManager.LoadScene("TestGrid");
+                });
+            }
+
+            CreerTexteNiveau(bubbleGO.transform, level, unlocked);
+            CreerEtoiles(bubbleGO.transform, stars, unlocked);
+
+            if (!unlocked)
+                CreerCadenas(bubbleGO.transform);
+
+            _bubbles.Add(new LevelBubble
+            {
+                Level = level,
+                Root = bubbleGO,
+                BubbleImage = bubbleImg,
+                NumberText = null,
+                StarImages = new List<Image>()
+            });
+        }
+
+        private void CreerFondArrondi(GameObject go)
+        {
+            var existing = go.GetComponent<Image>();
+            if (existing != null) return;
+
+            var img = go.AddComponent<Image>();
+            img.sprite = GetRoundedRectSprite();
+            img.type = Image.Type.Simple;
+        }
+
+        private void CreerOmbreArrondie(Transform parent)
+        {
+            var shadowGO = new GameObject("Shadow");
+            shadowGO.transform.SetParent(parent, false);
+            var rect = shadowGO.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(_cellSize - 4f, _cellSize - 4f);
+            rect.anchoredPosition = new Vector2(2f, -3f);
+
+            var img = shadowGO.AddComponent<Image>();
+            img.sprite = GetRoundedRectSprite();
+            img.color = ShadowColor;
+            img.raycastTarget = false;
+        }
+
+        private void CreerTexteNiveau(Transform parent, int level, bool unlocked)
+        {
+            var txtGO = new GameObject("Num");
+            txtGO.transform.SetParent(parent, false);
+            var rect = txtGO.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.1f, 0.45f);
+            rect.anchorMax = new Vector2(0.9f, 0.85f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            var txt = txtGO.AddComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.text = level.ToString();
+            txt.fontSize = 42;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = unlocked ? NumberColor : new Color(0.65f, 0.65f, 0.68f, 1f);
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.enableAutoSizing = true;
+            txt.fontSizeMin = 18f;
+            txt.fontSizeMax = 48f;
+            txt.raycastTarget = false;
+        }
+
+        private void CreerEtoiles(Transform parent, int starCount, bool unlocked)
+        {
+            var starsGO = new GameObject("Stars");
+            starsGO.transform.SetParent(parent, false);
+            var rect = starsGO.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.1f, 0.08f);
+            rect.anchorMax = new Vector2(0.9f, 0.40f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            var hlg = starsGO.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 4f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            Sprite starSprite = GetStarSprite();
+
+            for (int i = 0; i < 3; i++)
+            {
+                var starGO = new GameObject("Star_" + i);
+                starGO.transform.SetParent(starsGO.transform, false);
+                var starImg = starGO.AddComponent<Image>();
+                starImg.sprite = starSprite;
+                starImg.preserveAspect = true;
+                starImg.color = i < starCount ? GoldStar :
+                    (unlocked ? EmptyStar : LockedStar);
+                starImg.raycastTarget = false;
+
+                var starLE = starGO.AddComponent<LayoutElement>();
+                starLE.preferredWidth = 28f;
+                starLE.preferredHeight = 28f;
+            }
+        }
+
+        private void CreerCadenas(Transform parent)
+        {
+            var lockGO = new GameObject("Lock");
+            lockGO.transform.SetParent(parent, false);
+            var rect = lockGO.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(32f, 32f);
+            rect.anchoredPosition = Vector2.zero;
+
+            var lockImg = lockGO.AddComponent<Image>();
+            lockImg.sprite = CreerCadenasSprite();
+            lockImg.color = LockColor;
+            lockImg.preserveAspect = true;
+            lockImg.raycastTarget = false;
+        }
+
+        // ------------------------------------------------------------------
+        // Scroll infini et auto-scroll au niveau débloqué.
+        // ------------------------------------------------------------------
+
+        private IEnumerator CheckLoadMore()
+        {
+            while (_loadedCount < TotalLevels)
+            {
+                if (_scrollRect.verticalNormalizedPosition < 0.15f)
+                    LoadBubbles(20);
+                yield return new WaitForSeconds(0.25f);
+            }
+        }
+
+        private IEnumerator ScrollToHighestUnlocked()
+        {
+            yield return new WaitForSeconds(0.3f);
+
+            int highest = LevelProgressManager.GetHighestUnlockedLevel();
+            if (highest <= 1)
+            {
+                _scrollRect.verticalNormalizedPosition = 1f;
+                yield break;
+            }
+
+            float rowHeight = _cellSize + SeparatorMargin;
+            int rowIndex = (highest - 1) / Columns;
+            float targetY = rowIndex * rowHeight;
+
+            float viewportH = ((RectTransform)_scrollRect.viewport).rect.height;
+            float contentH = _content.rect.height;
+
+            if (contentH <= viewportH)
+            {
+                _scrollRect.verticalNormalizedPosition = 0.5f;
+                yield break;
+            }
+
+            float normalized = Mathf.Clamp01(targetY / (contentH - viewportH));
+            _scrollRect.verticalNormalizedPosition = Mathf.Clamp01(1f - normalized);
+        }
+
+        // ------------------------------------------------------------------
+        // Sprites procéduraux.
+        // ------------------------------------------------------------------
+
+        private static Sprite _roundedRectSprite;
+
+        private static Sprite GetRoundedRectSprite()
+        {
+            if (_roundedRectSprite == null)
+                _roundedRectSprite = CreerSpriteArrondi(256, 0.22f);
+            return _roundedRectSprite;
+        }
+
+        private static Sprite GetStarSprite()
+        {
+            Sprite s = Resources.Load<Sprite>("UI/star");
+            if (s != null) return s;
+            return CreerEtoileSprite();
+        }
+
+        private static Sprite CreerSpriteArrondi(int resolution, float coinRatio)
+        {
+            var texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false);
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+
+            float half = (resolution - 1) * 0.5f;
+            float radius = resolution * coinRatio;
+            float inner = half - radius;
+
+            for (int y = 0; y < resolution; y++)
+            {
+                for (int x = 0; x < resolution; x++)
+                {
+                    float px = x - half;
+                    float py = y - half;
+                    float qx = Mathf.Clamp(px, -inner, inner);
+                    float qy = Mathf.Clamp(py, -inner, inner);
+                    float dx = px - qx;
+                    float dy = py - qy;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    float alpha = Mathf.Clamp01(radius + 0.5f - dist);
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+
+            texture.Apply();
+            return Sprite.Create(texture, new Rect(0f, 0f, resolution, resolution),
+                new Vector2(0.5f, 0.5f));
+        }
+
+        private static Sprite CreerEtoileSprite()
+        {
+            int s = 64;
+            var tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            float c = s / 2f;
+            float rOut = s * 0.45f;
+            float rIn = rOut * 0.4f;
+
+            for (int y = 0; y < s; y++)
+            {
+                for (int x = 0; x < s; x++)
+                {
+                    float dx = x - c + 0.5f;
+                    float dy = y - c + 0.5f;
+                    float angle = Mathf.Atan2(dy, dx) * Mathf.Rad2Deg + 90f;
+                    if (angle < 0) angle += 360f;
+
+                    float radA = angle * Mathf.Deg2Rad;
+                    int seg = ((int)(angle / 72f)) % 2;
+                    float rEdge = seg == 0 ? rOut : rIn;
+
+                    float edgeX = c + rEdge * Mathf.Sin(radA);
+                    float edgeY = c - rEdge * Mathf.Cos(radA);
+                    float distToEdge = Mathf.Sqrt((x - edgeX) * (x - edgeX) + (y - edgeY) * (y - edgeY));
+
+                    if (distToEdge < 1.8f)
+                        tex.SetPixel(x, y, new Color(1f, 1f, 1f, 1f));
+                    else
+                        tex.SetPixel(x, y, new Color(0f, 0f, 0f, 0f));
+                }
+            }
+
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), 100f);
+        }
+
+        private static Sprite CreerCadenasSprite()
+        {
+            int s = 64;
+            var tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            for (int y = 0; y < s; y++)
+                for (int x = 0; x < s; x++)
+                    tex.SetPixel(x, y, new Color(0f, 0f, 0f, 0f));
+
+            float cx = s / 2f;
+            float cy = s * 0.55f;
+            float radOuter = s * 0.25f;
+            float radInner = s * 0.17f;
+
+            for (int y = 0; y < s; y++)
+            {
+                for (int x = 0; x < s; x++)
+                {
+                    float dx = x - cx;
+                    float dy = y - cy;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    float angle = Mathf.Atan2(dy, dx) * Mathf.Rad2Deg;
+
+                    bool inOuter = dist <= radOuter && dist >= radInner;
+                    bool inArc = angle >= -180f && angle <= 0f;
+
+                    if (inOuter && inArc)
+                        tex.SetPixel(x, y, new Color(1f, 1f, 1f, 1f));
+                }
+            }
+
+            float bodyTop = cy + 2f;
+            float bodyBottom = s * 0.12f;
+            float bodyLeft = cx - radInner;
+            float bodyRight = cx + radInner;
+            float cornerR = 4f;
+
+            for (int y = 0; y < s; y++)
+            {
+                for (int x = 0; x < s; x++)
+                {
+                    if (y >= bodyBottom && y <= bodyTop && x >= bodyLeft && x <= bodyRight)
+                    {
+                        bool inCorner = false;
+                        float dBL = Mathf.Sqrt((x - bodyLeft) * (x - bodyLeft) + (y - bodyBottom) * (y - bodyBottom));
+                        float dBR = Mathf.Sqrt((x - bodyRight) * (x - bodyRight) + (y - bodyBottom) * (y - bodyBottom));
+                        if (dBL < cornerR || dBR < cornerR) inCorner = true;
+
+                        if (!inCorner)
+                            tex.SetPixel(x, y, new Color(1f, 1f, 1f, 1f));
+                    }
+                }
+            }
+
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), 100f);
+        }
+
+        private static Sprite CreerFlecheRetourSprite()
+        {
+            int s = 64;
+            var tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+
+            for (int y = 0; y < s; y++)
+                for (int x = 0; x < s; x++)
+                    tex.SetPixel(x, y, new Color(0f, 0f, 0f, 0f));
+
+            float thickness = 5f;
+            float headSize = 18f;
+            float cx = s * 0.55f;
+            float cy = s * 0.5f;
+
+            for (int y = 0; y < s; y++)
+            {
+                for (int x = 0; x < s; x++)
+                {
+                    float dy = Mathf.Abs(y - cy);
+                    if (dy <= thickness && x >= cx - 26f && x <= cx + 6f)
+                        tex.SetPixel(x, y, new Color(1f, 1f, 1f, 1f));
+
+                    float dHead = Mathf.Sqrt((x - (cx - 22f)) * (x - (cx - 22f)) + (y - cy) * (y - cy));
+                    if (dHead <= headSize && x <= cx - 18f)
+                        tex.SetPixel(x, y, new Color(1f, 1f, 1f, 1f));
+
+                    float da = Mathf.Abs(y - (cy - headSize * 0.6f));
+                    float db = Mathf.Abs(y - (cy + headSize * 0.6f));
+                    if ((da <= thickness || db <= thickness) && x >= cx - 40f && x <= cx - 22f)
+                        tex.SetPixel(x, y, new Color(1f, 1f, 1f, 1f));
+                }
+            }
+
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), 100f);
+        }
+
+        private static Sprite CreateGradientSprite(Color top, Color bottom)
+        {
+            const int height = 64;
+            var texture = new Texture2D(1, height, TextureFormat.RGBA32, false);
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+
+            for (int y = 0; y < height; y++)
+                texture.SetPixel(0, y, Color.Lerp(bottom, top, y / (float)(height - 1)));
+
+            texture.Apply();
+            return Sprite.Create(texture, new Rect(0, 0, 1, height), new Vector2(0.5f, 0.5f));
+        }
+
+        // ------------------------------------------------------------------
+        // DragScrollHandler.
+        // ------------------------------------------------------------------
+
+        private class DragScrollHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IScrollHandler
+        {
+            private ScrollRect _scroll;
+
+            private void Awake()
+            {
+                _scroll = GetComponentInParent<ScrollRect>();
+            }
+
+            public void OnBeginDrag(PointerEventData eventData)
+            {
+                if (_scroll != null) _scroll.OnBeginDrag(eventData);
+            }
+
+            public void OnDrag(PointerEventData eventData)
+            {
+                if (_scroll != null) _scroll.OnDrag(eventData);
+            }
+
+            public void OnEndDrag(PointerEventData eventData)
+            {
+                if (_scroll != null) _scroll.OnEndDrag(eventData);
+            }
+
+            public void OnScroll(PointerEventData eventData)
+            {
+                if (_scroll != null) _scroll.OnScroll(eventData);
+            }
+        }
+    }
+}
