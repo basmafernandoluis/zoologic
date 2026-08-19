@@ -56,6 +56,8 @@ namespace Zoodoku
         private static readonly Color LockColor = new Color(0.70f, 0.70f, 0.73f, 1f);
         private static readonly Color SeparatorBg = new Color(0.26f, 0.55f, 0.88f, 1f);
         private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.08f);
+        private static readonly Color CurrentLevelBorder = new Color(0.95f, 0.55f, 0.15f, 1f);
+        private static readonly Color CurrentLevelGlow = new Color(0.95f, 0.55f, 0.15f, 0.25f);
 
         // ------------------------------------------------------------------
         // Champs.
@@ -70,6 +72,7 @@ namespace Zoodoku
         private int _lastGridSize;
         private TMP_FontAsset _fontTitle;
         private TMP_FontAsset _fontBody;
+        private int _currentLevel;
 
         private struct LevelBubble
         {
@@ -78,6 +81,7 @@ namespace Zoodoku
             public Image BubbleImage;
             public TMP_Text NumberText;
             public List<Image> StarImages;
+            public GameObject GlowBorder;
         }
 
         // ------------------------------------------------------------------
@@ -97,9 +101,22 @@ namespace Zoodoku
 
             _cellSize = (1080f - 2f * ContentPad - (Columns - 1) * CellGap) / Columns;
 
+            _currentLevel = FindCurrentLevel();
+
             BuildScene();
             LoadBubbles(40);
-            StartCoroutine(ScrollToHighestUnlocked());
+            StartCoroutine(ScrollToCurrentLevel());
+        }
+
+        private int FindCurrentLevel()
+        {
+            int highest = LevelProgressManager.GetHighestUnlockedLevel();
+            for (int lvl = 1; lvl <= highest; lvl++)
+            {
+                if (LevelProgressManager.GetStars(lvl) == 0)
+                    return lvl;
+            }
+            return highest;
         }
 
         private void Update()
@@ -424,6 +441,7 @@ namespace Zoodoku
         {
             bool unlocked = level <= LevelProgressManager.GetHighestUnlockedLevel();
             int stars = LevelProgressManager.GetStars(level);
+            bool isCurrent = unlocked && level == _currentLevel;
 
             var bubbleGO = new GameObject("Bubble_" + level);
             bubbleGO.transform.SetParent(parent, false);
@@ -450,7 +468,7 @@ namespace Zoodoku
                 btn.targetGraphic = bubbleImg;
                 btn.transition = Selectable.Transition.ColorTint;
                 var colors = btn.colors;
-                colors.normalColor = BubbleWhite;
+                colors.normalColor = isCurrent ? CurrentLevelGlow : BubbleWhite;
                 colors.highlightedColor = new Color(0.90f, 0.93f, 1f);
                 colors.pressedColor = new Color(0.82f, 0.86f, 0.95f);
                 btn.colors = colors;
@@ -462,6 +480,13 @@ namespace Zoodoku
                     PuzzleGameController.SelectedLevel = capturedLevel;
                     SceneManager.LoadScene("TestGrid");
                 });
+
+                var handler = bubbleGO.AddComponent<BubblePressHandler>();
+                if (isCurrent)
+                    handler.EnablePulse();
+
+                if (isCurrent)
+                    CreerGlowBorder(bubbleGO.transform);
             }
 
             CreerTexteNiveau(bubbleGO.transform, level, unlocked);
@@ -476,7 +501,8 @@ namespace Zoodoku
                 Root = bubbleGO,
                 BubbleImage = bubbleImg,
                 NumberText = null,
-                StarImages = new List<Image>()
+                StarImages = new List<Image>(),
+                GlowBorder = null
             });
         }
 
@@ -583,8 +609,27 @@ namespace Zoodoku
             lockImg.raycastTarget = false;
         }
 
+        private GameObject CreerGlowBorder(Transform parent)
+        {
+            var glowGO = new GameObject("Glow");
+            glowGO.transform.SetParent(parent, false);
+            var rect = glowGO.AddComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(-6f, -6f);
+            rect.offsetMax = new Vector2(6f, 6f);
+
+            var img = glowGO.AddComponent<Image>();
+            img.sprite = CreerSpriteArrondi(128, 0.28f);
+            img.color = CurrentLevelBorder;
+            img.raycastTarget = false;
+
+            glowGO.transform.SetAsFirstSibling();
+            return glowGO;
+        }
+
         // ------------------------------------------------------------------
-        // Scroll infini et auto-scroll au niveau débloqué.
+        // Scroll infini et auto-scroll au niveau courant.
         // ------------------------------------------------------------------
 
         private IEnumerator CheckLoadMore()
@@ -597,20 +642,33 @@ namespace Zoodoku
             }
         }
 
-        private IEnumerator ScrollToHighestUnlocked()
+        private IEnumerator ScrollToCurrentLevel()
         {
             yield return new WaitForSeconds(0.3f);
 
-            int highest = LevelProgressManager.GetHighestUnlockedLevel();
-            if (highest <= 1)
+            int target = _currentLevel;
+            if (target <= 1)
             {
                 _scrollRect.verticalNormalizedPosition = 1f;
                 yield break;
             }
 
             float rowHeight = _cellSize + SeparatorMargin;
-            int rowIndex = (highest - 1) / Columns;
-            float targetY = rowIndex * rowHeight;
+            float separatorAlloc = SeparatorHeight + SeparatorMargin;
+            int separatorsBefore = 0;
+            int lastSeen = 0;
+            for (int lvl = 1; lvl < target; lvl++)
+            {
+                int gs = LevelConfig.GetGridSize(lvl);
+                if (gs != lastSeen)
+                {
+                    separatorsBefore++;
+                    lastSeen = gs;
+                }
+            }
+
+            int rowIndex = (target - 1) / Columns;
+            float targetY = rowIndex * rowHeight + separatorsBefore * separatorAlloc;
 
             float viewportH = ((RectTransform)_scrollRect.viewport).rect.height;
             float contentH = _content.rect.height;
@@ -818,6 +876,54 @@ namespace Zoodoku
 
             texture.Apply();
             return Sprite.Create(texture, new Rect(0, 0, 1, height), new Vector2(0.5f, 0.5f));
+        }
+
+        // ------------------------------------------------------------------
+        // BubblePressHandler — feedback tactile scale 92% pendant l'appui.
+        // ------------------------------------------------------------------
+
+        private class BubblePressHandler : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
+        {
+            private Vector3 _baseScale;
+            private bool _pressed;
+            private bool _pulseEnabled;
+            private float _pulseElapsed;
+            private const float PulseDuration = 1.2f;
+            private const float PulseMax = 1.06f;
+            private const float PressScale = 0.92f;
+
+            private void Awake()
+            {
+                _baseScale = transform.localScale;
+            }
+
+            public void EnablePulse()
+            {
+                _pulseEnabled = true;
+            }
+
+            private void Update()
+            {
+                if (_pressed || !_pulseEnabled) return;
+                _pulseElapsed += Time.deltaTime;
+                float t = Mathf.PingPong(_pulseElapsed / PulseDuration, 1f);
+                float smooth = Mathf.SmoothStep(0f, 1f, t);
+                transform.localScale = Vector3.Lerp(_baseScale, _baseScale * PulseMax, smooth);
+            }
+
+            public void OnPointerDown(PointerEventData eventData)
+            {
+                _pressed = true;
+                transform.localScale = _baseScale * PressScale;
+            }
+
+            public void OnPointerUp(PointerEventData eventData)
+            {
+                if (!_pressed) return;
+                _pressed = false;
+                _pulseElapsed = 0f;
+                transform.localScale = _baseScale;
+            }
         }
 
         // ------------------------------------------------------------------

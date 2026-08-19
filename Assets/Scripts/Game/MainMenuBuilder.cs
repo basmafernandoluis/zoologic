@@ -22,8 +22,13 @@ namespace Zoodoku
             go.AddComponent<MainMenuBuilder>();
         }
 
-        private static readonly Color BgTop = new Color(0.35f, 0.22f, 0.55f);
-        private static readonly Color BgBottom = new Color(0.18f, 0.12f, 0.30f);
+        private static readonly Color BgTop = new Color(0.91f, 0.96f, 0.97f);
+        private static readonly Color BgBottom = new Color(0.78f, 0.92f, 0.85f);
+        private static readonly Color TitleOrange = new Color(0.95f, 0.55f, 0.15f);
+        private static readonly Color TitleOutline = new Color(0.60f, 0.30f, 0.05f);
+        private static readonly Color PlayGreen = new Color(0.30f, 0.69f, 0.31f);
+        private static readonly Color PlayGreenHighlight = new Color(0.36f, 0.78f, 0.37f);
+        private static readonly Color PlayGreenPressed = new Color(0.22f, 0.56f, 0.23f);
         private static readonly Color AccentBlue = new Color(0.26f, 0.55f, 0.88f);
 
         private TMP_FontAsset _fontTitle;
@@ -84,7 +89,7 @@ namespace Zoodoku
                 new Vector2(0.50f, 0.15f)
             };
 
-            float[] sizes = { 120f, 100f, 90f };
+            float[] sizes = { 130f, 110f, 100f };
             float[] rotations = { -12f, 10f, -5f };
 
             for (int i = 0; i < animals.Length; i++)
@@ -105,7 +110,7 @@ namespace Zoodoku
 
                 var img = go.AddComponent<Image>();
                 img.sprite = sprite;
-                img.color = new Color(1f, 1f, 1f, 0.20f);
+                img.color = new Color(1f, 1f, 1f, 0.30f);
                 img.raycastTarget = false;
             }
         }
@@ -126,17 +131,17 @@ namespace Zoodoku
             txt.text = "ZOODOKU";
             txt.fontSize = 80;
             txt.fontStyle = FontStyles.Bold;
-            txt.color = Color.white;
+            txt.color = TitleOrange;
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
 
             var shadow = go.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.3f);
-            shadow.effectDistance = new Vector2(3f, -3f);
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.35f);
+            shadow.effectDistance = new Vector2(4f, -4f);
 
             var outline = go.AddComponent<Outline>();
-            outline.effectColor = new Color(0f, 0f, 0f, 0.15f);
-            outline.effectDistance = new Vector2(1f, -1f);
+            outline.effectColor = new Color(TitleOutline.r, TitleOutline.g, TitleOutline.b, 0.50f);
+            outline.effectDistance = new Vector2(3f, -3f);
         }
 
         private void BuildPlayButton(Transform parent)
@@ -147,20 +152,20 @@ namespace Zoodoku
             rect.anchorMin = new Vector2(0.5f, 0.32f);
             rect.anchorMax = new Vector2(0.5f, 0.32f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(400f, 90f);
+            rect.sizeDelta = new Vector2(440f, 100f);
             rect.anchoredPosition = Vector2.zero;
 
             var img = go.AddComponent<Image>();
-            img.sprite = CreerSpriteArrondi(128, 0.3f);
-            img.color = AccentBlue;
+            img.sprite = CreerSpriteArrondi(128, 0.35f);
+            img.color = PlayGreen;
 
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.transition = Selectable.Transition.ColorTint;
             var colors = btn.colors;
-            colors.normalColor = AccentBlue;
-            colors.highlightedColor = new Color(0.32f, 0.60f, 0.92f);
-            colors.pressedColor = new Color(0.20f, 0.45f, 0.78f);
+            colors.normalColor = PlayGreen;
+            colors.highlightedColor = PlayGreenHighlight;
+            colors.pressedColor = PlayGreenPressed;
             btn.colors = colors;
 
             btn.onClick.AddListener(() =>
@@ -178,16 +183,20 @@ namespace Zoodoku
             txtRect.offsetMax = Vector2.zero;
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
-            txt.text = "Jouer";
-            txt.fontSize = 44;
+            txt.text = "JOUER";
+            txt.fontSize = 52;
             txt.fontStyle = FontStyles.Bold;
             txt.color = Color.white;
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
 
             var shadow = go.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.25f);
-            shadow.effectDistance = new Vector2(0f, -4f);
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.30f);
+            shadow.effectDistance = new Vector2(0f, -5f);
+
+            var outline = go.AddComponent<Outline>();
+            outline.effectColor = new Color(0.15f, 0.35f, 0.15f, 0.60f);
+            outline.effectDistance = new Vector2(2f, -2f);
         }
 
         private void BuildSettingsButton(Transform parent)
@@ -203,15 +212,15 @@ namespace Zoodoku
 
             var img = go.AddComponent<Image>();
             img.sprite = CreerSpriteEngrenage(128);
-            img.color = new Color(1f, 1f, 1f, 0.7f);
+            img.color = new Color(0.35f, 0.40f, 0.45f, 0.70f);
 
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.transition = Selectable.Transition.ColorTint;
             var colors = btn.colors;
-            colors.normalColor = new Color(1f, 1f, 1f, 0.7f);
-            colors.highlightedColor = new Color(1f, 1f, 1f, 0.9f);
-            colors.pressedColor = new Color(0.8f, 0.8f, 0.8f, 0.7f);
+            colors.normalColor = new Color(0.35f, 0.40f, 0.45f, 0.70f);
+            colors.highlightedColor = new Color(0.25f, 0.30f, 0.35f, 0.90f);
+            colors.pressedColor = new Color(0.20f, 0.22f, 0.25f, 0.70f);
             btn.colors = colors;
 
             btn.onClick.AddListener(() =>
@@ -236,7 +245,7 @@ namespace Zoodoku
             txt.font = _fontBody;
             txt.text = "v0.1";
             txt.fontSize = 20;
-            txt.color = new Color(1f, 1f, 1f, 0.4f);
+            txt.color = new Color(0.40f, 0.45f, 0.48f, 0.70f);
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
         }
@@ -267,7 +276,7 @@ namespace Zoodoku
             confirmRect.offsetMax = Vector2.zero;
 
             var confirmBg = confirmGO.AddComponent<Image>();
-            confirmBg.color = new Color(0f, 0f, 0f, 0.7f);
+            confirmBg.color = new Color(0.15f, 0.20f, 0.25f, 0.50f);
             confirmBg.raycastTarget = true;
 
             var panel = new GameObject("Panel");
@@ -279,7 +288,7 @@ namespace Zoodoku
             cpRect.sizeDelta = new Vector2(700f, 300f);
             cpRect.anchoredPosition = Vector2.zero;
             var cpImg = panel.AddComponent<Image>();
-            cpImg.color = new Color(0.18f, 0.14f, 0.26f);
+            cpImg.color = new Color(0.95f, 0.97f, 0.98f);
             cpImg.raycastTarget = true;
 
             var vlg = panel.AddComponent<VerticalLayoutGroup>();
@@ -295,7 +304,7 @@ namespace Zoodoku
             msgTxt.font = _fontBody;
             msgTxt.text = "Quitter l'application ?";
             msgTxt.fontSize = 30;
-            msgTxt.color = Color.white;
+            msgTxt.color = new Color(0.20f, 0.22f, 0.25f);
             msgTxt.alignment = TextAlignmentOptions.Center;
             msgTxt.raycastTarget = false;
             var msgLE = msgGO.AddComponent<LayoutElement>();
@@ -311,7 +320,7 @@ namespace Zoodoku
             btnHLG.childForceExpandHeight = false;
             btnRow.AddComponent<LayoutElement>().preferredHeight = 60f;
 
-            var btnOui = CreerBouton(btnRow.transform, "Oui", new Color(0.85f, 0.30f, 0.30f), 26f);
+            var btnOui = CreerBouton(btnRow.transform, "Oui", new Color(0.90f, 0.35f, 0.35f), 26f);
             btnOui.onClick.AddListener(() =>
             {
 #if UNITY_EDITOR
@@ -321,7 +330,7 @@ namespace Zoodoku
 #endif
             });
 
-            var btnAnnuler = CreerBouton(btnRow.transform, "Annuler", AccentBlue, 26f);
+            var btnAnnuler = CreerBouton(btnRow.transform, "Annuler", new Color(0.35f, 0.65f, 0.85f), 26f);
             btnAnnuler.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();

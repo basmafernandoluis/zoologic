@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "com.besty.unity-skills": "https://github.com/Besty0728/Unity-Skills.git?path=/SkillsForUnity",
+    "com.unity.test-framework": "1.4.5",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.mobile.android-logcat": "1.4.7",
     "com.unity.ugui": "2.0.0",
@@ -37,5 +39,8 @@
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
     "com.unity.modules.xr": "1.0.0"
-  }
+  },
+  "testables": [
+    "com.besty.unity-skills"
+  ]
 }
