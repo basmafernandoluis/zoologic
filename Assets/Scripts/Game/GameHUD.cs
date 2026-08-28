@@ -815,9 +815,7 @@ namespace Zoologic
 
             if (_indiceCountText != null)
             {
-                _indiceCountText.text = purchaseMode
-                    ? PuzzleGameController.IndiceCout.ToString()
-                    : _indiceCount.ToString();
+                _indiceCountText.text = _indiceCount.ToString();
             }
 
             if (_indiceCoinIconImage != null)
