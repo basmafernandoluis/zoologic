@@ -71,6 +71,10 @@ Library/Bee/
 Library/ShaderCache/
 Library/ShaderCompilationReport/
 
+# Signing keys (NEVER commit)
+*.keystore
+*.jks
+
 # Build cache
 .utmp/
 

@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
-namespace Zoodoku
+namespace Zoologic
 {
     /// <summary>
     /// Charge et distribue les icônes d'animaux du jeu (une par zone de la grille).
@@ -47,7 +47,7 @@ namespace Zoodoku
             {
                 _icons = new Sprite[0];
                 Debug.LogWarning(
-                    "[Zoodoku] AnimalIconSet : aucune icône trouvée dans " + AssetFolder +
+                    "[Zoologic] AnimalIconSet : aucune icône trouvée dans " + AssetFolder +
                     ". Les pions retomberont sur le cercle de secours.");
             }
             else

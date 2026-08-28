@@ -5,25 +5,25 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Zoodoku.EditorTools
+namespace Zoologic.EditorTools
 {
     /// <summary>
     /// Outil d'édition qui crée la scène de test "TestGrid" : caméra, canvas UI,
     /// EventSystem, et un GameRoot portant GridView + PuzzleGameController.
     ///
     /// Tout le câblage est fait ici : il suffit d'appuyer sur Play. Ce script peut
-    /// s'exécuter manuellement via le menu Tools > Zoodoku, ou en mode batch :
+    /// s'exécuter manuellement via le menu Tools > Zoologic, ou en mode batch :
     ///
     ///   "E:\UnityEditors\6000.3.21f1\Editor\Unity.exe" -batchmode -nographics -quit \
     ///       -projectPath "E:\projet new\Zoodoku" \
-    ///       -executeMethod Zoodoku.EditorTools.TestGridSceneBuilder.CreateTestScene
+    ///       -executeMethod Zoologic.EditorTools.TestGridSceneBuilder.CreateTestScene
     /// </summary>
     public static class TestGridSceneBuilder
     {
         private const string ScenePath = "Assets/Scenes/TestGrid.unity";
 
         /// <summary>Crée (ou recrée) la scène Assets/Scenes/TestGrid.unity.</summary>
-        [MenuItem("Tools/Zoodoku/Créer la scène de test")]
+        [MenuItem("Tools/Zoologic/Créer la scène de test")]
         public static void CreateTestScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -33,7 +33,7 @@ namespace Zoodoku.EditorTools
             cameraGameObject.tag = "MainCamera";
             var camera = cameraGameObject.AddComponent<Camera>();
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.84f, 0.91f, 0.97f, 1f); // assorti au bas du dégradé (fallback)
+            camera.backgroundColor = new Color(0.95f, 0.70f, 0.55f, 1f); // assorti au bas du dégradé chaud
             cameraGameObject.AddComponent<AudioListener>();
 
             // Canvas principal (Screen Space Overlay).
@@ -59,7 +59,7 @@ namespace Zoodoku.EditorTools
             EditorSceneManager.SaveScene(scene, ScenePath);
             AddSceneToBuildSettings(ScenePath);
 
-            Debug.Log("[Zoodoku] Scène de test créée : " + ScenePath);
+            Debug.Log("[Zoologic] Scène de test créée : " + ScenePath);
 
             // Vérification que le pipeline runtime se construit sans exception.
             SmokeTest();
@@ -85,18 +85,18 @@ namespace Zoodoku.EditorTools
             var host = new GameObject("Host");
             var gridView = host.AddComponent<GridView>();
 
-            var grid = new Zoodoku.Core.LevelGenerator().GenerateLevel(5, 1);
+            var grid = new Zoologic.Core.LevelGenerator().GenerateLevel(5, 1);
             if (grid == null)
-                throw new System.Exception("[Zoodoku] SmokeTest : GenerateLevel(5, 1) a retourné null.");
+                throw new System.Exception("[Zoologic] SmokeTest : GenerateLevel(5, 1) a retourné null.");
 
             gridView.Build(grid, (RectTransform)canvasGameObject.transform);
 
             if (gridView.Size != 5)
-                throw new System.Exception("[Zoodoku] SmokeTest : taille erronée (" + gridView.Size + ").");
+                throw new System.Exception("[Zoologic] SmokeTest : taille erronée (" + gridView.Size + ").");
 
             var board = (RectTransform)canvasGameObject.transform.Find("Board");
             if (board == null)
-                throw new System.Exception("[Zoodoku] SmokeTest : Board introuvable.");
+                throw new System.Exception("[Zoologic] SmokeTest : Board introuvable.");
 
             // Le Board contient aussi les ombres : on compte uniquement les cases "Cell".
             int cellCount = 0;
@@ -107,7 +107,7 @@ namespace Zoodoku.EditorTools
             }
             if (cellCount != 25)
                 throw new System.Exception(
-                    "[Zoodoku] SmokeTest : cases manquantes (" + cellCount + ").");
+                    "[Zoologic] SmokeTest : cases manquantes (" + cellCount + ").");
 
             gridView.SetPion(0, 0, true);
             gridView.SetPion(0, 0, false);
@@ -119,11 +119,11 @@ namespace Zoodoku.EditorTools
             int iconCount = AnimalIconSet.LoadAll().Length;
             if (iconCount < 5)
                 throw new System.Exception(
-                    "[Zoodoku] SmokeTest : icônes d'animaux manquantes (" + iconCount + "/30).");
+                    "[Zoologic] SmokeTest : icônes d'animaux manquantes (" + iconCount + "/30).");
             if (AnimalIconSet.GetShuffled().Length != iconCount)
-                throw new System.Exception("[Zoodoku] SmokeTest : mélange d'icônes invalide.");
+                throw new System.Exception("[Zoologic] SmokeTest : mélange d'icônes invalide.");
 
-            Debug.Log("[Zoodoku] SMOKE TEST OK : grille 5x5, 25 cases, visuels exercés, " + iconCount + " icônes.");
+            Debug.Log("[Zoologic] SMOKE TEST OK : grille 5x5, 25 cases, visuels exercés, " + iconCount + " icônes.");
         }
 
         private static void AddSceneToBuildSettings(string path)

@@ -92,16 +92,32 @@ Les valeurs "New" ou "Both" causent des `NullReferenceException` sur Android car
 - Sprites procéduraux pour formes arrondies, étoiles, engrenage, flèches, cadenas
 - Police Fredoka chargée via `Resources.Load`
 
+## Progrès récents
+
+### Game feel (animations & feedback) — terminé
+- **Kit de feedback réutilisable** (`FeedbackUtils.cs`) : courbes d'easing (OutBack, OutCubic, OutQuad, InQuad, OutElastic, InOutQuad), `Punch` (échelle en surtension, flash alpha), `ScreenShake` (tremblement amorti), haptics Android
+- **ConfettiHelper.cs** : pluie de confettis procéduraux colorés (60-70 particules) à la victoire — zéro package, texture 1×1 teintée
+- **SceneFader.cs** : fondu plein écran réutilisable (fade in à l'arrivée, fade out avant changement de niveau)
+- **Grille** : apparition des cellules **en vague** (staggered, easeOutBack, décalées en diagonale) au chargement ; shake du plateau au conflit ; punch au placement valide
+- **Cellules** : squish au toucher (échelle 0.9 → retour élastique), shrink-out du pion retiré, pop 3D de la marque X, conflit rouge + texte
+- **Score** : punch + flash rouge de la pilule quand il baisse
+- **Indice** : pulsation dorée avec variation d'échelle (±6 %)
+- **SFX** : variation de pitch par effet (évite la monotonie)
+
+### HUD / écrans — améliorations visuelles (éditeur)
+- **GameHUD.cs** — encoche/notch gérée via `TopInset` (`Screen.safeArea` mobile, 70px simulée dans l'éditeur pour prévisualiser) ; layout recalculé en distances depuis le haut ; header agrandi (200px + encoche) ; pilules/score/indice/cœurs agrandis ; **ombres portées** sous pilules, header et cartes ; **palette plus vive** ; `BoardYOffset` recalculé dynamiquement
+- **LevelMapBuilder.cs** — même gestion d'encoche (`CalcTopInset`) ; header agrandi (130px + encoche) avec ombre portée ; bouton retour avec ombre ; bulles/niveaux plus grandes (numéros 42→48-56, étoiles 28→34, cadenas 32→40) ; ombres des bulles renforcées ; bandeaux séparateurs bleu vif
+- **SettingsPanel.cs** — panneau agrandi (850×700→900×760) avec **coins arrondis** + **vraie ombre portée** (frère décalé, remplace le `Shadow` built-in) ; titre/labels/toggles/boutons agrandis ; couleurs plus vives ; dialog de confirmation agrandi et arrondi
+
 ## TODO / Prochaines étapes
 
-- [ ] Transitions d'écran (fade in/out entre MainMenu → LevelMap → Jeu)
+- [ ] Vérification visuelle finale des améliorations (HUD, Levels, Settings) dans l'éditeur
+- [ ] Build APK + test sur appareil physique (confettis, shake, transitions, indice, score, HUD responsive)
 - [ ] Icônes et splash screen Android à finaliser
 - [ ] Intégration AdMob (rewarded + interstitial)
-- [ ] Renommage définitif du projet (Zoodoku → Zoo Logic)
+- [x] Renommage définitif du projet (Zoodoku → Zoo Logic)
 - [ ] Sauvegarde cloud / Google Play Games
-- [ ] Mode sombre
 - [ ] Sons musicaux d'ambiance
-- [ ] Animations de pion plus travaillées
 - [ ] Accessibilité (taille de texte, contraste)
 
 ## Assets externes
@@ -118,10 +134,18 @@ Les valeurs "New" ou "Both" causent des `NullReferenceException` sur Android car
 
 ```bash
 # Build via le menu Unity :
-Tools > Zoodoku > Build Android APK
+Tools > Zoo Logic > Build Android APK   # APK local (test / install directe)
+Tools > Zoo Logic > Build Android AAB   # App Bundle (Google Play Store)
 
-# Output : Builds/ZoodokuTest_v{version}.apk
-# Cible : ARM64, IL2CPP, API 29-35, debug-signed
+# Output : Builds/ZooLogic_v{version}.apk / .aab
+# Cible : ARM64, IL2CPP, API 29-35, signé avec le keystore memorymatrix
 ```
 
-Le build signe automatiquement l'APK avec un keystore debug. Pour un build release, modifier `BuildAPK.cs` avec un keystore prod.
+**Signature (upload key)** : le build signe automatiquement avec
+`Assets/play store/memorymatrix.keystore` (alias `memorymatrix`, mot de passe
+dans `BuildAPK.cs`). Play Store rejette les AAB signés avec la clé debug — ne
+pas retirer ce keystore.
+
+**Icône & splash** : l'icône (`Assets/myicon.jpg`, 512×512) et le splash
+Android (`Assets/Resources/UI/splash_android.png`, 1080×1920) sont appliqués
+automatiquement au build (menu `Tools > Zoo Logic > Apply App Icon`).

@@ -3,25 +3,75 @@ using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
-namespace Zoodoku.EditorTools
+namespace Zoologic.EditorTools
 {
     public static class BuildAPK
     {
-        private const string ApkPath = "Builds/ZoodokuTest_v0.2.apk";
+        private const string ApkPath = "Builds/ZooLogic_v0.2.apk";
+        private const string AabPath = "Builds/ZooLogic_v0.2.aab";
 
-        [MenuItem("Tools/Zoodoku/Build Android APK")]
+        // https://developer.android.com/studio/publish/app-signing
+        private const string KeystorePath = "Assets/play store/memorymatrix.keystore";
+        private const string KeystorePass = "123456";
+        private const string KeyAlias = "memorymatrix";
+        private const string KeyAliasPass = "123456";
+
+        private const string IconPath = "Assets/myicon.jpg";
+        private const string SplashPath = "Assets/Resources/UI/splash_android.png";
+
+        private static readonly string[] ScenePaths =
+        {
+            "Assets/Scenes/MainMenu.unity",
+            "Assets/Scenes/LevelMap.unity",
+            "Assets/Scenes/TestGrid.unity"
+        };
+
+        [MenuItem("Tools/Zoo Logic/Apply App Icon")]
+        public static void ApplyAppIcon()
+        {
+            Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(IconPath);
+            if (tex == null)
+            {
+                Debug.LogError("[Icon] Texture non trouv\u00e9e : " + IconPath);
+                return;
+            }
+
+#pragma warning disable CS0618 // SetIconsForTargetGroup conserv\u00e9 : comportement legacy + adaptive
+            PlayerSettings.SetIconsForTargetGroup(
+                BuildTargetGroup.Android,
+                new[] { tex, tex, tex });
+#pragma warning restore CS0618
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[Icon] Ic\u00f4ne appliqu\u00e9e \u00e0 Android (legacy + adaptive).");
+        }
+
+        [MenuItem("Tools/Zoo Logic/Build Android APK")]
         public static void BuildAndroid()
         {
-            Debug.Log("=== ZOODOKU ANDROID BUILD START ===");
+            PrepareAndroidBuild();
 
-            Debug.Log("[Build] Active: " + EditorUserBuildSettings.activeBuildTarget);
-            Debug.Log("[Build] Arch: " + PlayerSettings.Android.targetArchitectures);
-            Debug.Log("[Build] Backend: " + PlayerSettings.GetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Android));
+            LogResult(BuildPipeline.BuildPlayer(ScenePaths, ApkPath, BuildTarget.Android, BuildOptions.None), "APK");
+        }
 
-            PlayerSettings.companyName = "IndieDev";
-            PlayerSettings.productName = "Zoodoku Test";
+        [MenuItem("Tools/Zoo Logic/Build Android AAB")]
+        public static void BuildAndroidAAB()
+        {
+            PrepareAndroidBuild();
+
+            EditorUserBuildSettings.buildAppBundle = true;
+            LogResult(BuildPipeline.BuildPlayer(ScenePaths, AabPath, BuildTarget.Android, BuildOptions.None), "AAB");
+            EditorUserBuildSettings.buildAppBundle = false;
+        }
+
+        private static void PrepareAndroidBuild()
+        {
+            Debug.Log("=== ZOO LOGIC ANDROID BUILD PREP ===");
+
+            PlayerSettings.companyName = "AppWizards";
+            PlayerSettings.productName = "Zoo Logic";
             PlayerSettings.bundleVersion = "0.2";
-            PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android, "com.debutant.zoodokutest");
+            PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android, "com.appwizards.zoologic");
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
             PlayerSettings.allowedAutorotateToPortrait = true;
             PlayerSettings.allowedAutorotateToPortraitUpsideDown = true;
@@ -29,8 +79,30 @@ namespace Zoodoku.EditorTools
             PlayerSettings.allowedAutorotateToLandscapeRight = false;
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel29;
             PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel35;
+            PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
 
-            SerializedObject settings = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset")[0]);
+            ApplyAppIcon();
+            ApplyAndroidSplash();
+
+            // Signature release/upload (obligatoire : Play rejette les AAB sign�s avec la cl� debug).
+            if (!File.Exists(KeystorePath))
+            {
+                Debug.LogError("[Sign] Keystore introuvable : " + KeystorePath);
+                EditorUtility.DisplayDialog("Zoo Logic", "Keystore introuvable :\n" + KeystorePath, "OK");
+            }
+            else
+            {
+                PlayerSettings.Android.useCustomKeystore = true;
+                PlayerSettings.Android.keystoreName = KeystorePath;
+                PlayerSettings.Android.keystorePass = KeystorePass;
+                PlayerSettings.Android.keyaliasName = KeyAlias;
+                PlayerSettings.Android.keyaliasPass = KeyAliasPass;
+                Debug.Log("[Sign] Cl\u00e9 de signature : " + KeyAlias + " (" + KeystorePath + ")");
+            }
+
+            // Active Input Handling = Old (Input Manager), sinon NRE sur Android.
+            SerializedObject settings = new SerializedObject(
+                AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset")[0]);
             SerializedProperty inputHandler = settings.FindProperty("activeInputHandler");
             if (inputHandler != null && inputHandler.intValue != 0)
             {
@@ -39,27 +111,36 @@ namespace Zoodoku.EditorTools
                 Debug.Log("[Build] Set Active Input Handling to Old (Input Manager)");
             }
 
-            Debug.Log("[Build] Arch after set: " + PlayerSettings.Android.targetArchitectures);
-
             EditorBuildSettings.scenes = new[]
             {
-                new EditorBuildSettingsScene("Assets/Scenes/MainMenu.unity", true),
-                new EditorBuildSettingsScene("Assets/Scenes/LevelMap.unity", true),
-                new EditorBuildSettingsScene("Assets/Scenes/TestGrid.unity", true)
+                new EditorBuildSettingsScene(ScenePaths[0], true),
+                new EditorBuildSettingsScene(ScenePaths[1], true),
+                new EditorBuildSettingsScene(ScenePaths[2], true)
             };
 
-            string full = Path.GetFullPath(ApkPath);
-            string dir = Path.GetDirectoryName(full);
-            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-            if (File.Exists(full)) File.Delete(full);
+            Debug.Log("[Build] Backend: " + PlayerSettings.GetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Android));
+        }
 
-            Debug.Log("[Build] Starting build...");
-            BuildReport report = BuildPipeline.BuildPlayer(
-                new[] { "Assets/Scenes/MainMenu.unity", "Assets/Scenes/LevelMap.unity", "Assets/Scenes/TestGrid.unity" },
-                ApkPath, BuildTarget.Android, BuildOptions.None);
+        private static void ApplyAndroidSplash()
+        {
+            Sprite splash = AssetDatabase.LoadAssetAtPath<Sprite>(SplashPath);
+            if (splash == null)
+            {
+                Debug.LogWarning("[Splash] Sprite non trouv\u00e9 : " + SplashPath);
+                return;
+            }
+            PlayerSettings.SplashScreen.show = true;
+            PlayerSettings.SplashScreen.background = splash;
+            PlayerSettings.SplashScreen.backgroundPortrait = splash;
+            PlayerSettings.SplashScreen.backgroundColor = new Color(246f / 255f, 196f / 255f, 106f / 255f, 1f);
+            Debug.Log("[Splash] Splash Android appliqu\u00e9 : " + SplashPath);
+        }
+
+        private static void LogResult(BuildReport report, string kind)
+        {
             BuildSummary summary = report.summary;
 
-            Debug.Log("=== BUILD RESULTS ===");
+            Debug.Log("=== BUILD " + kind + " RESULTS ===");
             Debug.Log("Result   : " + summary.result);
             Debug.Log("Output   : " + summary.outputPath);
             Debug.Log("Size     : " + (summary.totalSize / (1024.0 * 1024.0)).ToString("F2") + " MB");
@@ -74,13 +155,13 @@ namespace Zoodoku.EditorTools
 
             if (summary.result == BuildResult.Succeeded)
             {
-                long bytes = File.Exists(full) ? new FileInfo(full).Length : (long)summary.totalSize;
-                Debug.Log("=== BUILD SUCCEEDED ===");
-                Debug.Log("APK: " + full + " (" + (bytes / (1024.0 * 1024.0)).ToString("F2") + " MB)");
+                long bytes = File.Exists(summary.outputPath) ? new FileInfo(summary.outputPath).Length : (long)summary.totalSize;
+                Debug.Log("=== BUILD " + kind + " SUCCEEDED ===");
+                Debug.Log(kind + ": " + summary.outputPath + " (" + (bytes / (1024.0 * 1024.0)).ToString("F2") + " MB)");
             }
             else
             {
-                Debug.LogError("=== BUILD FAILED ===");
+                Debug.LogError("=== BUILD " + kind + " FAILED ===");
             }
         }
     }

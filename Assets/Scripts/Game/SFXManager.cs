@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Zoodoku
+namespace Zoologic
 {
     /// <summary>
     /// Gestionnaire centralisé des effets sonores. Crée un GameObject persistant
@@ -67,20 +67,22 @@ namespace Zoodoku
             return Resources.Load<AudioClip>("Sounds/" + path);
         }
 
-        private void Play(AudioClip clip)
+        private void Play(AudioClip clip, float pitchMin = 0.95f, float pitchMax = 1.05f)
         {
             if (clip == null || !_isEnabled)
                 return;
+            _source.pitch = UnityEngine.Random.Range(pitchMin, pitchMax);
             _source.PlayOneShot(clip);
+            _source.pitch = 1f;
         }
 
         public void PlayConfirm() => Play(_confirm ?? (_confirm = Load("Confirm")));
-        public void PlayFailure() => Play(_failure ?? (_failure = Load("Failure")));
-        public void PlayClickedOut() => Play(_clickedOut ?? (_clickedOut = Load("Clicked_Out")));
-        public void PlayDialogueBlip() => Play(_dialogueBlip ?? (_dialogueBlip = Load("Dialogue_Blip")));
-        public void PlaySuccess() => Play(_success ?? (_success = Load("Success")));
+        public void PlayFailure() => Play(_failure ?? (_failure = Load("Failure")), 0.9f, 1.1f);
+        public void PlayClickedOut() => Play(_clickedOut ?? (_clickedOut = Load("Clicked_Out")), 0.9f, 1.05f);
+        public void PlayDialogueBlip() => Play(_dialogueBlip ?? (_dialogueBlip = Load("Dialogue_Blip")), 0.9f, 1.1f);
+        public void PlaySuccess() => Play(_success ?? (_success = Load("Success")), 1f, 1.02f);
         public void PlayMenuOpen() => Play(_menuOpen ?? (_menuOpen = Load("Menu_Open")));
         public void PlayMenuClose() => Play(_menuClose ?? (_menuClose = Load("Menu_Close")));
-        public void PlayUnlock() => Play(_unlock ?? (_unlock = Load("Unlock")));
+        public void PlayUnlock() => Play(_unlock ?? (_unlock = Load("Unlock")), 0.95f, 1.1f);
     }
 }

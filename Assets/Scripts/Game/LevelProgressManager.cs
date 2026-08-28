@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Zoodoku
+namespace Zoologic
 {
     public static class LevelProgressManager
     {

@@ -3,12 +3,12 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using Zoodoku.Core;
+using Zoologic.Core;
 
-namespace Zoodoku
+namespace Zoologic
 {
     /// <summary>
-    /// Génère et gère l'affichage d'une grille Zoodoku en UI Canvas.
+    /// Génère et gère l'affichage d'une grille Zoologic en UI Canvas.
     /// Purement visuel : la logique (pions, règles, victoire) appartient à
     /// <see cref="PuzzleGameController"/>.
     ///
@@ -31,14 +31,14 @@ namespace Zoodoku
         /// </summary>
         public static readonly Color[] RegionPalette =
         {
-            new Color(0.78f, 0.92f, 0.86f), // menthe
-            new Color(0.79f, 0.89f, 0.96f), // bleu ciel
-            new Color(0.87f, 0.84f, 0.95f), // lavande
-            new Color(0.96f, 0.87f, 0.90f), // rose pâle
-            new Color(0.98f, 0.89f, 0.80f), // pêche
-            new Color(0.97f, 0.95f, 0.80f), // jaune crème
-            new Color(0.82f, 0.89f, 0.80f), // vert sauge
-            new Color(0.92f, 0.92f, 0.96f), // gris bleuté
+            new Color(0.72f, 0.90f, 0.82f), // Vert menthe vif
+            new Color(0.80f, 0.88f, 0.97f), // Bleu ciel
+            new Color(0.88f, 0.82f, 0.96f), // Lavande
+            new Color(1.00f, 0.86f, 0.88f), // Rose pêche
+            new Color(1.00f, 0.91f, 0.78f), // Pêche dorée
+            new Color(0.98f, 0.96f, 0.76f), // Jaune crème
+            new Color(0.78f, 0.94f, 0.86f), // Vert d'eau
+            new Color(0.83f, 0.85f, 0.97f), // Bleu lavande
         };
 
         /// <summary>
@@ -56,8 +56,9 @@ namespace Zoodoku
         /// <summary>Appelé quand une case est tapée (paramètres : ligne, colonne).</summary>
         public Action<int, int> OnCellTapped;
 
-        /// <summary>Appelé quand une case est pressée longtemps (paramètres : ligne, colonne).</summary>
-        public Action<int, int> OnCellLongPressed;
+        // Animation d'entrée de la grille.
+        private const float EntranceDuration = 0.4f;
+        private const float EntranceStep = 0.012f; // délai entre chaque cellule (vague)
 
         private PuzzleGrid _grid;
         private CellView[,] _cells;
@@ -72,7 +73,6 @@ namespace Zoodoku
 
         private const float BoardFill = 0.9f;          // part de l'écran occupée par la grille
         private const float PionRatio = 0.62f;         // taille du pion par rapport à la case
-        private const float LongPressDuration = 0.5f;  // seuil de l'appui long
 
         private static Sprite _circleSprite;
         private static Sprite _roundedRectSprite;
@@ -163,11 +163,56 @@ namespace Zoodoku
                     int rowCapture = row;
                     int colCapture = col;
                     cell.OnTap = () => OnCellTapped?.Invoke(rowCapture, colCapture);
-                    cell.OnLongPress = () => OnCellLongPressed?.Invoke(rowCapture, colCapture);
 
                     _cells[row, col] = cell;
                 }
             }
+
+            PlayEntranceAnimation();
+        }
+
+        /// <summary>
+        /// Apparition en vague des cases au chargement : chacune démarre à l'échelle 0
+        /// et "pop" (easeOutBack) avec un léger décalage croissant en diagonale.
+        /// Ne s'exécute qu'en play mode.
+        /// </summary>
+        private void PlayEntranceAnimation()
+        {
+            if (!Application.isPlaying || _cells == null)
+                return;
+
+            int n = _grid.Size;
+            for (int row = 0; row < n; row++)
+            {
+                for (int col = 0; col < n; col++)
+                {
+                    if (_cells[row, col] == null)
+                        continue;
+                    CellView cell = _cells[row, col];
+                    cell.transform.localScale = Vector3.zero;
+                    StartCoroutine(EntranceCellRoutine(cell, (row + col) * EntranceStep));
+                }
+            }
+        }
+
+        private IEnumerator EntranceCellRoutine(CellView cell, float delay)
+        {
+            if (delay > 0f)
+                yield return new WaitForSecondsRealtime(delay);
+
+            Transform t = cell.transform;
+            float elapsed = 0f;
+
+            while (elapsed < EntranceDuration)
+            {
+                float p = Mathf.Clamp01(elapsed / EntranceDuration);
+                float s = Mathf.Max(0f, Easing.EaseOutBack(p));
+                t.localScale = new Vector3(s, s, s);
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            t.localScale = Vector3.one;
         }
 
         /// <summary>Affiche ou masque le pion de la case (row, col).</summary>
@@ -192,6 +237,22 @@ namespace Zoodoku
             CellView cell = GetCell(row, col);
             if (cell != null)
                 cell.FlashConflict();
+        }
+
+        /// <summary>Petit tremblement du plateau entier (feedback d'une erreur).</summary>
+        public void ShakeBoard(float amplitude = 18f, float duration = 0.3f)
+        {
+            if (_boardContainer == null || !Application.isPlaying)
+                return;
+            ScreenShake.Shake(this, _boardContainer, amplitude, duration);
+        }
+
+        /// <summary>Punch d'échelle rapide du plateau (feedback d'un bon placement).</summary>
+        public void PunchBoard(float targetScale = 1.02f, float duration = 0.2f)
+        {
+            if (_boardContainer == null || !Application.isPlaying)
+                return;
+            Punch.Scale(this, _boardContainer, targetScale, duration, elastic: false);
         }
 
         // ------------------------------------------------------------------
@@ -261,43 +322,55 @@ namespace Zoodoku
             if (_grid == null || _cells == null)
                 return false;
 
-            // Si la grille est déjà résolue, rien à indiquer.
             if (RuleValidator.IsSolved(_grid))
                 return false;
 
-            // Collecte les pions sans conflit (ceux que le joueur a bien placés).
-            var pionsCorrects = new List<(int row, int col)>();
-            foreach (var (row, col) in _grid.Pions)
+            var pionsActuels = new List<(int row, int col)>(_grid.Pions);
+
+            if (pionsActuels.Count == 0)
             {
-                if (RuleValidator.GetConflicts(_grid, row, col).Count == 0)
-                    pionsCorrects.Add((row, col));
-            }
-
-            // Demande au solveur de trouver une solution qui garde ces pions.
-            var solveur = new PuzzleSolver();
-            var solution = solveur.SolveWithFixedPlacements(_grid, pionsCorrects);
-
-            if (solution == null)
-                return false;
-
-            // Trouve une case de la solution qui est vide dans la grille actuelle.
-            (int row, int col) cible = default;
-            bool trouve = false;
-            foreach (var (r, c) in solution)
-            {
-                if (!_grid.HasPion(r, c))
+                var solveurVide = new PuzzleSolver();
+                var solutions = solveurVide.FindAllSolutions(_grid, 1);
+                if (solutions.Count > 0)
                 {
-                    cible = (r, c);
-                    trouve = true;
-                    break;
+                    foreach (var (r, c) in solutions[0])
+                    {
+                        ShowHighlight(r, c);
+                        return true;
+                    }
+                }
+            }
+            else
+            {
+                var solveur = new PuzzleSolver();
+                var solution = solveur.SolveWithFixedPlacements(_grid, pionsActuels);
+
+                if (solution != null)
+                {
+                    foreach (var (r, c) in solution)
+                    {
+                        if (!_grid.HasPion(r, c))
+                        {
+                            ShowHighlight(r, c);
+                            return true;
+                        }
+                    }
                 }
             }
 
-            if (!trouve)
-                return false;
+            for (int row = 0; row < _grid.Size; row++)
+            {
+                for (int col = 0; col < _grid.Size; col++)
+                {
+                    if (!_grid.HasPion(row, col) && RuleValidator.IsValidPlacement(_grid, row, col))
+                    {
+                        ShowHighlight(row, col);
+                        return true;
+                    }
+                }
+            }
 
-            ShowHighlight(cible.row, cible.col);
-            return true;
+            return false;
         }
 
         private void ShowHighlight(int row, int col)
@@ -319,6 +392,7 @@ namespace Zoodoku
             hlRect.anchoredPosition = cellRect.anchoredPosition;
 
             _highlightRoot.SetActive(true);
+            _highlightRoot.transform.localScale = Vector3.one;
             _highlightRoutine = StartCoroutine(PulseHighlightRoutine());
         }
 
@@ -357,23 +431,33 @@ namespace Zoodoku
         }
 
         /// <summary>
-        /// Pulsation dorée : l'alpha oscille entre 0.25 et 0.55 pendant 3 secondes,
+        /// Pulsation dorée : l'alpha et l'échelle oscillent pendant 3 secondes,
         /// puis la highlight disparaît automatiquement.
         /// </summary>
         private IEnumerator PulseHighlightRoutine()
         {
             float elapsed = 0f;
             Color baseColor = HighlightColor;
+            RectTransform hlRect = _highlightRoot != null ? (RectTransform)_highlightRoot.transform : null;
 
             while (elapsed < HighlightDuration)
             {
                 float t = Mathf.PingPong(elapsed * HighlightPulseSpeed, 1f);
                 float alpha = Mathf.Lerp(0.25f, 0.55f, t);
                 _highlightImage.color = new Color(baseColor.r, baseColor.g, baseColor.b, alpha);
+
+                if (hlRect != null)
+                {
+                    float s = Mathf.Lerp(1f, 1.06f, t);
+                    hlRect.localScale = new Vector3(s, s, s);
+                }
+
                 elapsed += Time.unscaledDeltaTime;
                 yield return null;
             }
 
+            if (hlRect != null)
+                hlRect.localScale = Vector3.one;
             _highlightRoot.SetActive(false);
             _highlightRoutine = null;
         }
@@ -404,7 +488,7 @@ namespace Zoodoku
                 pionSprite = GetPionSprite(); // secours : cercle blanc si pas d'icônes
 
             var cell = gameObject.GetComponent<CellView>();
-            cell.Init(baseColor, image, pionSprite, GetFont(), visualSize, PionRatio, LongPressDuration);
+            cell.Init(baseColor, image, pionSprite, GetFont(), visualSize, PionRatio);
             return cell;
         }
 

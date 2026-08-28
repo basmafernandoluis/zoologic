@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 
-namespace Zoodoku.Core
+namespace Zoologic.Core
 {
     /// <summary>
-    /// Génère des niveaux Zoodoku / Queens à solution unique.
+    /// Génère des niveaux Zoologic / Queens à solution unique.
     ///
     /// Pipeline en 3 étapes :
     ///   A) placement d'une solution valide aléatoire (backtracking randomisé) ;

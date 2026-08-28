@@ -1,4 +1,4 @@
-namespace Zoodoku.Core
+namespace Zoologic.Core
 {
     public static class LevelConfig
     {

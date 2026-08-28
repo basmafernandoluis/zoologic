@@ -1,10 +1,11 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
 
-namespace Zoodoku
+namespace Zoologic
 {
     public class MainMenuBuilder : MonoBehaviour
     {
@@ -22,17 +23,16 @@ namespace Zoodoku
             go.AddComponent<MainMenuBuilder>();
         }
 
-        private static readonly Color BgTop = new Color(0.91f, 0.96f, 0.97f);
-        private static readonly Color BgBottom = new Color(0.78f, 0.92f, 0.85f);
         private static readonly Color TitleOrange = new Color(0.95f, 0.55f, 0.15f);
         private static readonly Color TitleOutline = new Color(0.60f, 0.30f, 0.05f);
         private static readonly Color PlayGreen = new Color(0.30f, 0.69f, 0.31f);
         private static readonly Color PlayGreenHighlight = new Color(0.36f, 0.78f, 0.37f);
         private static readonly Color PlayGreenPressed = new Color(0.22f, 0.56f, 0.23f);
-        private static readonly Color AccentBlue = new Color(0.26f, 0.55f, 0.88f);
+        private static readonly Color AccentBlue = new Color(0.22f, 0.50f, 0.85f);
 
         private TMP_FontAsset _fontTitle;
         private TMP_FontAsset _fontBody;
+        private Image _owlImage;
 
         private void Start()
         {
@@ -60,6 +60,7 @@ namespace Zoodoku
             BuildBackground(canvasGO.transform);
             BuildAnimalDecorations(canvasGO.transform);
             BuildTitle(canvasGO.transform);
+            BuildOwlMascot(canvasGO.transform);
             BuildPlayButton(canvasGO.transform);
             BuildSettingsButton(canvasGO.transform);
             BuildVersion(canvasGO.transform);
@@ -67,16 +68,7 @@ namespace Zoodoku
 
         private void BuildBackground(Transform parent)
         {
-            var go = new GameObject("Background");
-            go.transform.SetParent(parent, false);
-            var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            var img = go.AddComponent<Image>();
-            img.sprite = CreerGradientVertical(BgTop, BgBottom);
-            img.raycastTarget = false;
+            BackgroundHelper.ApplyBackground(parent);
         }
 
         private void BuildAnimalDecorations(Transform parent)
@@ -128,7 +120,7 @@ namespace Zoodoku
 
             var txt = go.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
-            txt.text = "ZOODOKU";
+            txt.text = "ZOO LOGIC";
             txt.fontSize = 80;
             txt.fontStyle = FontStyles.Bold;
             txt.color = TitleOrange;
@@ -211,16 +203,16 @@ namespace Zoodoku
             rect.anchoredPosition = new Vector2(-20f, -20f);
 
             var img = go.AddComponent<Image>();
-            img.sprite = CreerSpriteEngrenage(128);
-            img.color = new Color(0.35f, 0.40f, 0.45f, 0.70f);
+            img.sprite = GetSettingsSprite();
+            img.color = new Color(0.85f, 0.85f, 0.90f, 1f);
 
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.transition = Selectable.Transition.ColorTint;
             var colors = btn.colors;
-            colors.normalColor = new Color(0.35f, 0.40f, 0.45f, 0.70f);
-            colors.highlightedColor = new Color(0.25f, 0.30f, 0.35f, 0.90f);
-            colors.pressedColor = new Color(0.20f, 0.22f, 0.25f, 0.70f);
+            colors.normalColor = new Color(0.85f, 0.85f, 0.90f, 1f);
+            colors.highlightedColor = new Color(0.70f, 0.72f, 0.78f, 1f);
+            colors.pressedColor = new Color(0.55f, 0.58f, 0.65f, 1f);
             btn.colors = colors;
 
             btn.onClick.AddListener(() =>
@@ -228,6 +220,78 @@ namespace Zoodoku
                 SFXManager.Instance.PlayMenuOpen();
                 SettingsPanel.Open();
             });
+        }
+
+        // ------------------------------------------------------------------
+        // Hibou mascotte — flottement idle + clignement périodique.
+        // ------------------------------------------------------------------
+
+        private void BuildOwlMascot(Transform parent)
+        {
+            Sprite owlSprite = Resources.Load<Sprite>("Art/Animals/owl");
+            if (owlSprite == null) return;
+
+            var go = new GameObject("OwlMascot");
+            go.transform.SetParent(parent, false);
+
+            var rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.52f);
+            rect.anchorMax = new Vector2(0.5f, 0.52f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(280f, 280f);
+            rect.anchoredPosition = Vector2.zero;
+
+            _owlImage = go.AddComponent<Image>();
+            _owlImage.sprite = owlSprite;
+            _owlImage.preserveAspect = true;
+            _owlImage.raycastTarget = false;
+
+            StartCoroutine(OwlBobRoutine(rect));
+            StartCoroutine(OwlBlinkRoutine(_owlImage));
+        }
+
+        private IEnumerator OwlBobRoutine(RectTransform rect)
+        {
+            Vector2 basePos = rect.anchoredPosition;
+            const float amplitude = 12f;
+            const float period = 2.5f;
+            float time = 0f;
+
+            while (true)
+            {
+                time += Time.unscaledDeltaTime;
+                float y = Mathf.Sin(time * 2f * Mathf.PI / period) * amplitude;
+                rect.anchoredPosition = basePos + new Vector2(0f, y);
+                yield return null;
+            }
+        }
+
+        private IEnumerator OwlBlinkRoutine(Image owlImage)
+        {
+            if (owlImage == null) yield break;
+            Transform t = owlImage.transform;
+            const float blinkScaleY = 0.85f;
+            const float blinkDuration = 0.15f;
+
+            while (true)
+            {
+                float wait = UnityEngine.Random.Range(3f, 5f);
+                yield return new WaitForSecondsRealtime(wait);
+
+                // Clignement : scale Y vers 0.85 puis retour à 1.0
+                float elapsed = 0f;
+                while (elapsed < blinkDuration)
+                {
+                    elapsed += Time.unscaledDeltaTime;
+                    float t2 = elapsed / blinkDuration;
+                    float scaleY = t2 < 0.5f
+                        ? Mathf.Lerp(1f, blinkScaleY, t2 * 2f)
+                        : Mathf.Lerp(blinkScaleY, 1f, (t2 - 0.5f) * 2f);
+                    t.localScale = new Vector3(1f, scaleY, 1f);
+                    yield return null;
+                }
+                t.localScale = Vector3.one;
+            }
         }
 
         private void BuildVersion(Transform parent)
@@ -381,17 +445,6 @@ namespace Zoodoku
             return btn;
         }
 
-        private static Sprite CreerGradientVertical(Color top, Color bottom)
-        {
-            int h = 64;
-            var tex = new Texture2D(1, h, TextureFormat.RGBA32, false);
-            tex.wrapMode = TextureWrapMode.Clamp;
-            for (int y = 0; y < h; y++)
-                tex.SetPixel(0, y, Color.Lerp(bottom, top, y / (float)(h - 1)));
-            tex.Apply();
-            return Sprite.Create(tex, new Rect(0, 0, 1, h), new Vector2(0.5f, 0.5f));
-        }
-
         private static Sprite CreerSpriteArrondi(int resolution, float coinRatio)
         {
             var texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false);
@@ -421,6 +474,15 @@ namespace Zoodoku
             texture.Apply();
             return Sprite.Create(texture, new Rect(0f, 0f, resolution, resolution),
                 new Vector2(0.5f, 0.5f));
+        }
+
+        private static Sprite _settingsSprite;
+
+        private static Sprite GetSettingsSprite()
+        {
+            if (_settingsSprite == null)
+                _settingsSprite = Resources.Load<Sprite>("UI/settings");
+            return _settingsSprite;
         }
 
         private static Sprite CreerSpriteEngrenage(int resolution)

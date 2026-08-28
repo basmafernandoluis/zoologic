@@ -5,9 +5,9 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
-using Zoodoku.Core;
+using Zoologic.Core;
 
-namespace Zoodoku
+namespace Zoologic
 {
     public class LevelMapBuilder : MonoBehaviour
     {
@@ -31,33 +31,32 @@ namespace Zoodoku
 
         private const int TotalLevels = 100;
         private const int Columns = 4;
-        private const float HeaderHeight = 110f;
+        private const float HeaderHeight = 130f;
         private const float ContentPad = 30f;
         private const float CellGap = 20f;
-        private const float SeparatorHeight = 50f;
+        private const float SeparatorHeight = 68f;
         private const float SeparatorMargin = 12f;
+        private const float SimulatedTopNotch = 70f;
 
         // ------------------------------------------------------------------
-        // Palette pastel cohérente avec l'écran de jeu.
+        // Palette pastel chaude cohérente avec l'écran de jeu.
         // ------------------------------------------------------------------
 
-        private static readonly Color BgTop = new Color(0.97f, 0.96f, 0.93f);
-        private static readonly Color BgBottom = new Color(0.84f, 0.91f, 0.97f);
-        private static readonly Color HeaderBg = new Color(1f, 1f, 1f, 0.92f);
-        private static readonly Color HeaderSepColor = new Color(0f, 0f, 0f, 0.08f);
-        private static readonly Color TitleColor = new Color(0.13f, 0.13f, 0.15f);
-        private static readonly Color BubbleWhite = new Color(0.97f, 0.97f, 0.98f, 1f);
-        private static readonly Color BubbleLocked = new Color(0.90f, 0.91f, 0.93f, 1f);
-        private static readonly Color BubbleBorderLight = new Color(0.88f, 0.89f, 0.92f, 1f);
-        private static readonly Color NumberColor = new Color(0.15f, 0.15f, 0.18f, 1f);
-        private static readonly Color GoldStar = new Color(1f, 0.85f, 0.2f, 1f);
-        private static readonly Color EmptyStar = new Color(0.82f, 0.82f, 0.85f, 1f);
-        private static readonly Color LockedStar = new Color(0.88f, 0.88f, 0.90f, 1f);
-        private static readonly Color LockColor = new Color(0.70f, 0.70f, 0.73f, 1f);
-        private static readonly Color SeparatorBg = new Color(0.26f, 0.55f, 0.88f, 1f);
-        private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.08f);
+        private static readonly Color HeaderBg = new Color(1f, 1f, 1f, 0.97f);
+        private static readonly Color HeaderSepColor = new Color(0f, 0f, 0f, 0.10f);
+        private static readonly Color TitleColor = new Color(0.15f, 0.13f, 0.10f);
+        private static readonly Color BubbleWhite = new Color(1.00f, 0.98f, 0.96f, 1f);
+        private static readonly Color BubbleLocked = new Color(0.93f, 0.90f, 0.86f, 1f);
+        private static readonly Color BubbleBorderLight = new Color(0.92f, 0.89f, 0.86f, 1f);
+        private static readonly Color NumberColor = new Color(0.22f, 0.19f, 0.16f, 1f);
+        private static readonly Color GoldStar = new Color(1f, 0.82f, 0.18f, 1f);
+        private static readonly Color EmptyStar = new Color(0.88f, 0.83f, 0.78f, 1f);
+        private static readonly Color LockedStar = new Color(0.91f, 0.87f, 0.83f, 1f);
+        private static readonly Color LockColor = new Color(0.72f, 0.64f, 0.56f, 1f);
+        private static readonly Color SeparatorBg = new Color(0.12f, 0.52f, 0.92f, 1f);
+        private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.18f);
         private static readonly Color CurrentLevelBorder = new Color(0.95f, 0.55f, 0.15f, 1f);
-        private static readonly Color CurrentLevelGlow = new Color(0.95f, 0.55f, 0.15f, 0.25f);
+        private static readonly Color CurrentLevelGlow = new Color(0.95f, 0.55f, 0.15f, 0.30f);
 
         // ------------------------------------------------------------------
         // Champs.
@@ -73,6 +72,8 @@ namespace Zoodoku
         private TMP_FontAsset _fontTitle;
         private TMP_FontAsset _fontBody;
         private int _currentLevel;
+        private float _topInset;
+        private float _headerTotal;
 
         private struct LevelBubble
         {
@@ -102,10 +103,26 @@ namespace Zoodoku
             _cellSize = (1080f - 2f * ContentPad - (Columns - 1) * CellGap) / Columns;
 
             _currentLevel = FindCurrentLevel();
+            _topInset = CalcTopInset();
 
             BuildScene();
             LoadBubbles(40);
             StartCoroutine(ScrollToCurrentLevel());
+        }
+
+        // ------------------------------------------------------------------
+        // Encoche haute en unités de canvas (réf 1080x1920). Sur mobile réel on
+        // lit la safe area ; sinon (éditeur/desktop) on applique une encoche simulée.
+        // ------------------------------------------------------------------
+
+        private static float CalcTopInset()
+        {
+            float canvasRefHeight = 1920f;
+            Rect safe = Screen.safeArea;
+            float insetPx = Screen.height - safe.yMax;
+            if (insetPx <= 1f)
+                return SimulatedTopNotch;
+            return insetPx * (canvasRefHeight / Mathf.Max(Screen.height, 1));
         }
 
         private int FindCurrentLevel()
@@ -165,16 +182,7 @@ namespace Zoodoku
 
         private void BuildBackground(Transform parent)
         {
-            var go = new GameObject("Background");
-            go.transform.SetParent(parent, false);
-            var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            var img = go.AddComponent<Image>();
-            img.sprite = CreateGradientSprite(BgTop, BgBottom);
-            img.raycastTarget = false;
+            BackgroundHelper.ApplyBackground(parent);
         }
 
         // ------------------------------------------------------------------
@@ -183,18 +191,34 @@ namespace Zoodoku
 
         private void BuildHeader(Transform parent)
         {
+            _headerTotal = HeaderHeight + _topInset;
+
             var header = new GameObject("Header");
             header.transform.SetParent(parent, false);
             var rect = header.AddComponent<RectTransform>();
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(1f, 1f);
             rect.pivot = new Vector2(0.5f, 1f);
-            rect.sizeDelta = new Vector2(0f, HeaderHeight);
+            rect.sizeDelta = new Vector2(0f, _headerTotal);
             rect.anchoredPosition = Vector2.zero;
 
             var img = header.AddComponent<Image>();
             img.color = HeaderBg;
             img.raycastTarget = false;
+
+            // Ombre douce sous le header
+            var headerShadow = new GameObject("HeaderShadow");
+            headerShadow.transform.SetParent(header.transform, false);
+            var hsRect = headerShadow.AddComponent<RectTransform>();
+            hsRect.anchorMin = new Vector2(0f, 0f);
+            hsRect.anchorMax = new Vector2(1f, 0f);
+            hsRect.pivot = new Vector2(0.5f, 1f);
+            hsRect.sizeDelta = new Vector2(0f, 14f);
+            hsRect.anchoredPosition = new Vector2(0f, -2f);
+            var hsImg = headerShadow.AddComponent<Image>();
+            hsImg.color = new Color(0f, 0f, 0f, 0.16f);
+            hsImg.raycastTarget = false;
+            hsRect.SetAsFirstSibling();
 
             var sep = new GameObject("Separateur");
             sep.transform.SetParent(header.transform, false);
@@ -215,13 +239,13 @@ namespace Zoodoku
             var titleRect = titleGO.AddComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0f, 0f);
             titleRect.anchorMax = new Vector2(1f, 1f);
-            titleRect.offsetMin = new Vector2(80f, 0f);
-            titleRect.offsetMax = new Vector2(-20f, 0f);
+            titleRect.offsetMin = new Vector2(88f, 0f);
+            titleRect.offsetMax = new Vector2(-24f, 0f);
 
             var titleText = titleGO.AddComponent<TextMeshProUGUI>();
             titleText.font = _fontTitle;
-            titleText.text = "ZOODOKU";
-            titleText.fontSize = 36;
+            titleText.text = "ZOO LOGIC";
+            titleText.fontSize = 44;
             titleText.fontStyle = FontStyles.Bold;
             titleText.color = TitleColor;
             titleText.alignment = TextAlignmentOptions.Center;
@@ -236,8 +260,22 @@ namespace Zoodoku
             btnRect.anchorMin = new Vector2(0f, 0.5f);
             btnRect.anchorMax = new Vector2(0f, 0.5f);
             btnRect.pivot = new Vector2(0f, 0.5f);
-            btnRect.sizeDelta = new Vector2(56f, 56f);
-            btnRect.anchoredPosition = new Vector2(20f, 0f);
+            btnRect.sizeDelta = new Vector2(64f, 64f);
+            btnRect.anchoredPosition = new Vector2(22f, 0f);
+
+            // Ombre derrière la flèche
+            var arrowShadow = new GameObject("Shadow");
+            arrowShadow.transform.SetParent(btnGO.transform, false);
+            var asRect = arrowShadow.AddComponent<RectTransform>();
+            asRect.anchorMin = Vector2.zero;
+            asRect.anchorMax = Vector2.one;
+            asRect.offsetMin = new Vector2(2f, -3f);
+            asRect.offsetMax = new Vector2(2f, -3f);
+            var asImg = arrowShadow.AddComponent<Image>();
+            asImg.sprite = CreerFlecheRetourSprite();
+            asImg.color = new Color(0f, 0f, 0f, 0.25f);
+            asImg.raycastTarget = false;
+            arrowShadow.transform.SetAsFirstSibling();
 
             var btnImg = btnGO.AddComponent<Image>();
             btnImg.sprite = CreerFlecheRetourSprite();
@@ -271,7 +309,7 @@ namespace Zoodoku
             var viewportRect = viewportGO.AddComponent<RectTransform>();
             viewportRect.anchorMin = Vector2.zero;
             viewportRect.anchorMax = Vector2.one;
-            viewportRect.offsetMin = new Vector2(0f, HeaderHeight);
+            viewportRect.offsetMin = new Vector2(0f, _headerTotal);
             viewportRect.offsetMax = Vector2.zero;
 
             var viewportImg = viewportGO.AddComponent<Image>();
@@ -383,14 +421,55 @@ namespace Zoodoku
             var go = new GameObject("Separator_" + gridSize);
             go.transform.SetParent(_content, false);
 
+            // Ombre portée frère (décalée vers le bas) pour la profondeur.
+            var shadowGO = new GameObject("Shadow");
+            shadowGO.transform.SetParent(go.transform, false);
+            var shadowRect = shadowGO.AddComponent<RectTransform>();
+            shadowRect.anchorMin = new Vector2(0f, 0f);
+            shadowRect.anchorMax = new Vector2(1f, 1f);
+            shadowRect.pivot = new Vector2(0.5f, 0.5f);
+            shadowRect.offsetMin = new Vector2(12f, -8f);
+            shadowRect.offsetMax = new Vector2(-12f, 4f);
+            var shadowImg = shadowGO.AddComponent<Image>();
+            shadowImg.sprite = CreerSpriteArrondi(128, 0.35f);
+            shadowImg.color = new Color(0f, 0f, 0f, 0.28f);
+            shadowImg.raycastTarget = false;
+
+            // Fond principal : dégradé vertical (haut clair → bas soutenu).
             var img = go.AddComponent<Image>();
-            img.sprite = CreerSpriteArrondi(128, 0.35f);
-            img.color = SeparatorBg;
+            img.sprite = CreerSpriteGradientArrondi(128, 0.35f, SeparatorBg, Lighten(SeparatorBg, 0.30f));
             img.raycastTarget = false;
 
             var le = go.AddComponent<LayoutElement>();
             le.preferredHeight = SeparatorHeight;
             le.flexibleWidth = 1f;
+
+            // Reflet haut (liseré lumineux) pour un rendu "bossé".
+            var sheenGO = new GameObject("Sheen");
+            sheenGO.transform.SetParent(go.transform, false);
+            var sheenRect = sheenGO.AddComponent<RectTransform>();
+            sheenRect.anchorMin = new Vector2(0.02f, 0.62f);
+            sheenRect.anchorMax = new Vector2(0.98f, 0.98f);
+            sheenRect.offsetMin = Vector2.zero;
+            sheenRect.offsetMax = Vector2.zero;
+            var sheenImg = sheenGO.AddComponent<Image>();
+            sheenImg.sprite = CreerSpriteArrondi(64, 0.5f);
+            sheenImg.color = new Color(1f, 1f, 1f, 0.16f);
+            sheenImg.raycastTarget = false;
+
+            // Petit accent décoratif : pastille enthousiaste à gauche (cœur d'étoile).
+            var dotGO = new GameObject("Accent");
+            dotGO.transform.SetParent(go.transform, false);
+            var dotRect = dotGO.AddComponent<RectTransform>();
+            dotRect.anchorMin = new Vector2(0f, 0.5f);
+            dotRect.anchorMax = new Vector2(0f, 0.5f);
+            dotRect.pivot = new Vector2(0.5f, 0.5f);
+            dotRect.sizeDelta = new Vector2(14f, 14f);
+            dotRect.anchoredPosition = new Vector2(26f, 0f);
+            var dotImg = dotGO.AddComponent<Image>();
+            dotImg.sprite = GetStarSprite();
+            dotImg.color = new Color(1f, 1f, 1f, 0.9f);
+            dotImg.raycastTarget = false;
 
             var txtGO = new GameObject("Label");
             txtGO.transform.SetParent(go.transform, false);
@@ -403,12 +482,62 @@ namespace Zoodoku
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = "Grilles " + gridSize + "\u00D7" + gridSize;
-            txt.fontSize = 22;
+            txt.fontSize = 34;
             txt.fontStyle = FontStyles.Bold;
             txt.color = Color.white;
             txt.alignment = TextAlignmentOptions.Center;
+            txt.textWrappingMode = TextWrappingModes.NoWrap;
             txt.raycastTarget = false;
+            txt.outlineWidth = 0.35f;
+            txt.outlineColor = new Color(0f, 0f, 0f, 0.30f);
         }
+
+        private static Color Lighten(Color c, float amount)
+        {
+            return new Color(
+                Mathf.Clamp01(c.r + amount),
+                Mathf.Clamp01(c.g + amount),
+                Mathf.Clamp01(c.b + amount),
+                c.a);
+        }
+
+        private static Sprite CreerSpriteGradientArrondi(int resolution, float coinRatio,
+            Color bottom, Color top)
+        {
+            var texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false);
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+
+            float half = (resolution - 1) * 0.5f;
+            float radius = resolution * coinRatio;
+            float inner = half - radius;
+
+            for (int y = 0; y < resolution; y++)
+            {
+                for (int x = 0; x < resolution; x++)
+                {
+                    float px = x - half;
+                    float py = y - half;
+                    float qx = Mathf.Clamp(px, -inner, inner);
+                    float qy = Mathf.Clamp(py, -inner, inner);
+                    float dx = px - qx;
+                    float dy = py - qy;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    float alpha = Mathf.Clamp01(radius + 0.5f - dist);
+                    if (alpha <= 0f) { texture.SetPixel(x, y, new Color(0f, 0f, 0f, 0f)); continue; }
+
+                    float t = (float)y / (resolution - 1);
+                    Color c = Color.Lerp(bottom, top, t);
+                    c.a = alpha;
+                    texture.SetPixel(x, y, c);
+                }
+            }
+
+            texture.Apply();
+            return Sprite.Create(texture, new Rect(0f, 0f, resolution, resolution),
+                new Vector2(0.5f, 0.5f));
+        }
+
 
         // ------------------------------------------------------------------
         // Ligne de 4 bulles.
@@ -524,8 +653,8 @@ namespace Zoodoku
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(_cellSize - 4f, _cellSize - 4f);
-            rect.anchoredPosition = new Vector2(2f, -3f);
+            rect.sizeDelta = new Vector2(_cellSize - 6f, _cellSize - 6f);
+            rect.anchoredPosition = new Vector2(3f, -5f);
 
             var img = shadowGO.AddComponent<Image>();
             img.sprite = GetRoundedRectSprite();
@@ -546,13 +675,13 @@ namespace Zoodoku
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = level.ToString();
-            txt.fontSize = 42;
+            txt.fontSize = 48;
             txt.fontStyle = FontStyles.Bold;
             txt.color = unlocked ? NumberColor : new Color(0.65f, 0.65f, 0.68f, 1f);
             txt.alignment = TextAlignmentOptions.Center;
             txt.enableAutoSizing = true;
-            txt.fontSizeMin = 18f;
-            txt.fontSizeMax = 48f;
+            txt.fontSizeMin = 20f;
+            txt.fontSizeMax = 56f;
             txt.raycastTarget = false;
         }
 
@@ -586,8 +715,8 @@ namespace Zoodoku
                 starImg.raycastTarget = false;
 
                 var starLE = starGO.AddComponent<LayoutElement>();
-                starLE.preferredWidth = 28f;
-                starLE.preferredHeight = 28f;
+                starLE.preferredWidth = 34f;
+                starLE.preferredHeight = 34f;
             }
         }
 
@@ -599,7 +728,7 @@ namespace Zoodoku
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(32f, 32f);
+            rect.sizeDelta = new Vector2(40f, 40f);
             rect.anchoredPosition = Vector2.zero;
 
             var lockImg = lockGO.AddComponent<Image>();
@@ -862,20 +991,6 @@ namespace Zoodoku
 
             tex.Apply();
             return Sprite.Create(tex, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), 100f);
-        }
-
-        private static Sprite CreateGradientSprite(Color top, Color bottom)
-        {
-            const int height = 64;
-            var texture = new Texture2D(1, height, TextureFormat.RGBA32, false);
-            texture.wrapMode = TextureWrapMode.Clamp;
-            texture.filterMode = FilterMode.Bilinear;
-
-            for (int y = 0; y < height; y++)
-                texture.SetPixel(0, y, Color.Lerp(bottom, top, y / (float)(height - 1)));
-
-            texture.Apply();
-            return Sprite.Create(texture, new Rect(0, 0, 1, height), new Vector2(0.5f, 0.5f));
         }
 
         // ------------------------------------------------------------------

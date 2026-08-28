@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 
-namespace Zoodoku.Core
+namespace Zoologic.Core
 {
     /// <summary>
-    /// Représente la grille NxN du puzzle Zoodoku / Queens.
+    /// Représente la grille NxN du puzzle Zoologic / Queens.
     ///
     /// Chaque case possède des coordonnées (row, col) et appartient à une zone
     /// identifiée par un entier (regionId). La grille conserve également la liste

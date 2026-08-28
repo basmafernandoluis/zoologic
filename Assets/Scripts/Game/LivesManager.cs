@@ -1,6 +1,6 @@
 using System;
 
-namespace Zoodoku
+namespace Zoologic
 {
     /// <summary>
     /// Gestionnaire de vies du joueur : compteur de 3 cœurs décrémenté

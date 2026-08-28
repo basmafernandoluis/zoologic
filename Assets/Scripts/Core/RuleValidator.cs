@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Zoodoku.Core
+namespace Zoologic.Core
 {
     /// <summary>
     /// Type précis d'un conflit entre un pion et un autre pion (ou plusieurs).
@@ -21,7 +21,7 @@ namespace Zoodoku.Core
     }
 
     /// <summary>
-    /// Règles du puzzle Zoodoku / Queens.
+    /// Règles du puzzle Zoologic / Queens.
     ///
     /// Deux pions ne peuvent jamais :
     ///   - être sur la même ligne ;

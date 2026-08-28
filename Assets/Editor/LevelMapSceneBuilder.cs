@@ -3,7 +3,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace Zoodoku.EditorTools
+namespace Zoologic.EditorTools
 {
     /// <summary>
     /// Crée la scène "LevelMap" : scène vide, tout est construit procéduralement
@@ -13,7 +13,7 @@ namespace Zoodoku.EditorTools
     {
         private const string ScenePath = "Assets/Scenes/LevelMap.unity";
 
-        [MenuItem("Tools/Zoodoku/Créer la scène LevelMap")]
+        [MenuItem("Tools/Zoologic/Créer la scène LevelMap")]
         public static void CreateLevelMapScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -22,7 +22,7 @@ namespace Zoodoku.EditorTools
             EditorSceneManager.SaveScene(scene, ScenePath);
             AddSceneToBuildSettings(ScenePath);
 
-            Debug.Log("[Zoodoku] Scène LevelMap créée : " + ScenePath);
+            Debug.Log("[Zoologic] Scène LevelMap créée : " + ScenePath);
 
             EditorSceneManager.OpenScene(ScenePath);
         }

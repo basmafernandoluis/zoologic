@@ -5,9 +5,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using Zoodoku.Core;
+using Zoologic.Core;
 
-namespace Zoodoku
+namespace Zoologic
 {
     /// <summary>
     /// Contrôleur principal du jeu jouable :
@@ -52,21 +52,28 @@ namespace Zoodoku
         private TextMeshProUGUI _victoryText;
         private Outline _victoryOutline;
         private Vector2 _victoryTextBasePosition;
+        private Image _victoryOwl;
 
         // Paramètres de l'animation de victoire.
         private const float VictoryAnimationDuration = 0.9f;
         private const float VictoryTextSlide = 30f;
 
-        // Score : 100 de départ, -15 par conflit.
+        // Score : 100 de départ, -15 par conflit. La pénalité cumulée ne diminue jamais.
         private const int ScoreDepart = 100;
         private const int ScorePenaliteConflit = 15;
+        private int _totalPenaliteCumul;
+
+        // Double-tap detection
+        private const float DoubleTapWindow = 0.3f;
+        private float _lastTapTime;
+        private int _lastTapRow = -1;
+        private int _lastTapCol = -1;
+        private Coroutine _pendingSingleTapRoutine;
 
         // Compteur d'erreurs pour le calcul des étoiles.
         private int _conflictsThisLevel;
 
-        // Fond d'écran : léger dégradé vertical (crème en haut → bleu doux en bas).
-        private static readonly Color BackgroundTopColor = new Color(0.97f, 0.96f, 0.93f);
-        private static readonly Color BackgroundBottomColor = new Color(0.84f, 0.91f, 0.97f);
+        // Fond d'écran : dégradé vertical chaud (crème → pêche pâle).
         private static readonly Color OverlayColor = new Color(0f, 0f, 0f, 0.55f);
 
         private void Awake()
@@ -80,6 +87,7 @@ namespace Zoodoku
         {
             _numeroNiveau = SelectedLevel;
             _conflictsThisLevel = 0;
+            _totalPenaliteCumul = 0;
 
             Canvas canvas = null;
 
@@ -91,7 +99,7 @@ namespace Zoodoku
             }
             catch (System.Exception e)
             {
-                Debug.LogError("[Zoodoku] Start: échec de l'initialisation de l'environnement UI.\n" + e);
+                Debug.LogError("[Zoologic] Start: échec de l'initialisation de l'environnement UI.\n" + e);
                 return;
             }
 
@@ -104,7 +112,7 @@ namespace Zoodoku
             }
             catch (System.Exception e)
             {
-                Debug.LogError("[Zoodoku] Start: échec de la construction du HUD.\n" + e);
+                Debug.LogError("[Zoologic] Start: échec de la construction du HUD.\n" + e);
             }
 
             try
@@ -114,14 +122,13 @@ namespace Zoodoku
             }
             catch (System.Exception e)
             {
-                Debug.LogError("[Zoodoku] Start: échec de la génération du niveau.\n" + e);
+                Debug.LogError("[Zoologic] Start: échec de la génération du niveau.\n" + e);
                 return;
             }
 
             try
             {
                 _gridView.OnCellTapped = HandleCellTapped;
-                _gridView.OnCellLongPressed = HandleCellLongPressed;
                 _gridView.Build(_grid, (RectTransform)canvas.transform);
 
                 if (_gridView.BoardContainer != null)
@@ -130,7 +137,7 @@ namespace Zoodoku
             }
             catch (System.Exception e)
             {
-                Debug.LogError("[Zoodoku] Start: échec de la construction de la grille.\n" + e);
+                Debug.LogError("[Zoologic] Start: échec de la construction de la grille.\n" + e);
             }
 
             try
@@ -139,7 +146,7 @@ namespace Zoodoku
             }
             catch (System.Exception e)
             {
-                Debug.LogError("[Zoodoku] Start: échec de la création du panneau de défaite.\n" + e);
+                Debug.LogError("[Zoologic] Start: échec de la création du panneau de défaite.\n" + e);
             }
 
             try
@@ -150,7 +157,7 @@ namespace Zoodoku
             }
             catch (System.Exception e)
             {
-                Debug.LogError("[Zoodoku] Start: échec de la création du panneau de victoire.\n" + e);
+                Debug.LogError("[Zoologic] Start: échec de la création du panneau de victoire.\n" + e);
             }
 
             try
@@ -161,8 +168,10 @@ namespace Zoodoku
             }
             catch (System.Exception e)
             {
-                Debug.LogError("[Zoodoku] Start: échec de l'initialisation du gestionnaire de vies.\n" + e);
+                Debug.LogError("[Zoologic] Start: échec de l'initialisation du gestionnaire de vies.\n" + e);
             }
+
+            SceneFader.FadeIn(this, canvas, 0.35f);
         }
 
         private void Update()
@@ -301,7 +310,7 @@ namespace Zoodoku
 
         private PuzzleGrid GenerateLevel()
         {
-            var generator = new LevelGenerator();
+            var generator = new LevelGenerator(seed: _numeroNiveau);
             int size = Core.LevelConfig.GetGridSize(_numeroNiveau);
             int difficulty = Core.LevelConfig.GetTargetDifficulty(_numeroNiveau);
 
@@ -319,7 +328,7 @@ namespace Zoodoku
         }
 
         // ------------------------------------------------------------------
-        // Interactions.
+        // Interactions — détection double-tap.
         // ------------------------------------------------------------------
 
         private void HandleCellTapped(int row, int col)
@@ -327,33 +336,53 @@ namespace Zoodoku
             if (_partieTerminee)
                 return;
 
-            if (_grid.HasPion(row, col))
+            float now = Time.unscaledTime;
+            bool isDoubleTap = _lastTapRow == row && _lastTapCol == col
+                && (now - _lastTapTime) < DoubleTapWindow;
+
+            if (isDoubleTap)
             {
-                _grid.RemovePion(row, col);
-                _gridView.SetPion(row, col, false);
+                // Double-tap : annule le tap simple en attente et exécute l'action pion.
+                if (_pendingSingleTapRoutine != null)
+                {
+                    StopCoroutine(_pendingSingleTapRoutine);
+                    _pendingSingleTapRoutine = null;
+                }
 
-                SFXManager.Instance.PlayClickedOut();
-
-                ReevaluerConflits();
-                UpdateVictoryVisibility();
-                return;
+                PerformDoubleTapAction(row, col);
+                _lastTapRow = -1;
+                _lastTapCol = -1;
             }
+            else
+            {
+                // Premier tap : lance un délai avant d'exécuter l'action simple (X).
+                _lastTapTime = now;
+                _lastTapRow = row;
+                _lastTapCol = col;
 
-            _grid.PlacePion(row, col);
-            _xMarks[row, col] = false;
-            _gridView.SetPion(row, col, true);
-            _gridView.SetX(row, col, false);
-
-            VerifierConflitPlacement(row, col);
-            FlashAllConflicts();
-            UpdateVictoryVisibility();
+                if (_pendingSingleTapRoutine != null)
+                    StopCoroutine(_pendingSingleTapRoutine);
+                _pendingSingleTapRoutine = StartCoroutine(DelayedSingleTap(row, col));
+            }
         }
 
-        private void HandleCellLongPressed(int row, int col)
+        private IEnumerator DelayedSingleTap(int row, int col)
+        {
+            yield return new WaitForSecondsRealtime(DoubleTapWindow);
+            _pendingSingleTapRoutine = null;
+            PerformSingleTapAction(row, col);
+        }
+
+        /// <summary>
+        /// Tap simple : toggule un X sur la case (note brouillon).
+        /// Aucun conflit/score/vie n'est vérifié.
+        /// </summary>
+        private void PerformSingleTapAction(int row, int col)
         {
             if (_partieTerminee)
                 return;
 
+            // Si la case contient déjà un pion, ne rien faire.
             if (_grid.HasPion(row, col))
                 return;
 
@@ -364,16 +393,51 @@ namespace Zoodoku
             SFXManager.Instance.PlayDialogueBlip();
         }
 
+        /// <summary>
+        /// Double-tap : place ou retire un pion.
+        /// Vérifie les conflits, le score et les victoires uniquement ici.
+        /// </summary>
+        private void PerformDoubleTapAction(int row, int col)
+        {
+            if (_partieTerminee)
+                return;
+
+            if (_grid.HasPion(row, col))
+            {
+                // Retirer le pion
+                _grid.RemovePion(row, col);
+                _gridView.SetPion(row, col, false);
+
+                SFXManager.Instance.PlayClickedOut();
+
+                ReevaluerConflits();
+                UpdateVictoryVisibility();
+                return;
+            }
+
+            // Placer un pion (retire le X s'il y en a un)
+            _grid.PlacePion(row, col);
+            _xMarks[row, col] = false;
+            _gridView.SetPion(row, col, true);
+            _gridView.SetX(row, col, false);
+
+            VerifierConflitPlacement(row, col);
+            FlashAllConflicts();
+            UpdateVictoryVisibility();
+        }
+
         private void DemanderIndice()
         {
             if (_partieTerminee)
                 return;
 
-            if (!_hud.DecrementIndice())
+            bool success = _gridView.RequestHint();
+
+            if (!success)
                 return;
 
+            _hud.DecrementIndice();
             SFXManager.Instance.PlayUnlock();
-            _gridView.RequestHint();
         }
 
         // ------------------------------------------------------------------
@@ -387,26 +451,26 @@ namespace Zoodoku
             if (conflits.Count == 0)
             {
                 SFXManager.Instance.PlayConfirm();
+                _gridView.PunchBoard();
                 return;
             }
 
             SFXManager.Instance.PlayFailure();
 
             _conflictsThisLevel++;
+            _totalPenaliteCumul++;
             _livesManager.PerdreVie();
             _hud.SetVies(_livesManager.Vies);
 
-            int nouveauScore = Mathf.Max(0, _hud.Score - ScorePenaliteConflit);
+            _gridView.ShakeBoard(26f, 0.35f);
+
+            int nouveauScore = Mathf.Max(0, ScoreDepart - _totalPenaliteCumul * ScorePenaliteConflit);
             _hud.SetScore(nouveauScore);
         }
 
         private void ReevaluerConflits()
         {
-            var pions = new List<(int row, int col)>(_grid.Pions);
-            int nbConflits = CompterPionsEnConflit(pions);
-
-            int penalite = nbConflits * ScorePenaliteConflit;
-            int nouveauScore = Mathf.Max(0, ScoreDepart - penalite);
+            int nouveauScore = Mathf.Max(0, ScoreDepart - _totalPenaliteCumul * ScorePenaliteConflit);
             _hud.SetScore(nouveauScore);
         }
 
@@ -476,6 +540,7 @@ namespace Zoodoku
         {
             _partieTerminee = false;
             _conflictsThisLevel = 0;
+            _totalPenaliteCumul = 0;
             _hud.CacherDefaite();
             HideVictory();
 
@@ -524,6 +589,10 @@ namespace Zoodoku
             LevelProgressManager.SetStars(_numeroNiveau, stars);
             LevelProgressManager.UnlockNextLevel(_numeroNiveau);
 
+            Canvas canvas = FindFirstObjectByType<Canvas>();
+            if (canvas != null)
+                ConfettiHelper.Burst(this, canvas, 70);
+
             if (_victoryAnimation != null)
                 StopCoroutine(_victoryAnimation);
             _victoryAnimation = StartCoroutine(VictoryAnimationRoutine());
@@ -554,6 +623,13 @@ namespace Zoodoku
             {
                 if (_victoryStarRoots[i] != null)
                     _victoryStarRoots[i].SetActive(false);
+            }
+
+            // Réinitialiser le hibou
+            if (_victoryOwl != null)
+            {
+                _victoryOwl.transform.localScale = Vector3.zero;
+                _victoryOwl.transform.localRotation = Quaternion.identity;
             }
 
             _gridView.ResetVictoryZoom();
@@ -608,6 +684,10 @@ namespace Zoodoku
                 yield return StartCoroutine(StarPopRoutine(i));
                 yield return new WaitForSecondsRealtime(0.1f);
             }
+
+            // Hibou : rebond EaseOutBack puis oscillation joyeuse ±8°
+            if (_victoryOwl != null)
+                yield return StartCoroutine(OwlVictoryRoutine());
 
             _victoryAnimation = null;
         }
@@ -678,6 +758,52 @@ namespace Zoodoku
         }
 
         // ------------------------------------------------------------------
+        // Animation du hibou de victoire : rebond + oscillation joyeuse.
+        // ------------------------------------------------------------------
+
+        private IEnumerator OwlVictoryRoutine()
+        {
+            Transform owlT = _victoryOwl.transform;
+            owlT.localScale = Vector3.zero;
+
+            // Rebond EaseOutBack : 0 → 1
+            float bounceDur = 0.35f;
+            float elapsed = 0f;
+            while (elapsed < bounceDur)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / bounceDur);
+                float s = Easing.EaseOutBack(t);
+                owlT.localScale = new Vector3(s, s, s);
+                yield return null;
+            }
+            owlT.localScale = Vector3.one;
+
+            // Oscillation ±8°, 3 allers-retours amortis
+            float wobbleAmp = 8f;
+            float wobbleDur = 0.4f;
+            for (int swing = 0; swing < 3; swing++)
+            {
+                float dir = (swing % 2 == 0) ? 1f : -1f;
+                float target = wobbleAmp * dir / (1 + swing * 0.5f);
+                float start = owlT.localEulerAngles.z;
+                if (start > 180f) start -= 360f;
+
+                elapsed = 0f;
+                while (elapsed < wobbleDur)
+                {
+                    elapsed += Time.unscaledDeltaTime;
+                    float t = Mathf.Clamp01(elapsed / wobbleDur);
+                    float angle = Mathf.Lerp(start, target, Easing.EaseOutCubic(t));
+                    owlT.localRotation = Quaternion.Euler(0f, 0f, angle);
+                    yield return null;
+                }
+            }
+
+            owlT.localRotation = Quaternion.identity;
+        }
+
+        // ------------------------------------------------------------------
         // Création de l'environnement UI (fallback si absent de la scène).
         // ------------------------------------------------------------------
 
@@ -711,36 +837,7 @@ namespace Zoodoku
 
         private void CreateBackground(Canvas canvas)
         {
-            var gameObject = new GameObject("Background", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            gameObject.transform.SetParent(canvas.transform, false);
-
-            var rect = (RectTransform)gameObject.transform;
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-
-            var image = gameObject.GetComponent<Image>();
-            image.sprite = CreateVerticalGradientSprite(BackgroundTopColor, BackgroundBottomColor);
-            image.type = Image.Type.Simple;
-            image.raycastTarget = false;
-        }
-
-        private static Sprite CreateVerticalGradientSprite(Color top, Color bottom)
-        {
-            const int height = 64;
-            var texture = new Texture2D(1, height, TextureFormat.RGBA32, false);
-            texture.wrapMode = TextureWrapMode.Clamp;
-            texture.filterMode = FilterMode.Bilinear;
-
-            for (int y = 0; y < height; y++)
-            {
-                float t = y / (float)(height - 1);
-                texture.SetPixel(0, y, Color.Lerp(bottom, top, t));
-            }
-
-            texture.Apply();
-            return Sprite.Create(texture, new Rect(0f, 0f, 1f, height), new Vector2(0.5f, 0.5f));
+            BackgroundHelper.ApplyBackground(canvas.transform);
         }
 
         // ------------------------------------------------------------------
@@ -762,28 +859,47 @@ namespace Zoodoku
             rootImg.color = new Color(0f, 0f, 0f, 0.55f);
             rootImg.raycastTarget = true;
 
-            // 2) Panneau centré blanc
+            // 2) Panneau centré blanc (agrandi pour accueillir le hibou)
             _victoryPanel = new GameObject("VictoryPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             _victoryPanel.transform.SetParent(_victoryRoot.transform, false);
             var panelRect = _victoryPanel.GetComponent<RectTransform>();
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.pivot = new Vector2(0.5f, 0.5f);
-            panelRect.sizeDelta = new Vector2(600f, 350f);
+            panelRect.sizeDelta = new Vector2(600f, 480f);
             panelRect.anchoredPosition = Vector2.zero;
 
             var panelImg = _victoryPanel.GetComponent<Image>();
             panelImg.color = new Color(1f, 1f, 1f, 0.95f);
             panelImg.raycastTarget = false;
 
-            // 3) Texte "Niveau terminé !" dans le panneau
+            // 3) Hibou mascotte — au-dessus du texte
+            Sprite owlSprite = Resources.Load<Sprite>("Art/Animals/owl");
+            if (owlSprite != null)
+            {
+                var owlGO = new GameObject("VictoryOwl", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                owlGO.transform.SetParent(_victoryPanel.transform, false);
+                var owlRect = owlGO.GetComponent<RectTransform>();
+                owlRect.anchorMin = new Vector2(0.5f, 0.82f);
+                owlRect.anchorMax = new Vector2(0.5f, 0.82f);
+                owlRect.pivot = new Vector2(0.5f, 0.5f);
+                owlRect.sizeDelta = new Vector2(120f, 120f);
+                owlRect.anchoredPosition = Vector2.zero;
+
+                _victoryOwl = owlGO.GetComponent<Image>();
+                _victoryOwl.sprite = owlSprite;
+                _victoryOwl.preserveAspect = true;
+                _victoryOwl.raycastTarget = false;
+            }
+
+            // 4) Texte "Niveau terminé !" dans le panneau (décalé vers le bas pour laisser place au hibou)
             var tmpFont = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
 
             var textGO = new GameObject("VictoryText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             textGO.transform.SetParent(_victoryPanel.transform, false);
             var textRect = textGO.GetComponent<RectTransform>();
-            textRect.anchorMin = new Vector2(0f, 0.55f);
-            textRect.anchorMax = new Vector2(1f, 0.90f);
+            textRect.anchorMin = new Vector2(0f, 0.50f);
+            textRect.anchorMax = new Vector2(1f, 0.75f);
             textRect.offsetMin = Vector2.zero;
             textRect.offsetMax = Vector2.zero;
 
@@ -797,7 +913,7 @@ namespace Zoodoku
 
             _victoryTextBasePosition = textRect.anchoredPosition;
 
-            // 4) Étoiles dans le panneau, sous le texte
+            // 5) Étoiles dans le panneau, sous le texte
             Sprite starSprite = Resources.Load<Sprite>("UI/star");
             float starSize = 64f;
             float starSpacing = 16f;
@@ -815,7 +931,7 @@ namespace Zoodoku
                 starRect.sizeDelta = new Vector2(starSize, starSize);
 
                 float xOffset = -totalW * 0.5f + starSize * 0.5f + i * (starSize + starSpacing);
-                starRect.anchoredPosition = new Vector2(xOffset, -30f);
+                starRect.anchoredPosition = new Vector2(xOffset, -60f);
 
                 Image img = starObj.GetComponent<Image>();
                 if (img == null) img = starObj.AddComponent<Image>();
@@ -830,7 +946,7 @@ namespace Zoodoku
                 starObj.SetActive(false);
             }
 
-            // 5) Bouton "Continuer" dans le panneau
+            // 6) Bouton "Continuer" dans le panneau
             var btnGO = new GameObject("BtnContinuer", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             btnGO.transform.SetParent(_victoryPanel.transform, false);
             var btnRect2 = btnGO.GetComponent<RectTransform>();
@@ -849,7 +965,9 @@ namespace Zoodoku
             {
                 SFXManager.Instance.PlayMenuClose();
                 SelectedLevel = _numeroNiveau + 1;
-                UnityEngine.SceneManagement.SceneManager.LoadScene("TestGrid");
+                Canvas c = FindFirstObjectByType<Canvas>();
+                SceneFader.FadeOut(this, c, 0.3f,
+                    () => UnityEngine.SceneManagement.SceneManager.LoadScene("TestGrid"));
             });
 
             var btnTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));

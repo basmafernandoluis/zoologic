@@ -4,7 +4,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
 
-namespace Zoodoku
+namespace Zoologic
 {
     public static class SettingsPanel
     {
@@ -13,13 +13,13 @@ namespace Zoodoku
         private static GameObject _root;
         private static Canvas _overlayCanvas;
 
-        private static readonly Color BgOverlay = new Color(0f, 0f, 0f, 0.55f);
-        private static readonly Color PanelBg = new Color(0.18f, 0.14f, 0.26f);
-        private static readonly Color AccentBlue = new Color(0.26f, 0.55f, 0.88f);
-        private static readonly Color DangerRed = new Color(0.85f, 0.30f, 0.30f);
-        private static readonly Color ToggleOn = new Color(0.30f, 0.72f, 0.50f);
-        private static readonly Color ToggleOff = new Color(0.45f, 0.42f, 0.50f);
-        private static readonly Color MutedText = new Color(0.60f, 0.58f, 0.65f);
+        private static readonly Color BgOverlay = new Color(0f, 0f, 0f, 0.62f);
+        private static readonly Color PanelBg = new Color(0.16f, 0.12f, 0.24f);
+        private static readonly Color AccentBlue = new Color(0.20f, 0.55f, 0.95f);
+        private static readonly Color DangerRed = new Color(0.88f, 0.28f, 0.28f);
+        private static readonly Color ToggleOn = new Color(0.25f, 0.76f, 0.50f);
+        private static readonly Color ToggleOff = new Color(0.48f, 0.44f, 0.54f);
+        private static readonly Color MutedText = new Color(0.62f, 0.60f, 0.68f);
 
         private static TMP_FontAsset _fontTitle;
         private static TMP_FontAsset _fontBody;
@@ -105,23 +105,36 @@ namespace Zoodoku
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.pivot = new Vector2(0.5f, 0.5f);
-            panelRect.sizeDelta = new Vector2(850f, 700f);
+            panelRect.sizeDelta = new Vector2(900f, 760f);
             panelRect.anchoredPosition = Vector2.zero;
 
+            // Ombre portée (frère derrière le panneau, légèrement décalée).
+            var shadowGO = new GameObject("Shadow");
+            shadowGO.transform.SetParent(parent, false);
+            var shadowRect = shadowGO.AddComponent<RectTransform>();
+            shadowRect.anchorMin = new Vector2(0.5f, 0.5f);
+            shadowRect.anchorMax = new Vector2(0.5f, 0.5f);
+            shadowRect.pivot = new Vector2(0.5f, 0.5f);
+            shadowRect.sizeDelta = new Vector2(930f, 790f);
+            shadowRect.anchoredPosition = new Vector2(0f, -10f);
+            var shadowImg = shadowGO.AddComponent<Image>();
+            shadowImg.sprite = CreerSpriteArrondi(128, 0.08f);
+            shadowImg.color = new Color(0f, 0f, 0f, 0.42f);
+            shadowImg.raycastTarget = false;
+            shadowGO.transform.SetSiblingIndex(panel.transform.GetSiblingIndex());
+
             var panelImg = panel.AddComponent<Image>();
+            panelImg.sprite = CreerSpriteArrondi(128, 0.08f);
+            panelImg.type = Image.Type.Simple;
             panelImg.color = PanelBg;
             panelImg.raycastTarget = true;
 
-            var panelShadow = panel.AddComponent<Shadow>();
-            panelShadow.effectColor = new Color(0f, 0f, 0f, 0.3f);
-            panelShadow.effectDistance = new Vector2(0f, -8f);
-
             var vlg = panel.AddComponent<VerticalLayoutGroup>();
-            vlg.spacing = 20f;
+            vlg.spacing = 24f;
             vlg.childAlignment = TextAnchor.UpperCenter;
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
-            vlg.padding = new RectOffset(50, 50, 40, 30);
+            vlg.padding = new RectOffset(55, 55, 46, 34);
 
             CreerTitre(panel.transform);
             CreerToggle(panel.transform, "Sons", SFXManager.Instance.IsEnabled,
@@ -141,14 +154,14 @@ namespace Zoodoku
             var txt = go.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = "Réglages";
-            txt.fontSize = 40;
+            txt.fontSize = 48;
             txt.fontStyle = FontStyles.Bold;
             txt.color = Color.white;
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
 
             var le = go.AddComponent<LayoutElement>();
-            le.preferredHeight = 60f;
+            le.preferredHeight = 64f;
         }
 
         private static void CreerToggle(Transform parent, string label, bool isOn, System.Action<bool> onValueChanged)
@@ -168,7 +181,7 @@ namespace Zoodoku
             var labelText = labelGO.AddComponent<TextMeshProUGUI>();
             labelText.font = _fontBody;
             labelText.text = label;
-            labelText.fontSize = 30;
+            labelText.fontSize = 34;
             labelText.color = Color.white;
             labelText.alignment = TextAlignmentOptions.MidlineLeft;
             labelText.raycastTarget = false;
@@ -178,7 +191,7 @@ namespace Zoodoku
             var toggleGO = new GameObject("Toggle");
             toggleGO.transform.SetParent(row.transform, false);
             var toggleRect = toggleGO.AddComponent<RectTransform>();
-            toggleRect.sizeDelta = new Vector2(90f, 48f);
+            toggleRect.sizeDelta = new Vector2(104f, 56f);
 
             var toggle = toggleGO.AddComponent<Toggle>();
             toggle.isOn = isOn;
@@ -202,7 +215,7 @@ namespace Zoodoku
             checkRect.anchorMin = new Vector2(0.5f, 0.5f);
             checkRect.anchorMax = new Vector2(0.5f, 0.5f);
             checkRect.pivot = new Vector2(0.5f, 0.5f);
-            checkRect.sizeDelta = new Vector2(36f, 36f);
+            checkRect.sizeDelta = new Vector2(42f, 42f);
             checkRect.anchoredPosition = Vector2.zero;
             var checkImg = checkGO.AddComponent<Image>();
             checkImg.sprite = CreerSpriteArrondi(64, 0.5f);
@@ -222,7 +235,7 @@ namespace Zoodoku
 
         private static void CreerBoutonResetProgression(Transform parent)
         {
-            var btn = CreerBouton(parent, "Réinitialiser la progression", DangerRed, 28f);
+            var btn = CreerBouton(parent, "Réinitialiser la progression", DangerRed, 34f);
             btn.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
@@ -252,9 +265,10 @@ namespace Zoodoku
             cpRect.anchorMin = new Vector2(0.5f, 0.5f);
             cpRect.anchorMax = new Vector2(0.5f, 0.5f);
             cpRect.pivot = new Vector2(0.5f, 0.5f);
-            cpRect.sizeDelta = new Vector2(700f, 320f);
+            cpRect.sizeDelta = new Vector2(740f, 380f);
             cpRect.anchoredPosition = Vector2.zero;
             var cpImg = confirmPanel.AddComponent<Image>();
+            cpImg.sprite = CreerSpriteArrondi(128, 0.08f);
             cpImg.color = PanelBg;
             cpImg.raycastTarget = true;
 
@@ -270,7 +284,7 @@ namespace Zoodoku
             var msgTxt = msgGO.AddComponent<TextMeshProUGUI>();
             msgTxt.font = _fontBody;
             msgTxt.text = "Es-tu sûr ?\nCette action est irréversible.";
-            msgTxt.fontSize = 28;
+            msgTxt.fontSize = 32;
             msgTxt.color = Color.white;
             msgTxt.alignment = TextAlignmentOptions.Center;
             msgTxt.raycastTarget = false;
@@ -287,7 +301,7 @@ namespace Zoodoku
             btnHLG.childForceExpandHeight = false;
             btnRow.AddComponent<LayoutElement>().preferredHeight = 60f;
 
-            var btnOui = CreerBouton(btnRow.transform, "Oui", DangerRed, 26f);
+            var btnOui = CreerBouton(btnRow.transform, "Oui", DangerRed, 30f);
             btnOui.onClick.AddListener(() =>
             {
                 LevelProgressManager.ResetAll();
@@ -296,7 +310,7 @@ namespace Zoodoku
                 SceneManager.LoadScene("MainMenu");
             });
 
-            var btnAnnuler = CreerBouton(btnRow.transform, "Annuler", AccentBlue, 26f);
+            var btnAnnuler = CreerBouton(btnRow.transform, "Annuler", AccentBlue, 30f);
             btnAnnuler.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
@@ -311,7 +325,7 @@ namespace Zoodoku
             var txt = go.AddComponent<TextMeshProUGUI>();
             txt.font = _fontBody;
             txt.text = "v0.1";
-            txt.fontSize = 20;
+            txt.fontSize = 23;
             txt.color = MutedText;
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
@@ -326,7 +340,7 @@ namespace Zoodoku
             var go = new GameObject("CloseBtn");
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(60f, 60f);
+            rect.sizeDelta = new Vector2(72f, 72f);
 
             var btn = go.AddComponent<Button>();
             btn.transition = Selectable.Transition.ColorTint;
@@ -345,7 +359,7 @@ namespace Zoodoku
             iconRect.offsetMax = Vector2.zero;
             var iconTxt = iconGO.AddComponent<TextMeshProUGUI>();
             iconTxt.text = "\u00D7";
-            iconTxt.fontSize = 42;
+            iconTxt.fontSize = 52;
             iconTxt.fontStyle = FontStyles.Bold;
             iconTxt.color = Color.white;
             iconTxt.alignment = TextAlignmentOptions.Center;
@@ -358,8 +372,8 @@ namespace Zoodoku
             });
 
             var le = go.AddComponent<LayoutElement>();
-            le.preferredWidth = 60f;
-            le.preferredHeight = 60f;
+            le.preferredWidth = 72f;
+            le.preferredHeight = 72f;
         }
 
         private static Button CreerBouton(Transform parent, string label, Color bgColor, float fontSize)
@@ -367,7 +381,7 @@ namespace Zoodoku
             var go = new GameObject("Btn_" + label);
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(300f, 60f);
+            rect.sizeDelta = new Vector2(320f, 66f);
 
             var img = go.AddComponent<Image>();
             img.sprite = CreerSpriteArrondi(128, 0.3f);
@@ -399,8 +413,8 @@ namespace Zoodoku
             txt.raycastTarget = false;
 
             var le = go.AddComponent<LayoutElement>();
-            le.preferredWidth = 500f;
-            le.preferredHeight = 60f;
+            le.preferredWidth = 520f;
+            le.preferredHeight = 66f;
 
             return btn;
         }

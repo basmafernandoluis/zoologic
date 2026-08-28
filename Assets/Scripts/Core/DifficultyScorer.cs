@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 
-namespace Zoodoku.Core
+namespace Zoologic.Core
 {
     /// <summary>
-    /// Estime la difficulté d'une grille Zoodoku / Queens.
+    /// Estime la difficulté d'une grille Zoologic / Queens.
     ///
     /// Principe : on simule une résolution "à la main" et l'on compte un "coût de
     /// raisonnement" = nombre de déductions AVANCÉES (règles de ligne / colonne,

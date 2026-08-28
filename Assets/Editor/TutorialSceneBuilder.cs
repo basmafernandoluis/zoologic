@@ -4,20 +4,20 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using Zoodoku.Core;
+using Zoologic.Core;
 
-namespace Zoodoku.EditorTools
+namespace Zoologic.EditorTools
 {
     /// <summary>
     /// Outil d'édition qui crée la scène "Tutorial" : caméra, canvas UI, EventSystem,
     /// et un GameRoot portant GridView + TutorialManager.
     ///
     /// Tout le câblage est fait ici : il suffit d'appuyer sur Play. Ce script peut
-    /// s'exécuter manuellement via le menu Tools > Zoodoku, ou en mode batch :
+    /// s'exécuter manuellement via le menu Tools > Zoologic, ou en mode batch :
     ///
     ///   "E:\UnityEditors\6000.3.21f1\Editor\Unity.exe" -batchmode -nographics -quit \
     ///       -projectPath "E:\projet new\Zoodoku" \
-    ///       -executeMethod Zoodoku.EditorTools.TutorialSceneBuilder.CreateTutorialScene
+    ///       -executeMethod Zoologic.EditorTools.TutorialSceneBuilder.CreateTutorialScene
     /// </summary>
     public static class TutorialSceneBuilder
     {
@@ -39,7 +39,7 @@ namespace Zoodoku.EditorTools
         };
 
         /// <summary>Crée (ou recrée) la scène Assets/Scenes/Tutorial.unity.</summary>
-        [MenuItem("Tools/Zoodoku/Créer la scène tutoriel")]
+        [MenuItem("Tools/Zoologic/Créer la scène tutoriel")]
         public static void CreateTutorialScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -74,7 +74,7 @@ namespace Zoodoku.EditorTools
             EditorSceneManager.SaveScene(scene, ScenePath);
             AddSceneToBuildSettings(ScenePath);
 
-            Debug.Log("[Zoodoku] Scène tutoriel créée : " + ScenePath);
+            Debug.Log("[Zoologic] Scène tutoriel créée : " + ScenePath);
 
             // Vérification du pipeline runtime (grille fixe + règles + visuels).
             SmokeTest();
@@ -103,11 +103,11 @@ namespace Zoodoku.EditorTools
             gridView.Build(grid, (RectTransform)canvasGameObject.transform);
 
             if (gridView.Size != 4)
-                throw new System.Exception("[Zoodoku] TutorialSmokeTest : taille erronée (" + gridView.Size + ").");
+                throw new System.Exception("[Zoologic] TutorialSmokeTest : taille erronée (" + gridView.Size + ").");
 
             var board = (RectTransform)canvasGameObject.transform.Find("Board");
             if (board == null)
-                throw new System.Exception("[Zoodoku] TutorialSmokeTest : Board introuvable.");
+                throw new System.Exception("[Zoologic] TutorialSmokeTest : Board introuvable.");
 
             int cellCount = 0;
             foreach (Transform child in board)
@@ -117,7 +117,7 @@ namespace Zoodoku.EditorTools
             }
             if (cellCount != 16)
                 throw new System.Exception(
-                    "[Zoodoku] TutorialSmokeTest : cases manquantes (" + cellCount + ").");
+                    "[Zoologic] TutorialSmokeTest : cases manquantes (" + cellCount + ").");
 
             // 2) Règles typées : GetConflicts distingue les quatre types.
             var grilleRegles = new PuzzleGrid(TutorialRegions);
@@ -138,13 +138,13 @@ namespace Zoodoku.EditorTools
 
             // 3) Règles booléennes : IsValidPlacement reste cohérent après le refactor.
             if (RuleValidator.IsValidPlacement(grilleRegles, 0, 0))
-                throw new System.Exception("[Zoodoku] TutorialSmokeTest : case occupée considérée valide.");
+                throw new System.Exception("[Zoologic] TutorialSmokeTest : case occupée considérée valide.");
             if (RuleValidator.IsValidPlacement(grilleRegles, 0, 3))
-                throw new System.Exception("[Zoodoku] TutorialSmokeTest : même ligne considérée valide.");
+                throw new System.Exception("[Zoologic] TutorialSmokeTest : même ligne considérée valide.");
             if (RuleValidator.IsValidPlacement(grilleRegles, 3, 0))
-                throw new System.Exception("[Zoodoku] TutorialSmokeTest : même colonne considérée valide.");
+                throw new System.Exception("[Zoologic] TutorialSmokeTest : même colonne considérée valide.");
             if (!RuleValidator.IsValidPlacement(grilleRegles, 3, 3))
-                throw new System.Exception("[Zoodoku] TutorialSmokeTest : case libre valide refusée.");
+                throw new System.Exception("[Zoologic] TutorialSmokeTest : case libre valide refusée.");
 
             // 4) La grille fixe est résolvable (solution connue, sans conflit).
             var grilleResolue = new PuzzleGrid(TutorialRegions);
@@ -153,10 +153,10 @@ namespace Zoodoku.EditorTools
                 grilleResolue.PlacePion(row, col);
                 if (RuleValidator.GetConflicts(grilleResolue, row, col).Count > 0)
                     throw new System.Exception(
-                        "[Zoodoku] TutorialSmokeTest : la solution " + row + "," + col + " contient un conflit.");
+                        "[Zoologic] TutorialSmokeTest : la solution " + row + "," + col + " contient un conflit.");
             }
             if (!RuleValidator.IsSolved(grilleResolue))
-                throw new System.Exception("[Zoodoku] TutorialSmokeTest : la solution connue n'est pas résolue.");
+                throw new System.Exception("[Zoologic] TutorialSmokeTest : la solution connue n'est pas résolue.");
 
             // 5) Déduction unique de l'étape 4 : avec les 3 pions pré-posés, une seule
             //    case vide reste valide, et c'est la case attendue (2,0).
@@ -176,10 +176,10 @@ namespace Zoodoku.EditorTools
             }
             if (valides.Count != 1 || valides[0] != (2, 0))
                 throw new System.Exception(
-                    "[Zoodoku] TutorialSmokeTest : déduction non unique, valides = [" +
+                    "[Zoologic] TutorialSmokeTest : déduction non unique, valides = [" +
                     string.Join(", ", valides) + "] (attendu : (2, 0)).");
 
-            Debug.Log("[Zoodoku] TUTORIAL SMOKE TEST OK : grille 4x4, 16 cases, règles typées, solution unique en (2,0).");
+            Debug.Log("[Zoologic] TUTORIAL SMOKE TEST OK : grille 4x4, 16 cases, règles typées, solution unique en (2,0).");
         }
 
         /// <summary>
@@ -188,13 +188,13 @@ namespace Zoodoku.EditorTools
         private static void AssertContains(List<ConflictType> actual, ConflictType[] expected, string message)
         {
             if (actual.Count != expected.Length)
-                throw new System.Exception("[Zoodoku] TutorialSmokeTest : " + message +
+                throw new System.Exception("[Zoologic] TutorialSmokeTest : " + message +
                     " (obtenu " + string.Join(",", actual) + ").");
 
             foreach (ConflictType type in expected)
             {
                 if (!actual.Contains(type))
-                    throw new System.Exception("[Zoodoku] TutorialSmokeTest : " + message +
+                    throw new System.Exception("[Zoologic] TutorialSmokeTest : " + message +
                         " (type manquant : " + type + ").");
             }
         }

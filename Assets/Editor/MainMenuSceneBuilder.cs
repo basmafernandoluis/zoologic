@@ -3,13 +3,13 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace Zoodoku.EditorTools
+namespace Zoologic.EditorTools
 {
     public static class MainMenuSceneBuilder
     {
         private const string ScenePath = "Assets/Scenes/MainMenu.unity";
 
-        [MenuItem("Tools/Zoodoku/Créer la scène MainMenu")]
+        [MenuItem("Tools/Zoologic/Créer la scène MainMenu")]
         public static void CreateMainMenuScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -19,7 +19,7 @@ namespace Zoodoku.EditorTools
             AddSceneToBuildSettings(ScenePath);
             ReorderBuildSettings();
 
-            Debug.Log("[Zoodoku] Scène MainMenu créée : " + ScenePath);
+            Debug.Log("[Zoologic] Scène MainMenu créée : " + ScenePath);
             EditorSceneManager.OpenScene(ScenePath);
         }
 

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Zoodoku.Core
+namespace Zoologic.Core
 {
     /// <summary>
     /// Suite de tests unitaires indépendante de Unity.

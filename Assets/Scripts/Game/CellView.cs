@@ -4,11 +4,11 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Zoodoku
+namespace Zoologic
 {
     /// <summary>
     /// Une case de la grille affichée : couleur de fond de la zone, pion, marqueur "X"
-    /// et interactions tactiles (tap court / appui long).
+    /// et interactions tactiles (tap simple).
     ///
     /// Gère aussi le "juice" local de la case :
     ///  - apparition "pop" du pion (échelle 0 → 115 % → 100 %, easeOutBack) ;
@@ -30,11 +30,8 @@ namespace Zoodoku
         public const float FadeDuration = 0.15f;
         private const float ShakeFrequency = 50f;
 
-        /// <summary>Appelé lors d'un tap court sur la case.</summary>
+        /// <summary>Appelé lors d'un tap sur la case.</summary>
         public Action OnTap;
-
-        /// <summary>Appelé lors d'un appui long sur la case.</summary>
-        public Action OnLongPress;
 
         private Image _background;
         private Image _pion;
@@ -42,26 +39,24 @@ namespace Zoodoku
         private RectTransform _pionRect;
         private Vector3 _basePosition;
         private Color _baseColor;
-        private float _longPressDuration;
         private float _shakeAmplitude;
 
         private bool _pointerDown;
-        private float _pressedAt;
 
         private Coroutine _popRoutine;
         private Coroutine _feedbackRoutine;
         private Coroutine _fadeRoutine;
+        private Coroutine _pressRoutine;
 
         /// <summary>
         /// Configure la case : couleur de zone, et crée les enfants "Pion" et "X".
         /// </summary>
         public void Init(Color baseColor, Image background, Sprite pionSprite, Font font,
-            float cellSize, float pionRatio, float longPressDuration)
+            float cellSize, float pionRatio)
         {
             _baseColor = baseColor;
             _background = background;
             _background.color = baseColor;
-            _longPressDuration = longPressDuration;
             _shakeAmplitude = cellSize * 0.03f;
 
             // Pion : l'icône d'animal de la zone (ou cercle blanc de secours), centrée
@@ -141,9 +136,42 @@ namespace Zoodoku
                     _popRoutine = null;
                 }
 
-                _pionRect.localScale = Vector3.one;
-                _pion.gameObject.SetActive(false);
+                if (Application.isPlaying)
+                {
+                    if (_pion.gameObject.activeSelf)
+                        _popRoutine = StartCoroutine(ShrinkOutRoutine());
+                    else
+                    {
+                        _pionRect.localScale = Vector3.one;
+                        _pion.gameObject.SetActive(false);
+                    }
+                }
+                else
+                {
+                    _pionRect.localScale = Vector3.one;
+                    _pion.gameObject.SetActive(false);
+                }
             }
+        }
+
+        /// <summary>Retrait du pion : shrink-out rapide (échelle 1 → 0, easeInQuad).</summary>
+        private IEnumerator ShrinkOutRoutine()
+        {
+            const float duration = 0.12f;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                float t = Mathf.Clamp01(elapsed / duration);
+                float s = Mathf.Max(0f, 1f - Easing.EaseInQuad(t));
+                _pionRect.localScale = new Vector3(s, s, s);
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            _pionRect.localScale = Vector3.one;
+            _pion.gameObject.SetActive(false);
+            _popRoutine = null;
         }
 
         /// <summary>Pop du pion : 0 % → ~115 % → 100 % (easeOutBack, très rapide).</summary>
@@ -195,6 +223,8 @@ namespace Zoodoku
 
                 _xMark.gameObject.SetActive(true);
                 SetXAlpha(0f);
+                var xRect = (RectTransform)_xMark.transform;
+                xRect.localScale = new Vector3(0.3f, 0.3f, 0.3f);
 
                 if (Application.isPlaying)
                     _fadeRoutine = StartCoroutine(FadeXIn());
@@ -212,17 +242,21 @@ namespace Zoodoku
 
         private IEnumerator FadeXIn()
         {
+            var xRect = (RectTransform)_xMark.transform;
             float elapsed = 0f;
 
             while (elapsed < FadeDuration)
             {
                 float t = Mathf.Clamp01(elapsed / FadeDuration);
                 SetXAlpha(Easing.EaseOutCubic(t));
+                float s = Mathf.Lerp(0.3f, 1f, Easing.EaseOutBack(t));
+                xRect.localScale = new Vector3(s, s, s);
                 elapsed += Time.unscaledDeltaTime;
                 yield return null;
             }
 
             SetXAlpha(1f);
+            xRect.localScale = Vector3.one;
             _fadeRoutine = null;
         }
 
@@ -261,6 +295,7 @@ namespace Zoodoku
             }
 
             SetXAlpha(1f);
+            _xMark.transform.localScale = Vector3.one;
             _xMark.gameObject.SetActive(false);
         }
 
@@ -316,13 +351,13 @@ namespace Zoodoku
         }
 
         // ------------------------------------------------------------------
-        // Interactions tactiles (tap court / appui long).
+        // Interactions tactiles (tap simple).
         // ------------------------------------------------------------------
 
         public void OnPointerDown(PointerEventData eventData)
         {
             _pointerDown = true;
-            _pressedAt = Time.unscaledTime;
+            StartPressSquish();
         }
 
         public void OnPointerUp(PointerEventData eventData)
@@ -330,12 +365,48 @@ namespace Zoodoku
             if (!_pointerDown)
                 return;
             _pointerDown = false;
+            StopPressSquish();
+            OnTap?.Invoke();
+        }
 
-            bool isLongPress = Time.unscaledTime - _pressedAt >= _longPressDuration;
-            if (isLongPress)
-                OnLongPress?.Invoke();
-            else
-                OnTap?.Invoke();
+        /// <summary>Écrase légèrement la case au toucher (feedback tactile).</summary>
+        private void StartPressSquish()
+        {
+            if (!Application.isPlaying)
+                return;
+
+            if (_pressRoutine != null)
+                StopCoroutine(_pressRoutine);
+
+            _pressRoutine = StartCoroutine(SquishRoutine(0.9f, 0.06f));
+        }
+
+        private void StopPressSquish()
+        {
+            if (_pressRoutine != null)
+                StopCoroutine(_pressRoutine);
+
+            if (Application.isPlaying)
+                _pressRoutine = StartCoroutine(SquishRoutine(1f, 0.12f, easeOut: true));
+        }
+
+        private IEnumerator SquishRoutine(float target, float duration, bool easeOut = false)
+        {
+            Vector3 baseScale = transform.localScale;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                float t = Mathf.Clamp01(elapsed / duration);
+                float s = easeOut
+                    ? Mathf.Lerp(baseScale.x, target, Easing.EaseOutBack(t))
+                    : Mathf.Lerp(baseScale.x, target, t);
+                transform.localScale = new Vector3(s, s, s);
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            transform.localScale = new Vector3(target, target, target);
         }
     }
 }

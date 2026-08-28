@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 
-namespace Zoodoku.Core
+namespace Zoologic.Core
 {
     /// <summary>
-    /// Résout une grille Zoodoku / Queens par backtracking.
+    /// Résout une grille Zoologic / Queens par backtracking.
     ///
     /// Principe : on place un pion dans chaque zone, une zone à la fois. Pour une
     /// zone donnée, on essaie chaque case libre et valide, puis on passe à la zone

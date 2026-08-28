@@ -4,7 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Zoodoku
+namespace Zoologic
 {
     /// <summary>
     /// Interface permanente (HUD) affichée pendant le jeu :
@@ -24,28 +24,35 @@ namespace Zoodoku
         // Constantes de layout (référence 1080x1920).
         // ------------------------------------------------------------------
 
-        private const float HeaderHeight = 120f;
-        private const float HeaderPadding = 20f;
-        private const float RuleBarHeight = 100f;
-        private const float ScoreAreaHeight = 85f;
-        private const float HintAreaHeight = 95f;
+        private const float HeaderPadding = 22f;
+        private const float RuleBarHeight = 120f;
+
+        // Encoche simulée (px réf 1080x1920) utilisée quand la safe area réelle
+        // est nulle (éditeur, desktop) afin de prévisualiser l'espacement.
+        private const float SimulatedTopNotch = 70f;
 
         // ------------------------------------------------------------------
         // Couleurs.
         // ------------------------------------------------------------------
 
-        private static readonly Color HeaderBgColor = new Color(1f, 1f, 1f, 0.92f);
-        private static readonly Color RuleCardBg = new Color(0.95f, 0.95f, 0.97f, 1f);
-        private static readonly Color PillColor = new Color(0.26f, 0.55f, 0.88f, 1f);
-        private static readonly Color HeartFullColor = Color.white;
-        private static readonly Color HeartEmptyColor = new Color(0.45f, 0.45f, 0.50f, 0.45f);
+        private static readonly Color HeaderBgColor = new Color(1f, 1f, 1f, 0.97f);
+        private static readonly Color RuleCardBg = new Color(0.99f, 0.97f, 0.93f, 1f);
+        private static readonly Color PillColor = new Color(0.12f, 0.52f, 0.92f, 1f);
+        private static readonly Color HeartFullColor = new Color(0.93f, 0.22f, 0.33f, 1f);
+        private static readonly Color HeartEmptyColor = new Color(0.80f, 0.80f, 0.82f, 0.4f);
+        private static readonly Color OverlayColor = new Color(0f, 0f, 0f, 0.55f);
+        private static readonly Color RetryButtonColor = new Color(0.15f, 0.50f, 0.92f, 1f);
+        private static readonly Color HintCountColor = new Color(0.35f, 0.40f, 0.50f, 1f);
+        private static readonly Color IconTextColor = new Color(0.42f, 0.47f, 0.52f, 1f);
+        private static readonly Color CardShadowColor = new Color(0f, 0f, 0f, 0.16f);
+
+        private static readonly Color ScorePillBg = new Color(0.98f, 0.85f, 0.24f, 1f);
+        private static readonly Color ScorePillTextColor = new Color(0.42f, 0.28f, 0.02f, 1f);
+        private static readonly Color HintPillBg = new Color(0.78f, 0.89f, 1f, 1f);
+        private static readonly Color HintPillTextColor = new Color(0.10f, 0.35f, 0.78f, 1f);
         private static readonly Color ScoreLabelColor = new Color(0.50f, 0.52f, 0.56f, 1f);
         private static readonly Color ScoreValueColor = new Color(0.13f, 0.13f, 0.15f, 1f);
-        private static readonly Color OverlayColor = new Color(0f, 0f, 0f, 0.55f);
-        private static readonly Color RetryButtonColor = new Color(0.26f, 0.55f, 0.88f, 1f);
-        private static readonly Color HintCountColor = new Color(0.35f, 0.40f, 0.50f, 1f);
-        private static readonly Color IconTextColor = new Color(0.45f, 0.50f, 0.55f, 1f);
-        private static readonly Color CardShadowColor = new Color(0f, 0f, 0f, 0.06f);
+        private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.28f);
 
         // ------------------------------------------------------------------
         // Champs privés.
@@ -57,6 +64,11 @@ namespace Zoodoku
         // Score
         private TextMeshProUGUI _scoreValueText;
         private int _score;
+        private Image _scorePillBg;
+        private RectTransform _scorePillRect;
+        private Color _scorePillBgColor;
+        private Coroutine _scorePunchRoutine;
+        private static readonly Color ScorePunchBgColor = new Color(0.95f, 0.55f, 0.45f, 1f);
 
         // Cœurs (images, pas de texte)
         private readonly Image[] _heartImages = new Image[LivesManager.ViesDepart];
@@ -67,6 +79,7 @@ namespace Zoodoku
         private GameObject _defaitePanel;
         private GameObject _gameOverRoot;
         private GameObject _overlay;
+        private Image _defeatOwl;
 
         // Indice
         private TextMeshProUGUI _indiceCountText;
@@ -82,27 +95,50 @@ namespace Zoodoku
         private Image _indiceButtonBg;
         private static readonly Color IndiceDisabledColor = new Color(0.75f, 0.75f, 0.78f, 0.5f);
 
+        // Distance (px réf) entre le haut de l'écran et le bas du header.
+        private float _headerBottom;
+
         /// <summary>Score actuel affiché.</summary>
         public int Score => _score;
 
         /// <summary>Nombre d'indices restants.</summary>
         public int IndiceCount => _indiceCount;
 
-        /// <summary>Board offset Y pour centrer la grille dans l'espace disponible entre le HUD et la zone d'indices.</summary>
+        /// <summary>
+        /// Encoche haute en unités de canvas (réf 1080x1920). Sur mobile réel on lit
+        /// la safe area ; sinon (éditeur/desktop) on applique une encoche simulée.
+        /// </summary>
+        public float TopInset
+        {
+            get
+            {
+                float canvasRefHeight = 1920f;
+                Rect safe = Screen.safeArea;
+                float safeTop = safe.yMax;
+                float screenHeight = Mathf.Max(Screen.height, 1);
+                float insetPx = screenHeight - safeTop;
+                // La safe area n'est égale à l'écran que si pas d'encoche.
+                bool hasNotch = insetPx > 1f;
+                if (hasNotch)
+                    return insetPx * (canvasRefHeight / screenHeight);
+                return SimulatedTopNotch;
+            }
+        }
+
+        /// <summary>Board offset Y pour centrer la grille dans l'espace HUD en haut et le bas de l'écran.</summary>
         public float BoardYOffset
         {
             get
             {
-                // HUD bottom edge (header + rules + score area)
-                float hudBottom = HeaderHeight + RuleBarHeight + ScoreAreaHeight;
-                // Screen top of available area
-                float screenTop = 1920f;
-                // Hint area bottom edge
-                float hintBottom = screenTop - HintAreaHeight;
-                // Center of available space
-                float availableCenter = (hudBottom + hintBottom) * 0.5f;
-                // Offset from canvas center (960 = screen height / 2)
-                return -(availableCenter - 960f);
+                // Zone haute : header (encoche comprise) + barre de règles.
+                float topOccupied = _headerBottom + RuleBarHeight;
+                // Zone basse : marge réservée en bas de l'écran (zone de confort des doigts).
+                float bottomReserved = 80f;
+                // Référence : on travaille dans l'espace du canvas (hauteur 1920 en compte moyen).
+                float canvasHeight = 1920f;
+                float availableCenter = (topOccupied + (canvasHeight - bottomReserved)) * 0.5f;
+                // Décalage par rapport au centre du canvas (960 = moitié de la hauteur de référence).
+                return -(availableCenter - canvasHeight * 0.5f);
             }
         }
 
@@ -120,8 +156,6 @@ namespace Zoodoku
 
             BuildHeader(canvas, numeroNiveau);
             BuildBarreRegle(canvas);
-            BuildBarreInfo(canvas);
-            BuildCompteurIndice(canvas);
         }
 
         // ------------------------------------------------------------------
@@ -130,13 +164,37 @@ namespace Zoodoku
 
         private void BuildHeader(Canvas canvas, int numeroNiveau)
         {
+            float inset = TopInset;
+
+            // Distances (px réf) depuis le haut de l'écran : row1 = pilule niveau,
+            // row2 = stats. Les deux sont placées sous l'encoche (inset).
+            float dRow1 = inset + 30f;
+            float dRow2 = inset + 120f;
+            // Hauteur du header = bas du contenu (row2 + 28 pilule + marge).
+            float H = dRow2 + 45f;
+            _headerBottom = H;
+
+            // --- Header background (white bar) ---
             var header = CreerObjetUI("Header", canvas.transform);
             var rect = header.GetComponent<RectTransform>();
-            CreerRemplissage(rect, HeaderHeight, ancreHaut: true);
+            CreerRemplissage(rect, H, ancreHaut: true);
 
             var image = header.AddComponent<Image>();
             image.color = HeaderBgColor;
             image.raycastTarget = true;
+
+            // Ombre douce sous le header
+            var headerOmbre = CreerObjetUI("HeaderOmbre", header.transform);
+            var hoRect = headerOmbre.GetComponent<RectTransform>();
+            hoRect.anchorMin = new Vector2(0f, 0f);
+            hoRect.anchorMax = new Vector2(1f, 0f);
+            hoRect.pivot = new Vector2(0.5f, 1f);
+            hoRect.sizeDelta = new Vector2(0f, 12f);
+            hoRect.anchoredPosition = new Vector2(0f, -2f);
+            var hoImg = headerOmbre.AddComponent<Image>();
+            hoImg.color = new Color(0f, 0f, 0f, 0.14f);
+            hoImg.raycastTarget = false;
+            hoRect.SetAsFirstSibling();
 
             // Séparateur fin en bas
             var separateur = CreerObjetUI("Separateur", header.transform);
@@ -147,11 +205,13 @@ namespace Zoodoku
             sepRect.sizeDelta = new Vector2(0f, 2f);
             sepRect.anchoredPosition = Vector2.zero;
             var sepImg = separateur.AddComponent<Image>();
-            sepImg.color = new Color(0f, 0f, 0f, 0.08f);
+            sepImg.color = new Color(0f, 0f, 0f, 0.10f);
             sepImg.raycastTarget = false;
 
-            // Bouton retour (flèche ←)
-            var btnRetour = CreerBouton(header.transform, "\u2190", 40f, new Vector2(HeaderPadding, 0f),
+            // Row 1: ← back | Niveau X pill | ⚙ settings
+            float row1Y = H * 0.5f - dRow1;
+
+            var btnRetour = CreerBouton(header.transform, "\u2190", 48f, new Vector2(HeaderPadding, row1Y),
                 new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
             btnRetour.onClick.AddListener(() =>
             {
@@ -159,28 +219,166 @@ namespace Zoodoku
                 UnityEngine.SceneManagement.SceneManager.LoadScene("LevelMap");
             });
 
-            // Pilule « Niveau X »
-            CreerPiluleNiveau(header.transform, numeroNiveau);
+            CreerPiluleNiveau(header.transform, numeroNiveau, row1Y);
 
-            // Bouton réglages (roue engrenage — sprite procédural)
-            var btnReglages = CreerBoutonImage(header.transform, GetSettingsSprite(), 36f,
-                new Vector2(-HeaderPadding, 0f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
+            var btnReglages = CreerBoutonImage(header.transform, GetSettingsSprite(), 44f,
+                new Vector2(-HeaderPadding, row1Y), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
             btnReglages.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuOpen();
                 SettingsPanel.Open();
             });
+
+            // Row 2: [⭐ 100] [♥♥♥] [🧪×3] — stats row
+            float row2Y = H * 0.5f - dRow2;
+            BuildStatsRow(header.transform, row2Y);
         }
 
-        private void CreerPiluleNiveau(Transform parent, int numero)
+        // ------------------------------------------------------------------
+        // STATS ROW : score pill, hearts, hint pill
+        // ------------------------------------------------------------------
+
+        private void BuildStatsRow(Transform header, float y)
+        {
+            float pillH = 56f;
+
+            // --- Score pill (left) ---
+            float scoreW = 150f;
+            float scoreX = HeaderPadding;
+
+            var scorePill = CreerObjetUI("ScorePill", header);
+            var spRect = scorePill.GetComponent<RectTransform>();
+            spRect.anchorMin = new Vector2(0f, 0.5f);
+            spRect.anchorMax = new Vector2(0f, 0.5f);
+            spRect.pivot = new Vector2(0f, 0.5f);
+            spRect.sizeDelta = new Vector2(scoreW, pillH);
+            spRect.anchoredPosition = new Vector2(scoreX, y);
+            AjouterOmbre(spRect, header, 3f, -5f);
+
+            _scorePillBg = scorePill.AddComponent<Image>();
+            _scorePillBg.sprite = GetPiluleSprite();
+            _scorePillBg.type = Image.Type.Simple;
+            _scorePillBg.color = ScorePillBg;
+            _scorePillBg.raycastTarget = false;
+            _scorePillRect = spRect;
+            _scorePillBgColor = ScorePillBg;
+
+            var scoreTxt = CreerObjetUI("ScoreText", scorePill.transform);
+            var stRect = scoreTxt.GetComponent<RectTransform>();
+            stRect.anchorMin = Vector2.zero;
+            stRect.anchorMax = Vector2.one;
+            stRect.offsetMin = Vector2.zero;
+            stRect.offsetMax = Vector2.zero;
+
+            _scoreValueText = scoreTxt.AddComponent<TextMeshProUGUI>();
+            _scoreValueText.font = _fontTitle;
+            _scoreValueText.text = _score.ToString();
+            _scoreValueText.fontSize = 34;
+            _scoreValueText.alignment = TextAlignmentOptions.Center;
+            _scoreValueText.color = ScorePillTextColor;
+            _scoreValueText.fontStyle = FontStyles.Bold;
+            _scoreValueText.raycastTarget = false;
+
+            // --- Hearts (center) ---
+            Sprite heartSprite = Resources.Load<Sprite>("UI/heart");
+            float heartSize = 48f;
+            float heartSpacing = 8f;
+            float totalHeartsW = LivesManager.ViesDepart * heartSize + (LivesManager.ViesDepart - 1) * heartSpacing;
+            float headerWidth = header is RectTransform hrt && hrt.rect.width > 0f ? hrt.rect.width : 1080f;
+            float heartsStartX = (headerWidth - totalHeartsW) * 0.5f;
+
+            for (int i = 0; i < LivesManager.ViesDepart; i++)
+            {
+                var heartObj = CreerObjetUI($"Coeur{i}", header);
+                var heartRect = heartObj.GetComponent<RectTransform>();
+                heartRect.anchorMin = new Vector2(0f, 0.5f);
+                heartRect.anchorMax = new Vector2(0f, 0.5f);
+                heartRect.pivot = new Vector2(0.5f, 0.5f);
+                heartRect.sizeDelta = new Vector2(heartSize, heartSize);
+                heartRect.anchoredPosition = new Vector2(
+                    heartsStartX + i * (heartSize + heartSpacing),
+                    y);
+
+                _heartImages[i] = heartObj.AddComponent<Image>();
+                _heartImages[i].sprite = heartSprite;
+                _heartImages[i].type = Image.Type.Simple;
+                _heartImages[i].preserveAspect = true;
+                _heartImages[i].color = HeartFullColor;
+                _heartImages[i].raycastTarget = false;
+                _heartRoots[i] = heartObj;
+            }
+
+            // --- Hint pill (right) ---
+            float hintW = 132f;
+            float hintX = -HeaderPadding - hintW;
+
+            var hintPill = CreerObjetUI("HintPill", header);
+            var hpRect = hintPill.GetComponent<RectTransform>();
+            hpRect.anchorMin = new Vector2(1f, 0.5f);
+            hpRect.anchorMax = new Vector2(1f, 0.5f);
+            hpRect.pivot = new Vector2(1f, 0.5f);
+            hpRect.sizeDelta = new Vector2(hintW, pillH);
+            hpRect.anchoredPosition = new Vector2(hintX, y);
+            AjouterOmbre(hpRect, header, 3f, -5f);
+
+            _indiceButtonBg = hintPill.AddComponent<Image>();
+            _indiceButtonBg.sprite = GetPiluleSprite();
+            _indiceButtonBg.type = Image.Type.Simple;
+            _indiceButtonBg.color = HintPillBg;
+            _indiceButtonBg.raycastTarget = true;
+
+            _indiceButton = hintPill.AddComponent<Button>();
+            _indiceButton.targetGraphic = _indiceButtonBg;
+            _indiceButton.onClick.AddListener(() => OnIndiceDemande?.Invoke());
+
+            // Potion icon
+            Sprite potionSprite = Resources.Load<Sprite>("UI/potion");
+            var iconObj = CreerObjetUI("IndiceIcone", hintPill.transform);
+            var iconRect = iconObj.GetComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0f, 0.5f);
+            iconRect.anchorMax = new Vector2(0f, 0.5f);
+            iconRect.pivot = new Vector2(0.5f, 0.5f);
+            iconRect.sizeDelta = new Vector2(34f, 34f);
+            iconRect.anchoredPosition = new Vector2(28f, 0f);
+
+            _indiceIconImage = iconObj.AddComponent<Image>();
+            _indiceIconImage.sprite = potionSprite;
+            _indiceIconImage.type = Image.Type.Simple;
+            _indiceIconImage.preserveAspect = true;
+            _indiceIconImage.color = HintPillTextColor;
+            _indiceIconImage.raycastTarget = false;
+
+            // Count text
+            var countObj = CreerObjetUI("IndiceNombre", hintPill.transform);
+            var countRect = countObj.GetComponent<RectTransform>();
+            countRect.anchorMin = new Vector2(0f, 0f);
+            countRect.anchorMax = new Vector2(1f, 1f);
+            countRect.offsetMin = new Vector2(52f, 0f);
+            countRect.offsetMax = new Vector2(-12f, 0f);
+
+            _indiceCountText = countObj.AddComponent<TextMeshProUGUI>();
+            _indiceCountText.font = _fontTitle;
+            _indiceCountText.text = _indiceCount.ToString();
+            _indiceCountText.fontSize = 30;
+            _indiceCountText.alignment = TextAlignmentOptions.MidlineRight;
+            _indiceCountText.color = HintPillTextColor;
+            _indiceCountText.fontStyle = FontStyles.Bold;
+            _indiceCountText.raycastTarget = false;
+
+            UpdateIndiceButtonState();
+            StartIndiceBounce();
+        }
+
+        private void CreerPiluleNiveau(Transform parent, int numero, float y)
         {
             var pilule = CreerObjetUI("NiveauPilule", parent);
             var piluleRect = pilule.GetComponent<RectTransform>();
             piluleRect.anchorMin = new Vector2(0.5f, 0.5f);
             piluleRect.anchorMax = new Vector2(0.5f, 0.5f);
             piluleRect.pivot = new Vector2(0.5f, 0.5f);
-            piluleRect.sizeDelta = new Vector2(200f, 50f);
-            piluleRect.anchoredPosition = Vector2.zero;
+            piluleRect.sizeDelta = new Vector2(240f, 54f);
+            piluleRect.anchoredPosition = new Vector2(0f, y);
+            AjouterOmbre(piluleRect, parent, 3f, -5f);
 
             var piluleImg = pilule.AddComponent<Image>();
             piluleImg.sprite = GetPiluleSprite();
@@ -198,7 +396,7 @@ namespace Zoodoku
             var text = texte.AddComponent<TextMeshProUGUI>();
             text.font = _fontTitle;
             text.text = $"Niveau {numero}";
-            text.fontSize = 28;
+            text.fontSize = 34;
             text.alignment = TextAlignmentOptions.Center;
             text.color = Color.white;
             text.fontStyle = FontStyles.Bold;
@@ -214,12 +412,11 @@ namespace Zoodoku
             var container = CreerObjetUI("RegleBar", canvas.transform);
             var rect = container.GetComponent<RectTransform>();
 
-            // Sous l'en-tête
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(1f, 1f);
             rect.pivot = new Vector2(0.5f, 1f);
             rect.sizeDelta = new Vector2(0f, RuleBarHeight);
-            rect.anchoredPosition = new Vector2(0f, -HeaderHeight);
+            rect.anchoredPosition = new Vector2(0f, -_headerBottom);
 
             CreerCarteRegle(container.transform, "\u25CB", "1 par couleur", 0);
             CreerCarteRegle(container.transform, "\u25A1", "1 par ligne\net colonne", 1);
@@ -228,7 +425,7 @@ namespace Zoodoku
 
         private void CreerCarteRegle(Transform parent, string icone, string label, int index)
         {
-            float cardWidth = 320f;
+            float cardWidth = CalcCardWidth(parent);
             float cardHeight = RuleBarHeight - 20f;
             float spacing = 20f;
             float totalWidth = 3f * cardWidth + 2f * spacing;
@@ -254,8 +451,8 @@ namespace Zoodoku
             var ombreRect = ombre.GetComponent<RectTransform>();
             ombreRect.anchorMin = Vector2.zero;
             ombreRect.anchorMax = Vector2.one;
-            ombreRect.offsetMin = new Vector2(2f, -3f);
-            ombreRect.offsetMax = new Vector2(2f, -3f);
+            ombreRect.offsetMin = new Vector2(4f, -5f);
+            ombreRect.offsetMax = new Vector2(4f, -5f);
             var ombreImg = ombre.AddComponent<Image>();
             ombreImg.color = CardShadowColor;
             ombreImg.raycastTarget = false;
@@ -267,13 +464,13 @@ namespace Zoodoku
             iconRect.anchorMin = new Vector2(0f, 0f);
             iconRect.anchorMax = new Vector2(0f, 1f);
             iconRect.pivot = new Vector2(0.5f, 0.5f);
-            iconRect.sizeDelta = new Vector2(50f, 0f);
-            iconRect.anchoredPosition = new Vector2(38f, 0f);
+            iconRect.sizeDelta = new Vector2(56f, 0f);
+            iconRect.anchoredPosition = new Vector2(46f, 0f);
 
             var iconText = iconObj.AddComponent<TextMeshProUGUI>();
             iconText.font = _fontBody;
             iconText.text = icone;
-            iconText.fontSize = 32;
+            iconText.fontSize = 38;
             iconText.alignment = TextAlignmentOptions.Center;
             iconText.color = IconTextColor;
             iconText.raycastTarget = false;
@@ -283,13 +480,13 @@ namespace Zoodoku
             var labelRect = labelObj.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;
             labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = new Vector2(72f, 8f);
-            labelRect.offsetMax = new Vector2(-8f, -8f);
+            labelRect.offsetMin = new Vector2(88f, 10f);
+            labelRect.offsetMax = new Vector2(-10f, -10f);
 
             var labelText = labelObj.AddComponent<TextMeshProUGUI>();
             labelText.font = _fontBody;
             labelText.text = label;
-            labelText.fontSize = 22;
+            labelText.fontSize = 26;
             labelText.alignment = TextAlignmentOptions.MidlineLeft;
             labelText.color = ScoreValueColor;
             labelText.lineSpacing = 0f;
@@ -297,82 +494,64 @@ namespace Zoodoku
         }
 
         // ------------------------------------------------------------------
-        // 3) SCORE + CŒURS : éléments directs sur le canvas.
-        //    Score à gauche, cœurs à droite, même ligne.
+        // 4) CŒURS : animations.
         // ------------------------------------------------------------------
-
-        private void BuildBarreInfo(Canvas canvas)
-        {
-            float yOffset = HeaderHeight + RuleBarHeight + 10f;
-
-            // --- Score : label au-dessus, valeur en dessous, ancré en haut-gauche ---
-            var scoreLabel = CreerObjetUI("ScoreLabel", canvas.transform);
-            var slRect = scoreLabel.GetComponent<RectTransform>();
-            slRect.anchorMin = new Vector2(0f, 1f);
-            slRect.anchorMax = new Vector2(0f, 1f);
-            slRect.pivot = new Vector2(0f, 1f);
-            slRect.sizeDelta = new Vector2(200f, 30f);
-            slRect.anchoredPosition = new Vector2(35f, -yOffset);
-
-            var slText = scoreLabel.AddComponent<TextMeshProUGUI>();
-            slText.font = _fontBody;
-            slText.text = "Score";
-            slText.fontSize = 22;
-            slText.alignment = TextAlignmentOptions.TopLeft;
-            slText.color = ScoreLabelColor;
-            slText.raycastTarget = false;
-
-            var scoreValue = CreerObjetUI("ScoreValue", canvas.transform);
-            var svRect = scoreValue.GetComponent<RectTransform>();
-            svRect.anchorMin = new Vector2(0f, 1f);
-            svRect.anchorMax = new Vector2(0f, 1f);
-            svRect.pivot = new Vector2(0f, 1f);
-            svRect.sizeDelta = new Vector2(200f, 55f);
-            svRect.anchoredPosition = new Vector2(35f, -(yOffset + 30f));
-
-            _scoreValueText = scoreValue.AddComponent<TextMeshProUGUI>();
-            _scoreValueText.font = _fontTitle;
-            _scoreValueText.text = _score.ToString();
-            _scoreValueText.fontSize = 44;
-            _scoreValueText.alignment = TextAlignmentOptions.MidlineLeft;
-            _scoreValueText.color = ScoreValueColor;
-            _scoreValueText.fontStyle = FontStyles.Bold;
-            _scoreValueText.raycastTarget = false;
-
-            // --- Cœurs : 3 images heart.png ancrées en haut-droite, espacées ---
-            Sprite heartSprite = Resources.Load<Sprite>("UI/heart");
-            float heartSize = 56f;
-            float heartSpacing = 10f;
-            float totalHeartsW = LivesManager.ViesDepart * heartSize + (LivesManager.ViesDepart - 1) * heartSpacing;
-            float heartsStartX = -35f - totalHeartsW;
-
-            for (int i = 0; i < LivesManager.ViesDepart; i++)
-            {
-                var heartObj = CreerObjetUI($"Coeur{i}", canvas.transform);
-                var heartRect = heartObj.GetComponent<RectTransform>();
-                heartRect.anchorMin = new Vector2(1f, 1f);
-                heartRect.anchorMax = new Vector2(1f, 1f);
-                heartRect.pivot = new Vector2(0f, 1f);
-                heartRect.sizeDelta = new Vector2(heartSize, heartSize);
-                heartRect.anchoredPosition = new Vector2(
-                    heartsStartX + i * (heartSize + heartSpacing),
-                    -yOffset);
-
-                _heartImages[i] = heartObj.AddComponent<Image>();
-                _heartImages[i].sprite = heartSprite;
-                _heartImages[i].type = Image.Type.Simple;
-                _heartImages[i].preserveAspect = true;
-                _heartImages[i].color = HeartFullColor;
-                _heartImages[i].raycastTarget = false;
-                _heartRoots[i] = heartObj;
-            }
-        }
 
         public void SetScore(int score)
         {
+            if (score == _score)
+                return;
+            bool decreased = score < _score;
             _score = score;
             if (_scoreValueText != null)
                 _scoreValueText.text = _score.ToString();
+
+            if (decreased)
+                PunchScore();
+        }
+
+        /// <summary>Petit punch rouge sur la pilule de score quand le score diminue.</summary>
+        private void PunchScore()
+        {
+            if (_scorePillBg == null || !Application.isPlaying)
+                return;
+
+            if (_scorePunchRoutine != null)
+                StopCoroutine(_scorePunchRoutine);
+            _scorePunchRoutine = StartCoroutine(ScorePunchRoutine());
+        }
+
+        private IEnumerator ScorePunchRoutine()
+        {
+            Color original = _scorePillBgColor;
+            _scorePillBgColor = ScorePunchBgColor;
+            if (_scorePillBg != null)
+                _scorePillBg.color = ScorePunchBgColor;
+
+            float duration = 0.35f;
+            float elapsed = 0f;
+            RectTransform pill = _scorePillRect;
+
+            while (elapsed < duration)
+            {
+                float t = Mathf.Clamp01(elapsed / duration);
+                float scaleFactor = t < 0.5f
+                    ? Mathf.Lerp(1f, 1.18f, Easing.EaseOutQuad(t * 2f))
+                    : Mathf.Lerp(1.18f, 1f, Easing.EaseOutBack((t - 0.5f) * 2f));
+
+                if (pill != null)
+                    pill.localScale = new Vector3(scaleFactor, scaleFactor, scaleFactor);
+
+                _scorePillBg.color = Color.Lerp(ScorePunchBgColor, original, Easing.EaseOutQuad(t));
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            if (pill != null)
+                pill.localScale = Vector3.one;
+            _scorePillBg.color = original;
+            _scorePillBgColor = original;
+            _scorePunchRoutine = null;
         }
 
         public void SetVies(int vies)
@@ -446,69 +625,6 @@ namespace Zoodoku
 
             UpdateIndiceButtonState();
             return true;
-        }
-
-        // ------------------------------------------------------------------
-        // 5) COMPTEUR D'INDICES (en bas de l'écran)
-        // ------------------------------------------------------------------
-
-        private void BuildCompteurIndice(Canvas canvas)
-        {
-            var container = CreerObjetUI("IndiceContainer", canvas.transform);
-            var rect = container.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0f);
-            rect.anchorMax = new Vector2(0.5f, 0f);
-            rect.pivot = new Vector2(0.5f, 0f);
-            rect.sizeDelta = new Vector2(140f, 80f);
-            rect.anchoredPosition = new Vector2(0f, 15f);
-
-            _indiceButtonBg = container.AddComponent<Image>();
-            _indiceButtonBg.sprite = GetPiluleSprite();
-            _indiceButtonBg.type = Image.Type.Simple;
-            _indiceButtonBg.color = new Color(1f, 1f, 1f, 0.85f);
-            _indiceButtonBg.raycastTarget = true;
-
-            _indiceButton = container.AddComponent<Button>();
-            _indiceButton.targetGraphic = _indiceButtonBg;
-            _indiceButton.onClick.AddListener(() => OnIndiceDemande?.Invoke());
-
-            // Icône potion.png
-            Sprite potionSprite = Resources.Load<Sprite>("UI/potion");
-            var iconObj = CreerObjetUI("IndiceIcone", container.transform);
-            var iconRect = iconObj.GetComponent<RectTransform>();
-            iconRect.anchorMin = new Vector2(0.5f, 0.5f);
-            iconRect.anchorMax = new Vector2(0.5f, 0.5f);
-            iconRect.pivot = new Vector2(0.5f, 0.5f);
-            iconRect.sizeDelta = new Vector2(44f, 44f);
-            iconRect.anchoredPosition = new Vector2(-20f, 6f);
-
-            _indiceIconImage = iconObj.AddComponent<Image>();
-            _indiceIconImage.sprite = potionSprite;
-            _indiceIconImage.type = Image.Type.Simple;
-            _indiceIconImage.preserveAspect = true;
-            _indiceIconImage.color = Color.white;
-            _indiceIconImage.raycastTarget = false;
-
-            // Nombre
-            var countObj = CreerObjetUI("IndiceNombre", container.transform);
-            var countRect = countObj.GetComponent<RectTransform>();
-            countRect.anchorMin = new Vector2(0.5f, 0.5f);
-            countRect.anchorMax = new Vector2(0.5f, 0.5f);
-            countRect.pivot = new Vector2(0.5f, 0.5f);
-            countRect.sizeDelta = new Vector2(40f, 40f);
-            countRect.anchoredPosition = new Vector2(18f, 0f);
-
-            _indiceCountText = countObj.AddComponent<TextMeshProUGUI>();
-            _indiceCountText.font = _fontTitle;
-            _indiceCountText.text = _indiceCount.ToString();
-            _indiceCountText.fontSize = 30;
-            _indiceCountText.alignment = TextAlignmentOptions.Center;
-            _indiceCountText.color = HintCountColor;
-            _indiceCountText.fontStyle = FontStyles.Bold;
-            _indiceCountText.raycastTarget = false;
-
-            UpdateIndiceButtonState();
-            StartIndiceBounce();
         }
 
         private void StartIndiceBounce()
@@ -591,13 +707,13 @@ namespace Zoodoku
             overlayImg.color = OverlayColor;
             overlayImg.raycastTarget = true;
 
-            // Panneau central
+            // Panneau central (agrandi pour le hibou)
             _defaitePanel = CreerObjetUI("DefaitePanel", _gameOverRoot.transform);
             var panelRect = _defaitePanel.GetComponent<RectTransform>();
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.pivot = new Vector2(0.5f, 0.5f);
-            panelRect.sizeDelta = new Vector2(700f, 400f);
+            panelRect.sizeDelta = new Vector2(700f, 480f);
             panelRect.anchoredPosition = Vector2.zero;
 
             var panelImg = _defaitePanel.AddComponent<Image>();
@@ -605,11 +721,31 @@ namespace Zoodoku
             panelImg.type = Image.Type.Simple;
             panelImg.color = Color.white;
 
-            // Titre « Niveau échoué »
+            // Hibou mascotte — inclinaison triste à -12°
+            Sprite owlSprite = Resources.Load<Sprite>("Art/Animals/owl");
+            if (owlSprite != null)
+            {
+                var owlObj = CreerObjetUI("DefeatOwl", _defaitePanel.transform);
+                var owlRect = owlObj.GetComponent<RectTransform>();
+                owlRect.anchorMin = new Vector2(0.5f, 0.82f);
+                owlRect.anchorMax = new Vector2(0.5f, 0.82f);
+                owlRect.pivot = new Vector2(0.5f, 0.5f);
+                owlRect.sizeDelta = new Vector2(110f, 110f);
+                owlRect.anchoredPosition = Vector2.zero;
+                owlRect.localRotation = Quaternion.Euler(0f, 0f, -12f);
+
+                _defeatOwl = owlObj.AddComponent<Image>();
+                _defeatOwl.sprite = owlSprite;
+                _defeatOwl.preserveAspect = true;
+                _defeatOwl.color = new Color(1f, 1f, 1f, 0f);
+                _defeatOwl.raycastTarget = false;
+            }
+
+            // Titre « Niveau échoué » (décalé vers le bas)
             var titreObj = CreerObjetUI("Titre", _defaitePanel.transform);
             var titreRect = titreObj.GetComponent<RectTransform>();
-            titreRect.anchorMin = new Vector2(0f, 0.65f);
-            titreRect.anchorMax = new Vector2(1f, 0.90f);
+            titreRect.anchorMin = new Vector2(0f, 0.58f);
+            titreRect.anchorMax = new Vector2(1f, 0.78f);
             titreRect.offsetMin = Vector2.zero;
             titreRect.offsetMax = Vector2.zero;
 
@@ -625,8 +761,8 @@ namespace Zoodoku
             // Sous-titre « Plus de vies ! »
             var sousObj = CreerObjetUI("SousTitre", _defaitePanel.transform);
             var sousRect = sousObj.GetComponent<RectTransform>();
-            sousRect.anchorMin = new Vector2(0f, 0.48f);
-            sousRect.anchorMax = new Vector2(1f, 0.65f);
+            sousRect.anchorMin = new Vector2(0f, 0.42f);
+            sousRect.anchorMax = new Vector2(1f, 0.58f);
             sousRect.offsetMin = Vector2.zero;
             sousRect.offsetMax = Vector2.zero;
 
@@ -641,8 +777,8 @@ namespace Zoodoku
             // Bouton « Réessayer »
             var btnObj = CreerObjetUI("BtnReessayer", _defaitePanel.transform);
             var btnRect = btnObj.GetComponent<RectTransform>();
-            btnRect.anchorMin = new Vector2(0.5f, 0.10f);
-            btnRect.anchorMax = new Vector2(0.5f, 0.10f);
+            btnRect.anchorMin = new Vector2(0.5f, 0.08f);
+            btnRect.anchorMax = new Vector2(0.5f, 0.08f);
             btnRect.pivot = new Vector2(0.5f, 0.5f);
             btnRect.sizeDelta = new Vector2(320f, 70f);
             btnRect.anchoredPosition = Vector2.zero;
@@ -698,6 +834,37 @@ namespace Zoodoku
                 _overlay.SetActive(true);
             if (_defaitePanel != null)
                 _defaitePanel.SetActive(true);
+
+            if (_defeatOwl != null)
+                StartCoroutine(DefeatOwlFadeInRoutine());
+        }
+
+        private IEnumerator DefeatOwlFadeInRoutine()
+        {
+            Transform owlT = _defeatOwl.transform;
+            float startY = owlT.localPosition.y + 20f;
+            float endY = owlT.localPosition.y;
+            float duration = 0.6f;
+            float elapsed = 0f;
+
+            owlT.localPosition = new Vector3(owlT.localPosition.x, startY, owlT.localPosition.z);
+            _defeatOwl.color = new Color(1f, 1f, 1f, 0f);
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                float eased = Easing.EaseOutCubic(t);
+                _defeatOwl.color = new Color(1f, 1f, 1f, eased);
+                owlT.localPosition = Vector3.Lerp(
+                    new Vector3(owlT.localPosition.x, startY, owlT.localPosition.z),
+                    new Vector3(owlT.localPosition.x, endY, owlT.localPosition.z),
+                    eased);
+                yield return null;
+            }
+
+            _defeatOwl.color = Color.white;
+            owlT.localPosition = new Vector3(owlT.localPosition.x, endY, owlT.localPosition.z);
         }
 
         public void CacherDefaite()
@@ -706,6 +873,12 @@ namespace Zoodoku
                 _overlay.SetActive(false);
             if (_defaitePanel != null)
                 _defaitePanel.SetActive(false);
+
+            if (_defeatOwl != null)
+            {
+                _defeatOwl.color = new Color(1f, 1f, 1f, 0f);
+                _defeatOwl.transform.localPosition = Vector3.zero;
+            }
         }
 
         // ------------------------------------------------------------------
@@ -752,9 +925,31 @@ namespace Zoodoku
             return go;
         }
 
-        private static void CreerRemplissage(RectTransform rect, float hauteur, bool ancreHaut)
+        /// <summary>
+        /// Ajoute une ombre portée douce sous un élément (pilule...). L'ombre est
+        /// insérée comme frère juste derrière l'élément, calquée sur sa position.
+        /// </summary>
+        private void AjouterOmbre(RectTransform target, Transform holder, float offX, float offY)
         {
-            if (ancreHaut)
+            var ombre = CreerObjetUI("Ombre", holder);
+            var ombreRect = ombre.GetComponent<RectTransform>();
+            ombreRect.anchorMin = target.anchorMin;
+            ombreRect.anchorMax = target.anchorMax;
+            ombreRect.pivot = target.pivot;
+            ombreRect.sizeDelta = target.sizeDelta;
+            ombreRect.anchoredPosition = target.anchoredPosition + new Vector2(offX, offY);
+            var ombreImg = ombre.AddComponent<Image>();
+            ombreImg.sprite = GetPiluleSprite();
+            ombreImg.type = Image.Type.Simple;
+            ombreImg.color = ShadowColor;
+            ombreImg.raycastTarget = false;
+            ombreImg.rectTransform.SetAsLastSibling();
+            if (target.parent != null)
+                ombreImg.rectTransform.SetSiblingIndex(target.GetSiblingIndex());
+        }
+
+        private static void CreerRemplissage(RectTransform rect, float hauteur, bool ancreHaut)
+        {            if (ancreHaut)
             {
                 rect.anchorMin = new Vector2(0f, 1f);
                 rect.anchorMax = new Vector2(1f, 1f);
@@ -841,7 +1036,7 @@ namespace Zoodoku
             iconImage.sprite = iconSprite;
             iconImage.type = Image.Type.Simple;
             iconImage.preserveAspect = true;
-            iconImage.color = ScoreValueColor;
+            iconImage.color = Color.white;
             iconImage.raycastTarget = false;
 
             return btn;
@@ -852,9 +1047,21 @@ namespace Zoodoku
         /// caractère texte pour l'icône. Utilisé pour la carte "diagonale" dont
         /// le caractère ↘ n'est pas rendu correctement par la police.
         /// </summary>
+        /// <summary>Largeur d'une carte de règle, proportionnelle à la largeur du conteneur (robuste aux ratios).</summary>
+        private static float CalcCardWidth(Transform parent)
+        {
+            if (parent is RectTransform prt && prt.rect.width > 0f)
+            {
+                // 3 cartes + 2 espaces de 20px, avec une marge de 20px de chaque côté.
+                float usable = prt.rect.width - 2f * 20f - 2f * 20f;
+                return Mathf.Clamp(usable / 3f, 220f, 360f);
+            }
+            return 320f;
+        }
+
         private void CreerCarteRegleIcone(Transform parent, Sprite iconSprite, string label, int index)
         {
-            float cardWidth = 320f;
+            float cardWidth = CalcCardWidth(parent);
             float cardHeight = RuleBarHeight - 20f;
             float spacing = 20f;
             float totalWidth = 3f * cardWidth + 2f * spacing;
@@ -880,8 +1087,8 @@ namespace Zoodoku
             var ombreRect = ombre.GetComponent<RectTransform>();
             ombreRect.anchorMin = Vector2.zero;
             ombreRect.anchorMax = Vector2.one;
-            ombreRect.offsetMin = new Vector2(2f, -3f);
-            ombreRect.offsetMax = new Vector2(2f, -3f);
+            ombreRect.offsetMin = new Vector2(4f, -5f);
+            ombreRect.offsetMax = new Vector2(4f, -5f);
             var ombreImg = ombre.AddComponent<Image>();
             ombreImg.color = CardShadowColor;
             ombreImg.raycastTarget = false;
@@ -893,8 +1100,8 @@ namespace Zoodoku
             iconRect.anchorMin = new Vector2(0f, 0f);
             iconRect.anchorMax = new Vector2(0f, 1f);
             iconRect.pivot = new Vector2(0.5f, 0.5f);
-            iconRect.sizeDelta = new Vector2(50f, 0f);
-            iconRect.anchoredPosition = new Vector2(38f, 0f);
+            iconRect.sizeDelta = new Vector2(56f, 0f);
+            iconRect.anchoredPosition = new Vector2(46f, 0f);
 
             var iconImage = iconObj.AddComponent<Image>();
             iconImage.sprite = iconSprite;
@@ -908,13 +1115,13 @@ namespace Zoodoku
             var labelRect = labelObj.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;
             labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = new Vector2(72f, 8f);
-            labelRect.offsetMax = new Vector2(-8f, -8f);
+            labelRect.offsetMin = new Vector2(88f, 10f);
+            labelRect.offsetMax = new Vector2(-10f, -10f);
 
             var labelText = labelObj.AddComponent<TextMeshProUGUI>();
             labelText.font = _fontBody;
             labelText.text = label;
-            labelText.fontSize = 22;
+            labelText.fontSize = 26;
             labelText.alignment = TextAlignmentOptions.MidlineLeft;
             labelText.color = ScoreValueColor;
             labelText.lineSpacing = 0f;
@@ -947,7 +1154,7 @@ namespace Zoodoku
         private static Sprite GetSettingsSprite()
         {
             if (_settingsSprite == null)
-                _settingsSprite = CreerSpriteEngrenage(128);
+                _settingsSprite = Resources.Load<Sprite>("UI/settings");
             return _settingsSprite;
         }
 

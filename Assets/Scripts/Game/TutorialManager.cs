@@ -4,12 +4,12 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using Zoodoku.Core;
+using Zoologic.Core;
 
-namespace Zoodoku
+namespace Zoologic
 {
     /// <summary>
-    /// Mode Tutoriel : enseigne les règles du Zoodoku sur une grille 4x4 fixe, étape
+    /// Mode Tutoriel : enseigne les règles du Zoologic sur une grille 4x4 fixe, étape
     /// par étape, avec des messages, des surbrillances pulsantes et des interactions
     /// guidées.
     ///
@@ -43,10 +43,6 @@ namespace Zoodoku
         private const float HighlightAlphaMax = 0.95f;
         private const float HighlightScaleAmp = 0.05f;
         private const float HighlightSpeed = 4.5f;
-
-        // Fond d'écran : même dégradé que le mode jeu.
-        private static readonly Color BackgroundTopColor = new Color(0.97f, 0.96f, 0.93f);
-        private static readonly Color BackgroundBottomColor = new Color(0.84f, 0.91f, 0.97f);
 
         private GridView _gridView;
         private PuzzleGrid _grid;
@@ -85,7 +81,6 @@ namespace Zoodoku
 
             _grid = new PuzzleGrid(TutorialRegions);
             _gridView.OnCellTapped = HandleCellTapped;
-            _gridView.OnCellLongPressed = null; // l'appui long n'a pas de rôle dans le tutoriel
             _gridView.Build(_grid, _canvasRect);
 
             LocateCells();
@@ -115,7 +110,7 @@ namespace Zoodoku
         {
             SetAccept(false);
             SetHighlights(new (int, int)[] { (0, 0), (0, 1), (1, 0), (1, 1) });
-            SetMessage("Bienvenue dans le Zoodoku ! Règle n°1 : UN SEUL pion par zone colorée.");
+            SetMessage("Bienvenue dans le Zoologic ! Règle n°1 : UN SEUL pion par zone colorée.");
             yield return new WaitForSecondsRealtime(2f);
 
             PlacePiece(0, 0);
@@ -292,7 +287,7 @@ namespace Zoodoku
             }
 
             SetAccept(false);
-            SetMessage("Bravo, grille résolue ! Le Zoodoku est terminé.");
+            SetMessage("Bravo, grille résolue ! Le Zoologic est terminé.");
             yield return new WaitForSecondsRealtime(3f);
         }
 
@@ -499,13 +494,13 @@ namespace Zoodoku
         {
             Transform board = _canvasRect.Find("Board");
             if (board == null)
-                throw new InvalidOperationException("[Zoodoku] TutorialManager : Board introuvable après Build.");
+                throw new InvalidOperationException("[Zoologic] TutorialManager : Board introuvable après Build.");
 
             CellView[] views = board.GetComponentsInChildren<CellView>(true);
             int n = _grid.Size;
             if (views.Length != n * n)
                 throw new InvalidOperationException(
-                    "[Zoodoku] TutorialManager : attendu " + (n * n) + " cases, obtenu " + views.Length + ".");
+                    "[Zoologic] TutorialManager : attendu " + (n * n) + " cases, obtenu " + views.Length + ".");
 
             _cells = new CellView[n, n];
             for (int i = 0; i < views.Length; i++)
@@ -546,19 +541,7 @@ namespace Zoodoku
 
         private void CreateBackground(Canvas canvas)
         {
-            var gameObject = new GameObject("Background", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            gameObject.transform.SetParent(canvas.transform, false);
-
-            var rect = (RectTransform)gameObject.transform;
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-
-            var image = gameObject.GetComponent<Image>();
-            image.sprite = CreateVerticalGradientSprite(BackgroundTopColor, BackgroundBottomColor);
-            image.type = Image.Type.Simple;
-            image.raycastTarget = false;
+            BackgroundHelper.ApplyBackground(canvas.transform);
         }
 
         private void CreateMessagePanel(Canvas canvas)
@@ -603,23 +586,6 @@ namespace Zoodoku
             var outline = textGameObject.AddComponent<Outline>();
             outline.effectColor = new Color(0f, 0f, 0f, 0.7f);
             outline.effectDistance = new Vector2(1.5f, -1.5f);
-        }
-
-        private static Sprite CreateVerticalGradientSprite(Color top, Color bottom)
-        {
-            const int height = 64;
-            var texture = new Texture2D(1, height, TextureFormat.RGBA32, false);
-            texture.wrapMode = TextureWrapMode.Clamp;
-            texture.filterMode = FilterMode.Bilinear;
-
-            for (int y = 0; y < height; y++)
-            {
-                float t = y / (float)(height - 1);
-                texture.SetPixel(0, y, Color.Lerp(bottom, top, t));
-            }
-
-            texture.Apply();
-            return Sprite.Create(texture, new Rect(0f, 0f, 1f, height), new Vector2(0.5f, 0.5f));
         }
 
         /// <summary>Panneau du message : rectangle à coins arrondis (aucun asset).</summary>
