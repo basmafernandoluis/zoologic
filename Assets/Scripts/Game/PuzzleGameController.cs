@@ -63,6 +63,13 @@ namespace Zoologic
         private const int ScorePenaliteConflit = 15;
         private int _totalPenaliteCumul;
 
+        // Économie : récompense en pièces à la victoire.
+        private const int CoinBaseReward = 40;
+        private const int CoinStarBonus = 10;
+
+        // Économie : coût d'un indice acheté lorsque les indices gratuits sont épuisés.
+        public const int IndiceCout = 20;
+
         // Double-tap detection
         private const float DoubleTapWindow = 0.3f;
         private float _lastTapTime;
@@ -436,13 +443,31 @@ namespace Zoologic
             if (_partieTerminee)
                 return;
 
+            // Mode achat : lorsque les indices gratuits sont épuisés, l'indice coûte
+            // des pièces. On valide la solvabilité avant d'afficher le guide.
+            bool purchaseMode = _hud.IndiceCount <= 0;
+            if (purchaseMode && !CurrencyManager.HasCoins(IndiceCout))
+            {
+                _hud.NotifierPiècesInsuffisantes(IndiceCout);
+                return;
+            }
+
             bool success = _gridView.RequestHint();
 
             if (!success)
                 return;
 
-            _hud.DecrementIndice();
-            SFXManager.Instance.PlayUnlock();
+            if (!purchaseMode)
+            {
+                _hud.DecrementIndice();
+                SFXManager.Instance.PlayUnlock();
+            }
+            else
+            {
+                CurrencyManager.SpendCoins(IndiceCout);
+                SFXManager.Instance.PlayUnlock();
+                _hud.RefreshCoins();
+            }
         }
 
         // ------------------------------------------------------------------
@@ -596,6 +621,10 @@ namespace Zoologic
 
             LevelProgressManager.SetStars(_numeroNiveau, stars);
             LevelProgressManager.UnlockNextLevel(_numeroNiveau);
+
+            int coinReward = CoinBaseReward + stars * CoinStarBonus;
+            CurrencyManager.AddCoins(coinReward);
+            _hud.RefreshCoins();
 
             Canvas canvas = FindFirstObjectByType<Canvas>();
             if (canvas != null)

@@ -64,6 +64,8 @@ namespace Zoologic
         private static readonly Color ScorePillTextColor = new Color(0.42f, 0.28f, 0.02f, 1f);
         private static readonly Color HintPillBg = new Color(0.78f, 0.89f, 1f, 1f);
         private static readonly Color HintPillTextColor = new Color(0.10f, 0.35f, 0.78f, 1f);
+        private static readonly Color CoinPillTextColor = new Color(0.75f, 0.55f, 0.05f, 1f);
+        private static readonly Color CoinInsufficientColor = new Color(0.85f, 0.30f, 0.30f, 1f);
         private static readonly Color ScoreLabelColor = new Color(0.50f, 0.52f, 0.56f, 1f);
         private static readonly Color ScoreValueColor = new Color(0.13f, 0.13f, 0.15f, 1f);
         private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.28f);
@@ -100,6 +102,13 @@ namespace Zoologic
         private int _indiceCount;
         private Image _indiceIconImage;
         private Coroutine _indiceBounceRoutine;
+
+        // Pièces : solde affiché + indicateur d'achat d'indice.
+        private TextMeshProUGUI _coinsValueText;
+        private Image _coinsIconImage;
+        private Image _indiceCoinIconImage;
+        private Sprite _coinSprite;
+        private Coroutine _toastRoutine;
 
         // Interactions bloquées
         private bool _interactionsBloquees;
@@ -341,10 +350,65 @@ namespace Zoologic
                 _heartRoots[i] = heartObj;
             }
 
-            // --- Hint pill (right) ---
+            // --- Coin pill (entre les cœurs et la pilule indice) ---
+            // Constantes de la pilule indice, déclarées ici pour positionner la pilule pièces.
             float hintW = 132f;
             float hintX = -HeaderPadding - hintW;
 
+            _coinSprite = Resources.Load<Sprite>("UI/coin");
+            float coinW = 124f;
+            float coinPillX = hintX - coinW - 16f;
+
+            var coinPill = CreerObjetUI("CoinPill", header);
+            var cpRect = coinPill.GetComponent<RectTransform>();
+            cpRect.anchorMin = new Vector2(1f, 0.5f);
+            cpRect.anchorMax = new Vector2(1f, 0.5f);
+            cpRect.pivot = new Vector2(1f, 0.5f);
+            cpRect.sizeDelta = new Vector2(coinW, pillH);
+            cpRect.anchoredPosition = new Vector2(coinPillX, y);
+            AjouterOmbre(cpRect, header, 3f, -5f);
+
+            var coinPillImg = coinPill.AddComponent<Image>();
+            coinPillImg.sprite = GetPiluleSprite();
+            coinPillImg.type = Image.Type.Simple;
+            coinPillImg.color = HintPillBg;
+            coinPillImg.raycastTarget = false;
+
+            if (_coinSprite != null)
+            {
+                var coinIconObj = CreerObjetUI("CoinIcone", coinPill.transform);
+                var coinIconRect = coinIconObj.GetComponent<RectTransform>();
+                coinIconRect.anchorMin = new Vector2(0f, 0.5f);
+                coinIconRect.anchorMax = new Vector2(0f, 0.5f);
+                coinIconRect.pivot = new Vector2(0.5f, 0.5f);
+                coinIconRect.sizeDelta = new Vector2(32f, 32f);
+                coinIconRect.anchoredPosition = new Vector2(26f, 0f);
+
+                _coinsIconImage = coinIconObj.AddComponent<Image>();
+                _coinsIconImage.sprite = _coinSprite;
+                _coinsIconImage.type = Image.Type.Simple;
+                _coinsIconImage.preserveAspect = true;
+                _coinsIconImage.color = CoinPillTextColor;
+                _coinsIconImage.raycastTarget = false;
+            }
+
+            var coinCountObj = CreerObjetUI("CoinNombre", coinPill.transform);
+            var coinCountRect = coinCountObj.GetComponent<RectTransform>();
+            coinCountRect.anchorMin = new Vector2(0f, 0f);
+            coinCountRect.anchorMax = new Vector2(1f, 1f);
+            coinCountRect.offsetMin = new Vector2(50f, 0f);
+            coinCountRect.offsetMax = new Vector2(-10f, 0f);
+
+            _coinsValueText = coinCountObj.AddComponent<TextMeshProUGUI>();
+            _coinsValueText.font = _fontTitle;
+            _coinsValueText.text = CurrencyManager.GetCoins().ToString();
+            _coinsValueText.fontSize = 30;
+            _coinsValueText.alignment = TextAlignmentOptions.MidlineRight;
+            _coinsValueText.color = CoinPillTextColor;
+            _coinsValueText.fontStyle = FontStyles.Bold;
+            _coinsValueText.raycastTarget = false;
+
+            // --- Hint pill (right) ---
             var hintPill = CreerObjetUI("HintPill", header);
             var hpRect = hintPill.GetComponent<RectTransform>();
             hpRect.anchorMin = new Vector2(1f, 0.5f);
@@ -397,6 +461,27 @@ namespace Zoologic
             _indiceCountText.color = HintPillTextColor;
             _indiceCountText.fontStyle = FontStyles.Bold;
             _indiceCountText.raycastTarget = false;
+
+            // Piécette d'achat : visible quand les indices gratuits sont épuisés
+            // (l'indice s'achète alors avec des pièces).
+            if (_coinSprite != null)
+            {
+                var coinObj = CreerObjetUI("IndiceAchatIcone", hintPill.transform);
+                var coinRect = coinObj.GetComponent<RectTransform>();
+                coinRect.anchorMin = new Vector2(1f, 0.5f);
+                coinRect.anchorMax = new Vector2(1f, 0.5f);
+                coinRect.pivot = new Vector2(0.5f, 0.5f);
+                coinRect.sizeDelta = new Vector2(22f, 22f);
+                coinRect.anchoredPosition = new Vector2(-30f, 0f);
+
+                _indiceCoinIconImage = coinObj.AddComponent<Image>();
+                _indiceCoinIconImage.sprite = _coinSprite;
+                _indiceCoinIconImage.type = Image.Type.Simple;
+                _indiceCoinIconImage.preserveAspect = true;
+                _indiceCoinIconImage.color = CoinPillTextColor;
+                _indiceCoinIconImage.raycastTarget = false;
+                _indiceCoinIconImage.gameObject.SetActive(false);
+            }
 
             UpdateIndiceButtonState();
             StartIndiceBounce();
@@ -712,22 +797,151 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Met à jour l'état visuel du bouton indice : grisé si compteur à 0.
+        /// Met à jour l'état visuel du bouton indice. Avec indices gratuits restants
+        /// il libelle le nombre restant ; à 0 il passe en « achat » : libellé du coût
+        /// en pièces + piécette d'achat. Le bouton reste cliquable tant que les
+        /// interactions ne sont pas bloquées.
         /// </summary>
         private void UpdateIndiceButtonState()
         {
-            bool enabled = _indiceCount > 0 && !_interactionsBloquees;
+            bool purchaseMode = _indiceCount <= 0;
+            bool enabled = !_interactionsBloquees;
 
             if (_indiceButton != null)
                 _indiceButton.interactable = enabled;
 
             if (_indiceIconImage != null)
-                _indiceIconImage.color = enabled ? Color.white : IndiceDisabledColor;
+                _indiceIconImage.color = enabled ? HintPillTextColor : IndiceDisabledColor;
+
+            if (_indiceCountText != null)
+            {
+                _indiceCountText.text = purchaseMode
+                    ? PuzzleGameController.IndiceCout.ToString()
+                    : _indiceCount.ToString();
+            }
+
+            if (_indiceCoinIconImage != null)
+                _indiceCoinIconImage.gameObject.SetActive(purchaseMode && enabled);
 
             if (enabled)
                 StartIndiceBounce();
             else
                 StopIndiceBounce();
+        }
+
+        /// <summary>
+        /// Rafraîchit l'affichage du solde de pièces (appelé après gain ou dépense).
+        /// </summary>
+        public void RefreshCoins()
+        {
+            if (_coinsValueText != null)
+                _coinsValueText.text = CurrencyManager.GetCoins().ToString();
+        }
+
+        /// <summary>
+        /// Court retour visuel quand le joueur n'a pas assez de pièces pour acheter un indice.
+        /// La pilule indice rougit brièvement et un petit toast affiche le manque.
+        /// </summary>
+        public void NotifierPiècesInsuffisantes(int cout)
+        {
+            if (_indiceButtonBg != null)
+            {
+                Color original = _indiceButtonBg.color;
+                _indiceButtonBg.color = CoinInsufficientColor;
+                StartCoroutine(RestoreIndiceBgRoutine(original));
+            }
+
+            if (_coinsIconImage != null)
+                Punch.FlashAlpha(this, _coinsIconImage, 0.3f, 0.4f);
+
+            ShowCoinToast($"Pas assez de pièces ({cout})");
+            Haptics.VibrateLight();
+        }
+
+        private IEnumerator RestoreIndiceBgRoutine(Color original)
+        {
+            float duration = 0.45f;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                float t = Mathf.Clamp01(elapsed / duration);
+                if (_indiceButtonBg != null)
+                    _indiceButtonBg.color = Color.Lerp(CoinInsufficientColor, original, Easing.EaseOutCubic(t));
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+            if (_indiceButtonBg != null)
+                _indiceButtonBg.color = original;
+        }
+
+        /// <summary>
+        /// Affiche un toast temporaire centré (fond sombre arrondi + texte), puis le retire.
+        /// </summary>
+        private void ShowCoinToast(string message)
+        {
+            Canvas canvas = FindFirstObjectByType<Canvas>();
+            if (canvas == null)
+                return;
+
+            GameObject existing = GameObject.Find("CoinToast");
+            if (existing != null)
+                Destroy(existing);
+
+            var toastObj = CreerObjetUI("CoinToast", canvas.transform);
+            var toastRect = toastObj.GetComponent<RectTransform>();
+            toastRect.anchorMin = new Vector2(0.5f, 0.5f);
+            toastRect.anchorMax = new Vector2(0.5f, 0.5f);
+            toastRect.pivot = new Vector2(0.5f, 0.5f);
+            toastRect.sizeDelta = new Vector2(560f, 72f);
+            toastRect.anchoredPosition = new Vector2(0f, -240f);
+
+            var toastImg = toastObj.AddComponent<Image>();
+            toastImg.sprite = GetPiluleSprite();
+            toastImg.type = Image.Type.Simple;
+            toastImg.color = new Color(0f, 0f, 0f, 0.82f);
+
+            var toastTextObj = CreerObjetUI("Text", toastObj.transform);
+            var toastTextRect = toastTextObj.GetComponent<RectTransform>();
+            toastTextRect.anchorMin = Vector2.zero;
+            toastTextRect.anchorMax = Vector2.one;
+            toastTextRect.offsetMin = Vector2.zero;
+            toastTextRect.offsetMax = Vector2.zero;
+
+            var toastText = toastTextObj.AddComponent<TextMeshProUGUI>();
+            toastText.font = _fontBody;
+            toastText.text = message;
+            toastText.fontSize = 26;
+            toastText.alignment = TextAlignmentOptions.Center;
+            toastText.color = Color.white;
+            toastText.raycastTarget = false;
+
+            if (_toastRoutine != null)
+                StopCoroutine(_toastRoutine);
+            _toastRoutine = StartCoroutine(CoinToastRoutine(toastObj));
+        }
+
+        private IEnumerator CoinToastRoutine(GameObject toastObj)
+        {
+            float duration = 1.4f;
+            float elapsed = 0f;
+            float fadeIn = 0.15f;
+
+            CanvasGroup group = toastObj.AddComponent<CanvasGroup>();
+            group.alpha = 0f;
+
+            while (elapsed < duration)
+            {
+                float t = Mathf.Clamp01(elapsed / duration);
+                group.alpha = t < fadeIn ? Easing.EaseOutQuad(t / fadeIn) : 1f;
+                if (t > 0.7f)
+                    group.alpha = 1f - Easing.EaseInQuad((t - 0.7f) / 0.3f);
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            if (toastObj != null)
+                Destroy(toastObj);
+            _toastRoutine = null;
         }
 
         // ------------------------------------------------------------------
@@ -959,6 +1173,7 @@ namespace Zoologic
 
             CacherDefaite();
             BloquerInteractions(false);
+            RefreshCoins();
             UpdateIndiceButtonState();
         }
 
