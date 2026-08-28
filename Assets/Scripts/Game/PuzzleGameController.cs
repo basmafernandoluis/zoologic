@@ -70,6 +70,12 @@ namespace Zoologic
         // Économie : coût d'un indice acheté lorsque les indices gratuits sont épuisés.
         public const int IndiceCout = 20;
 
+        // Économie : coût du power-up « gomme » (retire tous les pions en conflit).
+        public const int GommeCout = 30;
+
+        // Recharge (s) après usage de la gomme avant de pouvoir la racheter.
+        private const float GommeRecharge = 1.2f;
+
         // Double-tap detection
         private const float DoubleTapWindow = 0.3f;
         private float _lastTapTime;
@@ -118,6 +124,7 @@ namespace Zoologic
                 _hud.Build(canvas, _numeroNiveau);
                 _hud.OnReessayer = ReinitialiserNiveau;
                 _hud.OnIndiceDemande = DemanderIndice;
+                _hud.OnGommeDemande = UtiliserGomme;
             }
             catch (System.Exception e)
             {
@@ -468,6 +475,58 @@ namespace Zoologic
                 SFXManager.Instance.PlayUnlock();
                 _hud.RefreshCoins();
             }
+        }
+
+        /// <summary>
+        /// Utilise le power-up « gomme » : paye son coût, puis retire tous les pions
+        /// actuellement en conflit (les pions valides sont conservés).
+        /// </summary>
+        private void UtiliserGomme()
+        {
+            if (_partieTerminee)
+                return;
+
+            if (!CurrencyManager.HasCoins(GommeCout))
+            {
+                _hud.NotifierPiècesInsuffisantes(GommeCout);
+                return;
+            }
+
+            var pions = new List<(int row, int col)>(_grid.Pions);
+            var enConflit = new HashSet<(int row, int col)>();
+
+            for (int i = 0; i < pions.Count; i++)
+            {
+                for (int j = i + 1; j < pions.Count; j++)
+                {
+                    if (SontEnConflit(pions[i], pions[j]))
+                    {
+                        enConflit.Add(pions[i]);
+                        enConflit.Add(pions[j]);
+                    }
+                }
+            }
+
+            // Rien à retirer : on ne facture pas l'utilisation superflue.
+            if (enConflit.Count == 0)
+            {
+                _hud.NotifierAucuneCible();
+                return;
+            }
+
+            CurrencyManager.SpendCoins(GommeCout);
+            _hud.RefreshCoins();
+            SFXManager.Instance.PlayClickedOut();
+
+            foreach ((int row, int col) in enConflit)
+            {
+                _grid.RemovePion(row, col);
+                _gridView.SetPion(row, col, false);
+            }
+
+            _gridView.ShakeBoard(20f, 0.3f);
+            _hud.BloquerPowerUpTemporairement(GommeRecharge);
+            UpdateVictoryVisibility();
         }
 
         // ------------------------------------------------------------------

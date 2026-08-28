@@ -66,6 +66,7 @@ namespace Zoologic
         private static readonly Color HintPillTextColor = new Color(0.10f, 0.35f, 0.78f, 1f);
         private static readonly Color CoinPillTextColor = new Color(0.75f, 0.55f, 0.05f, 1f);
         private static readonly Color CoinInsufficientColor = new Color(0.85f, 0.30f, 0.30f, 1f);
+        private static readonly Color GumBgColor = new Color(0.92f, 0.36f, 0.42f, 1f);
         private static readonly Color ScoreLabelColor = new Color(0.50f, 0.52f, 0.56f, 1f);
         private static readonly Color ScoreValueColor = new Color(0.13f, 0.13f, 0.15f, 1f);
         private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.28f);
@@ -109,6 +110,11 @@ namespace Zoologic
         private Image _indiceCoinIconImage;
         private Sprite _coinSprite;
         private Coroutine _toastRoutine;
+
+        // Power-up « gomme » : bouton flottant en bas d'écran.
+        private Button _gommeButton;
+        private Image _gommeButtonBg;
+        private Coroutine _gommeRechargeRoutine;
 
         // Interactions bloquées
         private bool _interactionsBloquees;
@@ -179,6 +185,7 @@ namespace Zoologic
 
             BuildHeader(canvas, numeroNiveau);
             BuildBarreRegle(canvas);
+            BuildGommeBouton(canvas);
         }
 
         // ------------------------------------------------------------------
@@ -627,6 +634,76 @@ namespace Zoologic
         }
 
         // ------------------------------------------------------------------
+        // 3bis) POWER-UP « GOMME » : bouton flottant, coin bas-droit.
+        // ------------------------------------------------------------------
+
+        private void BuildGommeBouton(Canvas canvas)
+        {
+            float bottomMargin = 34f;
+            float rightMargin = 34f;
+            float size = 76f;
+
+            var btnObj = CreerObjetUI("GommeBouton", canvas.transform);
+            var btnRect = btnObj.GetComponent<RectTransform>();
+            btnRect.anchorMin = new Vector2(1f, 0f);
+            btnRect.anchorMax = new Vector2(1f, 0f);
+            btnRect.pivot = new Vector2(1f, 0f);
+            btnRect.sizeDelta = new Vector2(size, size);
+            btnRect.anchoredPosition = new Vector2(-rightMargin, bottomMargin);
+
+            _gommeButtonBg = btnObj.AddComponent<Image>();
+            _gommeButtonBg.sprite = GetPiluleSprite();
+            _gommeButtonBg.type = Image.Type.Simple;
+            _gommeButtonBg.color = GumBgColor;
+            _gommeButtonBg.raycastTarget = true;
+
+            AjouterOmbre(btnRect, canvas.transform, 3f, -5f);
+
+            _gommeButton = btnObj.AddComponent<Button>();
+            _gommeButton.targetGraphic = _gommeButtonBg;
+            var colors = _gommeButton.colors;
+            colors.pressedColor = new Color(0.80f, 0.62f, 0.66f, 1f);
+            _gommeButton.colors = colors;
+            _gommeButton.onClick.AddListener(() => OnGommeDemande?.Invoke());
+
+            // Icône gemme rouge (gomme corrective).
+            Sprite gemSprite = Resources.Load<Sprite>("UI/gemRed");
+            if (gemSprite != null)
+            {
+                var iconObj = CreerObjetUI("Icone", btnObj.transform);
+                var iconRect = iconObj.GetComponent<RectTransform>();
+                iconRect.anchorMin = Vector2.zero;
+                iconRect.anchorMax = Vector2.one;
+                iconRect.offsetMin = Vector2.zero;
+                iconRect.offsetMax = Vector2.zero;
+                var iconImg = iconObj.AddComponent<Image>();
+                iconImg.sprite = gemSprite;
+                iconImg.type = Image.Type.Simple;
+                iconImg.preserveAspect = true;
+                iconImg.color = Color.white;
+                iconImg.raycastTarget = false;
+            }
+
+            // Coût affiché sous l'icône (petit libellé pièce).
+            var costObj = CreerObjetUI("Cout", btnObj.transform);
+            var costRect = costObj.GetComponent<RectTransform>();
+            costRect.anchorMin = new Vector2(0f, 1f);
+            costRect.anchorMax = new Vector2(1f, 1f);
+            costRect.pivot = new Vector2(0.5f, 0f);
+            costRect.sizeDelta = new Vector2(0f, 24f);
+            costRect.anchoredPosition = new Vector2(0f, -4f);
+
+            var costText = costObj.AddComponent<TextMeshProUGUI>();
+            costText.font = _fontTitle;
+            costText.text = PuzzleGameController.GommeCout.ToString();
+            costText.fontSize = 20;
+            costText.alignment = TextAlignmentOptions.Center;
+            costText.color = Color.white;
+            costText.fontStyle = FontStyles.Bold;
+            costText.raycastTarget = false;
+        }
+
+        // ------------------------------------------------------------------
         // 4) CŒURS : animations.
         // ------------------------------------------------------------------
 
@@ -856,6 +933,46 @@ namespace Zoologic
             Haptics.VibrateLight();
         }
 
+        /// <summary>
+        /// Événement : la gomme a été demandée alors qu'aucun pion n'est en conflit
+        /// (pas de cible). Simple retour informatif, sans coût.
+        /// </summary>
+        public void NotifierAucuneCible()
+        {
+            ShowCoinToast("Aucun conflit à retirer");
+            Haptics.VibrateLight();
+        }
+
+        /// <summary>
+        /// Désactive brièvement le bouton gomme après usage (évite les doubles-clics
+        /// qui paieraient deux fois), puis le réarme.
+        /// </summary>
+        public void BloquerPowerUpTemporairement(float duree)
+        {
+            if (_gommeButton == null)
+                return;
+
+            _gommeButton.interactable = false;
+            if (_gommeButtonBg != null)
+                _gommeButtonBg.color = IndiceDisabledColor;
+
+            if (_gommeRechargeRoutine != null)
+                StopCoroutine(_gommeRechargeRoutine);
+            _gommeRechargeRoutine = StartCoroutine(RechargeGommeRoutine(duree));
+        }
+
+        private IEnumerator RechargeGommeRoutine(float duree)
+        {
+            yield return new WaitForSecondsRealtime(duree);
+
+            if (_gommeButton != null && !_interactionsBloquees)
+                _gommeButton.interactable = true;
+            if (_gommeButtonBg != null)
+                _gommeButtonBg.color = GumBgColor;
+
+            _gommeRechargeRoutine = null;
+        }
+
         private IEnumerator RestoreIndiceBgRoutine(Color original)
         {
             float duration = 0.45f;
@@ -1079,6 +1196,9 @@ namespace Zoologic
         /// <summary>Événement invoqué quand le bouton indice est pressé.</summary>
         public Action OnIndiceDemande;
 
+        /// <summary>Événement invoqué quand le bouton gomme est pressé.</summary>
+        public Action OnGommeDemande;
+
         /// <summary>
         /// Construit le panneau de défaite. À appeler APRÈS que la grille a été
         /// construite, pour qu'il soit le dernier enfant du canvas (rendu au premier plan).
@@ -1149,6 +1269,11 @@ namespace Zoologic
         {
             _interactionsBloquees = bloquer;
             UpdateIndiceButtonState();
+
+            if (_gommeButton != null)
+                _gommeButton.interactable = !bloquer;
+            if (_gommeButtonBg != null && !bloquer)
+                _gommeButtonBg.color = GumBgColor;
         }
 
         public bool InteractionsBloquees => _interactionsBloquees;
