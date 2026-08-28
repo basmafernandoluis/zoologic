@@ -89,6 +89,8 @@ namespace Zoologic
             _conflictsThisLevel = 0;
             _totalPenaliteCumul = 0;
 
+            SFXManager.Instance.ResumeMusic();
+
             Canvas canvas = null;
 
             try
@@ -382,9 +384,12 @@ namespace Zoologic
             if (_partieTerminee)
                 return;
 
-            // Si la case contient déjà un pion, ne rien faire.
+            // Si la case contient un pion, l'animal "réagit" d'un petit rebond.
             if (_grid.HasPion(row, col))
+            {
+                _gridView.PlayHi(row, col);
                 return;
+            }
 
             bool hasX = _xMarks[row, col];
             _xMarks[row, col] = !hasX;
@@ -532,6 +537,7 @@ namespace Zoologic
         private void GererPartiePerdue()
         {
             _partieTerminee = true;
+            SFXManager.Instance.PauseMusic();
             _hud.BloquerInteractions(true);
             _hud.AfficherDefaite();
         }
@@ -539,6 +545,7 @@ namespace Zoologic
         private void ReinitialiserNiveau()
         {
             _partieTerminee = false;
+            SFXManager.Instance.ResumeMusic();
             _conflictsThisLevel = 0;
             _totalPenaliteCumul = 0;
             _hud.CacherDefaite();
@@ -580,6 +587,7 @@ namespace Zoologic
 
         private void PlayVictory()
         {
+            SFXManager.Instance.PauseMusic();
             SFXManager.Instance.PlaySuccess();
 
             int stars = _conflictsThisLevel == 0 ? 3

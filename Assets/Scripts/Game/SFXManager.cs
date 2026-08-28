@@ -10,12 +10,22 @@ namespace Zoologic
     public sealed class SFXManager : MonoBehaviour
     {
         private const string SfxEnabledKey = "sfx_enabled";
+        private const string MusicEnabledKey = "music_enabled";
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void EnsureInstance()
+        {
+            if (_instance == null)
+                CreateInstance();
+        }
 
         private static SFXManager _instance;
 
         private AudioSource _source;
+        private AudioSource _musicSource;
 
         private bool _isEnabled;
+        private bool _musicEnabled;
 
         // Clips chargés une seule fois (lazy).
         private AudioClip _confirm;
@@ -26,6 +36,7 @@ namespace Zoologic
         private AudioClip _menuOpen;
         private AudioClip _menuClose;
         private AudioClip _unlock;
+        private AudioClip _music;
 
         public bool IsEnabled
         {
@@ -37,6 +48,26 @@ namespace Zoologic
                 PlayerPrefs.Save();
                 if (_source != null)
                     _source.mute = !value;
+            }
+        }
+
+        /// <summary>
+        /// Musique d'ambiance, indépendante des effets sonores : elle utilise
+        /// sa propre AudioSource (boucle), donc aucun chevauchement avec les
+        /// <c>PlayOneShot</c> des SFX.
+        /// </summary>
+        public bool MusicEnabled
+        {
+            get => _musicEnabled;
+            set
+            {
+                _musicEnabled = value;
+                PlayerPrefs.SetInt(MusicEnabledKey, value ? 1 : 0);
+                PlayerPrefs.Save();
+                if (_musicSource == null) return;
+                _musicSource.mute = !value;
+                if (value && _musicSource.clip != null && !_musicSource.isPlaying)
+                    _musicSource.Play();
             }
         }
 
@@ -60,6 +91,16 @@ namespace Zoologic
             _instance._source.volume = 1f;
             _instance._isEnabled = PlayerPrefs.GetInt(SfxEnabledKey, 1) == 1;
             _instance._source.mute = !_instance._isEnabled;
+
+            // Canal de musique dédié (boucle) : séparé des SFX.
+            var musicGO = new GameObject("MusicSource");
+            musicGO.transform.SetParent(go.transform, false);
+            _instance._musicSource = musicGO.AddComponent<AudioSource>();
+            _instance._musicSource.playOnAwake = false;
+            _instance._musicSource.loop = true;
+            _instance._musicSource.volume = 0.5f;
+            _instance._musicEnabled = PlayerPrefs.GetInt(MusicEnabledKey, 1) == 1;
+            _instance._musicSource.mute = !_instance._musicEnabled;
         }
 
         private AudioClip Load(string path)
@@ -74,6 +115,48 @@ namespace Zoologic
             _source.pitch = UnityEngine.Random.Range(pitchMin, pitchMax);
             _source.PlayOneShot(clip);
             _source.pitch = 1f;
+        }
+
+        private void Start()
+        {
+            StartMusic();
+        }
+
+        /// <summary>
+        /// Charge et lance la musique d'ambiance en boucle (canal séparé).
+        /// Appelée automatiquement au démarrage ; peut être rappelée après
+        /// réinitialisation des préférences.
+        /// </summary>
+        public void StartMusic()
+        {
+            if (_musicSource == null) return;
+            if (_music == null)
+                _music = Load("Music");
+            if (_music == null) return;
+
+            if (_musicSource.clip != _music)
+            {
+                _musicSource.clip = _music;
+                _musicSource.time = 0f;
+            }
+            if (_musicEnabled)
+                _musicSource.Play();
+        }
+
+        /// <summary>Met la musique en pause (fin de partie, menus), sans l'arrêter.</summary>
+        public void PauseMusic()
+        {
+            if (_musicSource != null && _musicSource.isPlaying)
+                _musicSource.Pause();
+        }
+
+        /// <summary>Reprend la musique là où elle s'était arrêtée (retour au jeu).</summary>
+        public void ResumeMusic()
+        {
+            if (_musicSource == null || !_musicEnabled || _musicSource.clip == null)
+                return;
+            if (!_musicSource.isPlaying)
+                _musicSource.Play();
         }
 
         public void PlayConfirm() => Play(_confirm ?? (_confirm = Load("Confirm")));

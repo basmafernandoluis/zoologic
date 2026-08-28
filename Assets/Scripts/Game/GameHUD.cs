@@ -25,7 +25,7 @@ namespace Zoologic
         // ------------------------------------------------------------------
 
         private const float HeaderPadding = 22f;
-        private const float RuleBarHeight = 120f;
+        private const float RuleBarHeight = 92f;
 
         // Encoche simulée (px réf 1080x1920) utilisée quand la safe area réelle
         // est nulle (éditeur, desktop) afin de prévisualiser l'espacement.
@@ -37,7 +37,8 @@ namespace Zoologic
 
         private static readonly Color HeaderBgColor = new Color(1f, 1f, 1f, 0.97f);
         private static readonly Color RuleCardBg = new Color(0.99f, 0.97f, 0.93f, 1f);
-        private static readonly Color PillColor = new Color(0.12f, 0.52f, 0.92f, 1f);
+        private static readonly Color PillColor = new Color(0.62f, 0.80f, 0.96f, 1f);
+        private static readonly Color PillTextColor = new Color(0.10f, 0.30f, 0.52f, 1f);
         private static readonly Color HeartFullColor = new Color(0.93f, 0.22f, 0.33f, 1f);
         private static readonly Color HeartEmptyColor = new Color(0.80f, 0.80f, 0.82f, 0.4f);
         private static readonly Color OverlayColor = new Color(0f, 0f, 0f, 0.55f);
@@ -45,6 +46,19 @@ namespace Zoologic
         private static readonly Color HintCountColor = new Color(0.35f, 0.40f, 0.50f, 1f);
         private static readonly Color IconTextColor = new Color(0.42f, 0.47f, 0.52f, 1f);
         private static readonly Color CardShadowColor = new Color(0f, 0f, 0f, 0.16f);
+
+        // Cartes de règles : une teinte pastel distincte par règle (fini, plus "greybox").
+        private static readonly Color RuleCardBgColor1 = new Color(1.00f, 0.97f, 0.91f, 1f);
+        private static readonly Color RuleCardBgColor2 = new Color(0.93f, 0.97f, 1.00f, 1f);
+        private static readonly Color RuleCardBgColor3 = new Color(1.00f, 0.93f, 0.97f, 1f);
+        private static readonly Color RuleAccentColor1 = new Color(0.95f, 0.65f, 0.20f, 1f);
+        private static readonly Color RuleAccentColor2 = new Color(0.30f, 0.55f, 0.90f, 1f);
+        private static readonly Color RuleAccentColor3 = new Color(0.92f, 0.30f, 0.55f, 1f);
+
+        // Tuile de bouton d'en-tête (retour / réglages) : pastel cohérente entre les deux.
+        private static readonly Color HeaderTileBg = new Color(0.91f, 0.94f, 0.97f, 1f);
+        private static readonly Color HeaderTileIcon = new Color(0.25f, 0.35f, 0.45f, 1f);
+        private static readonly Color HeartPillBg = new Color(1f, 0.94f, 0.95f, 1f);
 
         private static readonly Color ScorePillBg = new Color(0.98f, 0.85f, 0.24f, 1f);
         private static readonly Color ScorePillTextColor = new Color(0.42f, 0.28f, 0.02f, 1f);
@@ -168,10 +182,10 @@ namespace Zoologic
 
             // Distances (px réf) depuis le haut de l'écran : row1 = pilule niveau,
             // row2 = stats. Les deux sont placées sous l'encoche (inset).
-            float dRow1 = inset + 30f;
-            float dRow2 = inset + 120f;
+            float dRow1 = inset + 28f;
+            float dRow2 = inset + 108f;
             // Hauteur du header = bas du contenu (row2 + 28 pilule + marge).
-            float H = dRow2 + 45f;
+            float H = dRow2 + 42f;
             _headerBottom = H;
 
             // --- Header background (white bar) ---
@@ -211,17 +225,18 @@ namespace Zoologic
             // Row 1: ← back | Niveau X pill | ⚙ settings
             float row1Y = H * 0.5f - dRow1;
 
-            var btnRetour = CreerBouton(header.transform, "\u2190", 48f, new Vector2(HeaderPadding, row1Y),
-                new Vector2(0f, 0.5f), new Vector2(0f, 0.5f));
+            var btnRetour = CreerBoutonTuileImage(header.transform, GetBackSprite(), 34f,
+                new Vector2(HeaderPadding, row1Y), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Color.white);
             btnRetour.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
+                SFXManager.Instance.ResumeMusic();
                 UnityEngine.SceneManagement.SceneManager.LoadScene("LevelMap");
             });
 
             CreerPiluleNiveau(header.transform, numeroNiveau, row1Y);
 
-            var btnReglages = CreerBoutonImage(header.transform, GetSettingsSprite(), 44f,
+            var btnReglages = CreerBoutonTuileImage(header.transform, GetSettingsSprite(), 34f,
                 new Vector2(-HeaderPadding, row1Y), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
             btnReglages.onClick.AddListener(() =>
             {
@@ -279,25 +294,43 @@ namespace Zoologic
             _scoreValueText.fontStyle = FontStyles.Bold;
             _scoreValueText.raycastTarget = false;
 
-            // --- Hearts (center) ---
+            // --- Hearts pill (center) ---
             Sprite heartSprite = Resources.Load<Sprite>("UI/heart");
-            float heartSize = 48f;
-            float heartSpacing = 8f;
+            float heartSize = 40f;
+            float heartSpacing = 6f;
             float totalHeartsW = LivesManager.ViesDepart * heartSize + (LivesManager.ViesDepart - 1) * heartSpacing;
             float headerWidth = header is RectTransform hrt && hrt.rect.width > 0f ? hrt.rect.width : 1080f;
-            float heartsStartX = (headerWidth - totalHeartsW) * 0.5f;
+            float pillPadX = 22f;
+            float heartsPillW = totalHeartsW + pillPadX * 2f;
+            float heartsPillH = 56f;
+
+            // Conteneur pilule cohérent avec score (gauche) et indice (droite).
+            var heartsPill = CreerObjetUI("HeartsPill", header);
+            var hpPillRect = heartsPill.GetComponent<RectTransform>();
+            hpPillRect.anchorMin = new Vector2(0f, 0.5f);
+            hpPillRect.anchorMax = new Vector2(0f, 0.5f);
+            hpPillRect.pivot = new Vector2(0f, 0.5f);
+            hpPillRect.sizeDelta = new Vector2(heartsPillW, heartsPillH);
+            hpPillRect.anchoredPosition = new Vector2((headerWidth - heartsPillW) * 0.5f, y);
+            AjouterOmbre(hpPillRect, header, 3f, -5f);
+
+            var heartsPillImg = heartsPill.AddComponent<Image>();
+            heartsPillImg.sprite = GetPiluleSprite();
+            heartsPillImg.type = Image.Type.Simple;
+            heartsPillImg.color = HeartPillBg;
+            heartsPillImg.raycastTarget = false;
 
             for (int i = 0; i < LivesManager.ViesDepart; i++)
             {
-                var heartObj = CreerObjetUI($"Coeur{i}", header);
+                var heartObj = CreerObjetUI($"Coeur{i}", heartsPill.transform);
                 var heartRect = heartObj.GetComponent<RectTransform>();
                 heartRect.anchorMin = new Vector2(0f, 0.5f);
                 heartRect.anchorMax = new Vector2(0f, 0.5f);
                 heartRect.pivot = new Vector2(0.5f, 0.5f);
                 heartRect.sizeDelta = new Vector2(heartSize, heartSize);
                 heartRect.anchoredPosition = new Vector2(
-                    heartsStartX + i * (heartSize + heartSpacing),
-                    y);
+                    pillPadX + heartSize * 0.5f + i * (heartSize + heartSpacing),
+                    0f);
 
                 _heartImages[i] = heartObj.AddComponent<Image>();
                 _heartImages[i].sprite = heartSprite;
@@ -398,7 +431,7 @@ namespace Zoologic
             text.text = $"Niveau {numero}";
             text.fontSize = 34;
             text.alignment = TextAlignmentOptions.Center;
-            text.color = Color.white;
+            text.color = PillTextColor;
             text.fontStyle = FontStyles.Bold;
             text.raycastTarget = false;
         }
@@ -443,8 +476,22 @@ namespace Zoologic
             var carteImg = carte.AddComponent<Image>();
             carteImg.sprite = GetCarteSprite();
             carteImg.type = Image.Type.Simple;
-            carteImg.color = RuleCardBg;
+            carteImg.color = GetRuleCardBg(index);
             carteImg.raycastTarget = false;
+
+            // Liseré d'accent en haut de carte (finition, distingue chaque règle).
+            var accent = CreerObjetUI("Accent", carte.transform);
+            var accentRect = accent.GetComponent<RectTransform>();
+            accentRect.anchorMin = new Vector2(0f, 1f);
+            accentRect.anchorMax = new Vector2(1f, 1f);
+            accentRect.pivot = new Vector2(0.5f, 1f);
+            accentRect.sizeDelta = new Vector2(-20f, 8f);
+            accentRect.anchoredPosition = new Vector2(0f, -8f);
+            var accentImg = accent.AddComponent<Image>();
+            accentImg.sprite = GetPiluleSprite();
+            accentImg.type = Image.Type.Simple;
+            accentImg.color = GetRuleAccent(index);
+            accentImg.raycastTarget = false;
 
             // Ombre sous la carte
             var ombre = CreerObjetUI("Ombre", carte.transform);
@@ -472,7 +519,8 @@ namespace Zoologic
             iconText.text = icone;
             iconText.fontSize = 38;
             iconText.alignment = TextAlignmentOptions.Center;
-            iconText.color = IconTextColor;
+            iconText.color = GetRuleAccent(index);
+            iconText.fontStyle = FontStyles.Bold;
             iconText.raycastTarget = false;
 
             // Label
@@ -1043,6 +1091,97 @@ namespace Zoologic
         }
 
         /// <summary>
+        /// Bouton d'en-tête carré/arrondi avec fond (tuile pastel) + icône image.
+        /// Symétrie visuelle avec le retour (contrairement à une icône flottante nue).
+        /// </summary>
+        private Button CreerBoutonTuileImage(Transform parent, Sprite iconSprite, float iconSize,
+            Vector2 anchoredPos, Vector2 anchor, Vector2 pivot, Color? tint = null)
+        {
+            var btnObj = CreerObjetUI("BtnTuile", parent);
+            var btnRect = btnObj.GetComponent<RectTransform>();
+            btnRect.anchorMin = anchor;
+            btnRect.anchorMax = anchor;
+            btnRect.pivot = pivot;
+            btnRect.sizeDelta = new Vector2(64f, 64f);
+            btnRect.anchoredPosition = anchoredPos;
+
+            var btnImg = btnObj.AddComponent<Image>();
+            btnImg.sprite = GetPiluleSprite();
+            btnImg.type = Image.Type.Simple;
+            btnImg.color = HeaderTileBg;
+            btnImg.raycastTarget = true;
+            AjouterOmbre(btnRect, parent, 2f, -3f);
+
+            var btn = btnObj.AddComponent<Button>();
+            btn.targetGraphic = btnImg;
+            var colors = btn.colors;
+            colors.pressedColor = new Color(0.80f, 0.86f, 0.92f, 1f);
+            btn.colors = colors;
+
+            var iconObj = CreerObjetUI("Icone", btnObj.transform);
+            var iconRect = iconObj.GetComponent<RectTransform>();
+            iconRect.anchorMin = Vector2.zero;
+            iconRect.anchorMax = Vector2.one;
+            iconRect.offsetMin = Vector2.zero;
+            iconRect.offsetMax = Vector2.zero;
+
+            var iconImage = iconObj.AddComponent<Image>();
+            iconImage.sprite = iconSprite;
+            iconImage.type = Image.Type.Simple;
+            iconImage.preserveAspect = true;
+            iconImage.color = tint ?? HeaderTileIcon;
+            iconImage.raycastTarget = false;
+
+            return btn;
+        }
+
+        /// <summary>
+        /// Variante texte du bouton tuile (utilisée pour la flèche de retour ←).
+        /// Même tuile pastel que CreerBoutonTuileImage pour garder la symétrie.
+        /// </summary>
+        private Button CreerBoutonTuileTexte(Transform parent, string glyph, float fontSize,
+            Vector2 anchoredPos, Vector2 anchor, Vector2 pivot)
+        {
+            var btnObj = CreerObjetUI("BtnTuile", parent);
+            var btnRect = btnObj.GetComponent<RectTransform>();
+            btnRect.anchorMin = anchor;
+            btnRect.anchorMax = anchor;
+            btnRect.pivot = pivot;
+            btnRect.sizeDelta = new Vector2(64f, 64f);
+            btnRect.anchoredPosition = anchoredPos;
+
+            var btnImg = btnObj.AddComponent<Image>();
+            btnImg.sprite = GetPiluleSprite();
+            btnImg.type = Image.Type.Simple;
+            btnImg.color = HeaderTileBg;
+            btnImg.raycastTarget = true;
+            AjouterOmbre(btnRect, parent, 2f, -3f);
+
+            var btn = btnObj.AddComponent<Button>();
+            btn.targetGraphic = btnImg;
+            var colors = btn.colors;
+            colors.pressedColor = new Color(0.80f, 0.86f, 0.92f, 1f);
+            btn.colors = colors;
+
+            var textObj = CreerObjetUI("Texte", btnObj.transform);
+            var textRect = textObj.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+
+            var text = textObj.AddComponent<TextMeshProUGUI>();
+            text.font = _fontTitle;
+            text.text = glyph;
+            text.fontSize = (int)fontSize;
+            text.alignment = TextAlignmentOptions.Center;
+            text.color = HeaderTileIcon;
+            text.raycastTarget = false;
+
+            return btn;
+        }
+
+        /// <summary>
         /// Variante de CreerCarteRegle avec un sprite procédural au lieu d'un
         /// caractère texte pour l'icône. Utilisé pour la carte "diagonale" dont
         /// le caractère ↘ n'est pas rendu correctement par la police.
@@ -1079,8 +1218,22 @@ namespace Zoologic
             var carteImg = carte.AddComponent<Image>();
             carteImg.sprite = GetCarteSprite();
             carteImg.type = Image.Type.Simple;
-            carteImg.color = RuleCardBg;
+            carteImg.color = GetRuleCardBg(index);
             carteImg.raycastTarget = false;
+
+            // Liseré d'accent en haut de carte (finition, distingue chaque règle).
+            var accent = CreerObjetUI("Accent", carte.transform);
+            var accentRect = accent.GetComponent<RectTransform>();
+            accentRect.anchorMin = new Vector2(0f, 1f);
+            accentRect.anchorMax = new Vector2(1f, 1f);
+            accentRect.pivot = new Vector2(0.5f, 1f);
+            accentRect.sizeDelta = new Vector2(-20f, 8f);
+            accentRect.anchoredPosition = new Vector2(0f, -8f);
+            var accentImg = accent.AddComponent<Image>();
+            accentImg.sprite = GetPiluleSprite();
+            accentImg.type = Image.Type.Simple;
+            accentImg.color = GetRuleAccent(index);
+            accentImg.raycastTarget = false;
 
             // Ombre sous la carte
             var ombre = CreerObjetUI("Ombre", carte.transform);
@@ -1107,7 +1260,7 @@ namespace Zoologic
             iconImage.sprite = iconSprite;
             iconImage.type = Image.Type.Simple;
             iconImage.preserveAspect = true;
-            iconImage.color = IconTextColor;
+            iconImage.color = GetRuleAccent(index);
             iconImage.raycastTarget = false;
 
             // Label
@@ -1135,7 +1288,8 @@ namespace Zoologic
         private static Sprite _piluleSprite;
         private static Sprite _carteSprite;
         private static Sprite _settingsSprite;
-        private static Sprite _diagonalArrowSprite;
+        private static Sprite _backSprite;
+        private static Sprite _diagonalNoTouchSprite;
 
         private static Sprite GetPiluleSprite()
         {
@@ -1158,11 +1312,38 @@ namespace Zoologic
             return _settingsSprite;
         }
 
+        private static Sprite GetBackSprite()
+        {
+            if (_backSprite == null)
+                _backSprite = Resources.Load<Sprite>("UI/retour");
+            return _backSprite;
+        }
+
         private static Sprite GetDiagonalArrowSprite()
         {
-            if (_diagonalArrowSprite == null)
-                _diagonalArrowSprite = CreerSpriteFlecheDiagonale(128);
-            return _diagonalArrowSprite;
+            if (_diagonalNoTouchSprite == null)
+                _diagonalNoTouchSprite = CreerSpriteDiagonaleInterdite(128);
+            return _diagonalNoTouchSprite;
+        }
+
+        private static Color GetRuleCardBg(int index)
+        {
+            switch (index)
+            {
+                case 0: return RuleCardBgColor1;
+                case 1: return RuleCardBgColor2;
+                default: return RuleCardBgColor3;
+            }
+        }
+
+        private static Color GetRuleAccent(int index)
+        {
+            switch (index)
+            {
+                case 0: return RuleAccentColor1;
+                case 1: return RuleAccentColor2;
+                default: return RuleAccentColor3;
+            }
         }
 
         private static Sprite CreerSpriteRectangleArrondi(int resolution, float coinRatio)
@@ -1265,51 +1446,71 @@ namespace Zoologic
         /// Flèche diagonale vers le bas-droite : ligne diagonale + pointe.
         /// Pour la règle "ne peut pas se toucher" (diagonale adjacente).
         /// </summary>
-        private static Sprite CreerSpriteFlecheDiagonale(int resolution)
+        /// <summary>
+        /// Pictogramme "ne peut pas se toucher en diagonale" : mini-grille 2x2
+        /// (4 cases) dont la paire diagonale est reliée puis barrée par un trait
+        /// de prohibition. Beaucoup plus lisible qu'une simple flèche diagonale.
+        /// </summary>
+        private static Sprite CreerSpriteDiagonaleInterdite(int resolution)
         {
             var texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false);
             texture.wrapMode = TextureWrapMode.Clamp;
             texture.filterMode = FilterMode.Bilinear;
 
-            float center = (resolution - 1) * 0.5f;
-            float margin = resolution * 0.18f;
-            float lineThickness = resolution * 0.08f;
-            float headSize = resolution * 0.22f;
+            float n = resolution - 1f;
+            float gap = resolution * 0.06f;       // espace entre cases
+            float cell = (n / 2f) - gap * 0.5f;   // taille d'une case
+            float stroke = resolution * 0.06f;    // épaisseur des traits
 
-            // Point de départ (haut-gauche) et point d'arrivée (bas-droite).
-            float x0 = margin;
-            float y0 = margin;
-            float x1 = resolution - 1f - margin;
-            float y1 = resolution - 1f - margin;
-            float dx = x1 - x0;
-            float dy = y1 - y0;
-            float length = Mathf.Sqrt(dx * dx + dy * dy);
-            float nx = -dy / length; // normale
-            float ny = dx / length;
+            // Centres des 4 cases (coin supérieur gauche de chaque case).
+            float[] cellX = new float[] { gap, gap + cell + gap, gap, gap + cell + gap };
+            float[] cellY = new float[] { gap, gap, gap + cell + gap, gap + cell + gap };
+
+            // Paire diagonale à souligner : haut-gauche (0) et bas-droite (3).
+            float d0x = gap + cell * 0.5f;
+            float d0y = gap + cell * 0.5f;
+            float d1x = gap + cell + gap + cell * 0.5f;
+            float d1y = d1x;
 
             for (int y = 0; y < resolution; y++)
             {
                 for (int x = 0; x < resolution; x++)
                 {
-                    float px = x - x0;
-                    float py = y - y0;
-                    float proj = (px * dx + py * dy) / (length * length); // projection sur la ligne
-                    float dist = Mathf.Abs(px * nx + py * ny);            // distance à la ligne
-
                     bool inside = false;
 
-                    // Ligne principale (de 15 % à 85 % de la longueur).
-                    if (proj >= 0.15f && proj <= 0.85f && dist <= lineThickness)
-                        inside = true;
-
-                    // Pointe de flèche (triangle à l'extrémité bas-droite).
-                    if (proj > 0.70f)
+                    // 1) Contours des 4 cases.
+                    for (int c = 0; c < 4; c++)
                     {
-                        float tipDist = Mathf.Sqrt(
-                            (x - x1) * (x - x1) + (y - y1) * (y - y1));
-                        if (tipDist <= headSize && proj >= 0.60f)
+                        float cx = cellX[c];
+                        float cy = cellY[c];
+                        bool nearLeft = Mathf.Abs(x - cx) <= stroke && y >= cy && y <= cy + cell;
+                        bool nearRight = Mathf.Abs(x - (cx + cell)) <= stroke && y >= cy && y <= cy + cell;
+                        bool nearBottom = Mathf.Abs(y - cy) <= stroke && x >= cx && x <= cx + cell;
+                        bool nearTop = Mathf.Abs(y - (cy + cell)) <= stroke && x >= cx && x <= cx + cell;
+                        if (nearLeft || nearRight || nearBottom || nearTop)
                             inside = true;
                     }
+
+                    // 2) Paire diagonale reliée (haut-gauche -> bas-droite).
+                    float dx = d1x - d0x;
+                    float dy = d1y - d0y;
+                    float len = Mathf.Sqrt(dx * dx + dy * dy);
+                    float nx = -dy / len;
+                    float ny = dx / len;
+                    float px = x - d0x;
+                    float py = y - d0y;
+                    float proj = (px * dx + py * dy) / (len * len);
+                    float dist = Mathf.Abs(px * nx + py * ny);
+                    if (proj >= -0.1f && proj <= 1.1f && dist <= stroke * 0.9f)
+                        inside = true;
+
+                    // 3) Trait de prohibition (anti-diagonal).
+                    float px2 = x - d0x;
+                    float py2 = y - d0y;
+                    float proj2 = (px2 * dy + py2 * dx) / (len * len);
+                    float dist2 = Mathf.Abs(px2 * nx + py2 * ny);
+                    if (proj2 >= 0.25f && proj2 <= 0.85f && dist2 <= stroke * 0.9f)
+                        inside = true;
 
                     float alpha = inside ? 1f : 0f;
                     texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));

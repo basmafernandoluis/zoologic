@@ -43,10 +43,20 @@ namespace Zoologic
 
         private bool _pointerDown;
 
-        private Coroutine _popRoutine;
+        private Coroutine _pionLifeRoutine;
         private Coroutine _feedbackRoutine;
         private Coroutine _fadeRoutine;
         private Coroutine _pressRoutine;
+
+        // Paramètres de "vie" du pion (respiration + flottement).
+        private const float BreathDuration = 1.6f;
+        private const float BreathAmplitude = 0.06f;   // respiration en échelle
+        private const float BreathBobAmplitude = 6f;   // flottement vertical (px)
+        private const float BreathPhaseOffset = 0f;
+
+        // Paramètres du rebond expressif au placement / au tap.
+        private const float SpringOvershoot = 0.18f;   // dépassement (scale > 1)
+        private const float StretchStrength = 0.22f;   // squash-stretch asymétrique
 
         /// <summary>
         /// Configure la case : couleur de zone, et crée les enfants "Pion" et "X".
@@ -119,9 +129,9 @@ namespace Zoologic
 
                 if (Application.isPlaying)
                 {
-                    if (_popRoutine != null)
-                        StopCoroutine(_popRoutine);
-                    _popRoutine = StartCoroutine(PopRoutine());
+                    if (_pionLifeRoutine != null)
+                        StopCoroutine(_pionLifeRoutine);
+                    _pionLifeRoutine = StartCoroutine(PionAppearThenIdleRoutine());
                 }
                 else
                 {
@@ -130,16 +140,19 @@ namespace Zoologic
             }
             else
             {
-                if (_popRoutine != null)
+                if (_pionLifeRoutine != null)
                 {
-                    StopCoroutine(_popRoutine);
-                    _popRoutine = null;
+                    StopCoroutine(_pionLifeRoutine);
+                    _pionLifeRoutine = null;
                 }
 
                 if (Application.isPlaying)
                 {
                     if (_pion.gameObject.activeSelf)
-                        _popRoutine = StartCoroutine(ShrinkOutRoutine());
+                    {
+                        _pionRect.localScale = Vector3.one;
+                        _pionLifeRoutine = StartCoroutine(PionShrinkOutRoutine());
+                    }
                     else
                     {
                         _pionRect.localScale = Vector3.one;
@@ -154,8 +167,88 @@ namespace Zoologic
             }
         }
 
-        /// <summary>Retrait du pion : shrink-out rapide (échelle 1 → 0, easeInQuad).</summary>
-        private IEnumerator ShrinkOutRoutine()
+        /// <summary>
+        /// Rebond "hi" expressif : squash-stretch asymétrique + overshoot + tilt,
+        /// joué quand le pion est déjà en place (ex. re-tap sur une case occupée).
+        /// </summary>
+        public void PlayHi()
+        {
+            if (_pion == null || !_pion.gameObject.activeSelf || !Application.isPlaying)
+                return;
+
+            if (_pionLifeRoutine != null)
+                StopCoroutine(_pionLifeRoutine);
+            _pionLifeRoutine = StartCoroutine(PionHiThenIdleRoutine());
+        }
+
+        // ------------------------------------------------------------------
+        // Coroutines de "vie" du pion : apparition spring, "hi", retrait,
+        // puis respiration continue (idle).
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Apparition expressive : squash (large) puis étirement + overshoot, et
+        /// transition vers la respiration continue. Une seule coroutine pilote
+        /// l'échelle du pion pour éviter tout conflit entre animations.
+        /// </summary>
+        private IEnumerator PionAppearThenIdleRoutine()
+        {
+            float elapsed = 0f;
+            while (elapsed < PopDuration)
+            {
+                float t = Mathf.Clamp01(elapsed / PopDuration);
+                float s = Easing.EaseOutBack(t);
+                // Légère respiration décalée pour un départ déjà vivant.
+                float breath = 1f + Mathf.Sin(elapsed * 4f) * 0.02f;
+                _pionRect.localScale = new Vector3(s * breath, s * breath, s * breath);
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            _pionRect.localScale = Vector3.one;
+            yield return PionIdleBreathRoutine();
+        }
+
+        /// <summary>
+        /// Rebond "hi" : squash-stretch asymétrique + overshoot + tilt vertical,
+        /// puis retour à la respiration continue.
+        /// </summary>
+        private IEnumerator PionHiThenIdleRoutine()
+        {
+            const float hiDuration = 0.28f;
+            float elapsed = 0f;
+            Vector3 startPos = _pionRect.anchoredPosition;
+
+            while (elapsed < hiDuration)
+            {
+                float t = Mathf.Clamp01(elapsed / hiDuration);
+
+                // Squash → étirement → overshoot (courbe sinusoïdale).
+                float shape = Mathf.Sin(t * Mathf.PI);
+                float scaleY = 1f + StretchStrength * shape + SpringOvershoot * Mathf.Sin(t * Mathf.PI * 2f) * (1f - t);
+                float scaleX = 1f - StretchStrength * shape * 0.7f;
+
+                // Petite montée + tilt pendant le piqué.
+                float bob = Mathf.Sin(t * Mathf.PI) * BreathBobAmplitude * 1.6f;
+                float tilt = Mathf.Sin(t * Mathf.PI) * 8f;
+
+                _pionRect.localScale = new Vector3(scaleX, scaleY, 1f);
+                _pionRect.anchoredPosition = startPos + new Vector3(0f, bob, 0f);
+                _pionRect.localRotation = Quaternion.Euler(0f, 0f, tilt);
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            _pionRect.localScale = Vector3.one;
+            _pionRect.anchoredPosition = startPos;
+            _pionRect.localRotation = Quaternion.identity;
+            yield return PionIdleBreathRoutine();
+        }
+
+        /// <summary>
+        /// Retrait du pion : shrink-out rapide (échelle 1 → 0, easeInQuad).
+        /// </summary>
+        private IEnumerator PionShrinkOutRoutine()
         {
             const float duration = 0.12f;
             float elapsed = 0f;
@@ -171,26 +264,33 @@ namespace Zoologic
 
             _pionRect.localScale = Vector3.one;
             _pion.gameObject.SetActive(false);
-            _popRoutine = null;
+            _pionLifeRoutine = null;
         }
 
-        /// <summary>Pop du pion : 0 % → ~115 % → 100 % (easeOutBack, très rapide).</summary>
-        private IEnumerator PopRoutine()
+        /// <summary>
+        /// Respiration continue : oscille doucement l'échelle et fait flotter le
+        /// pion de haut en bas, donnant l'impression qu'il "respire" et bouge.
+        /// Tourne en boucle tant que le pion est actif.
+        /// </summary>
+        private IEnumerator PionIdleBreathRoutine()
         {
             float elapsed = 0f;
+            Vector3 basePos = _pionRect.anchoredPosition;
 
-            while (elapsed < PopDuration)
+            while (true)
             {
-                float t = Mathf.Clamp01(elapsed / PopDuration);
-                float scale = Easing.EaseOutBack(t);
+                if (!_pion.gameObject.activeSelf)
+                    yield break;
 
-                _pionRect.localScale = new Vector3(scale, scale, scale);
+                float ph = elapsed * (Mathf.PI * 2f / BreathDuration) + BreathPhaseOffset;
+                float breathFactor = 1f + Mathf.Sin(ph) * BreathAmplitude;
+                float bob = Mathf.Sin(ph) * BreathBobAmplitude;
+
+                _pionRect.localScale = new Vector3(breathFactor, breathFactor, breathFactor);
+                _pionRect.anchoredPosition = basePos + new Vector3(0f, bob, 0f);
                 elapsed += Time.unscaledDeltaTime;
                 yield return null;
             }
-
-            _pionRect.localScale = Vector3.one;
-            _popRoutine = null;
         }
 
         // ------------------------------------------------------------------
@@ -213,11 +313,14 @@ namespace Zoologic
             {
                 if (_pion != null)
                 {
-                    if (_popRoutine != null)
+                    if (_pionLifeRoutine != null)
                     {
-                        StopCoroutine(_popRoutine);
-                        _popRoutine = null;
+                        StopCoroutine(_pionLifeRoutine);
+                        _pionLifeRoutine = null;
                     }
+                    _pionRect.localScale = Vector3.one;
+                    _pionRect.anchoredPosition = Vector2.zero;
+                    _pionRect.localRotation = Quaternion.identity;
                     _pion.gameObject.SetActive(false);
                 }
 

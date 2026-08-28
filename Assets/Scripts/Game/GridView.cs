@@ -231,6 +231,14 @@ namespace Zoologic
                 cell.SetX(active);
         }
 
+        /// <summary>Rebond "hi" de l'animal déjà posé sur la case (row, col).</summary>
+        public void PlayHi(int row, int col)
+        {
+            CellView cell = GetCell(row, col);
+            if (cell != null)
+                cell.PlayHi();
+        }
+
         /// <summary>Fait trembler et rougir la case (row, col) en cas de conflit.</summary>
         public void FlashConflict(int row, int col)
         {

@@ -46,14 +46,15 @@ namespace Zoologic
         private static readonly Color HeaderSepColor = new Color(0f, 0f, 0f, 0.10f);
         private static readonly Color TitleColor = new Color(0.15f, 0.13f, 0.10f);
         private static readonly Color BubbleWhite = new Color(1.00f, 0.98f, 0.96f, 1f);
-        private static readonly Color BubbleLocked = new Color(0.93f, 0.90f, 0.86f, 1f);
+        private static readonly Color BubbleLocked = new Color(0.96f, 0.94f, 0.90f, 1f);
         private static readonly Color BubbleBorderLight = new Color(0.92f, 0.89f, 0.86f, 1f);
         private static readonly Color NumberColor = new Color(0.22f, 0.19f, 0.16f, 1f);
+        private static readonly Color NumberLockedColor = new Color(0.42f, 0.38f, 0.34f, 1f);
         private static readonly Color GoldStar = new Color(1f, 0.82f, 0.18f, 1f);
-        private static readonly Color EmptyStar = new Color(0.88f, 0.83f, 0.78f, 1f);
-        private static readonly Color LockedStar = new Color(0.91f, 0.87f, 0.83f, 1f);
-        private static readonly Color LockColor = new Color(0.72f, 0.64f, 0.56f, 1f);
-        private static readonly Color SeparatorBg = new Color(0.12f, 0.52f, 0.92f, 1f);
+        private static readonly Color EmptyStar = new Color(0.92f, 0.88f, 0.83f, 1f);
+        private static readonly Color LockedStar = new Color(0.80f, 0.74f, 0.66f, 1f);
+        private static readonly Color LockColor = new Color(0.62f, 0.54f, 0.46f, 1f);
+        private static readonly Color SeparatorBg = new Color(0.93f, 0.68f, 0.35f, 1f);
         private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.18f);
         private static readonly Color CurrentLevelBorder = new Color(0.95f, 0.55f, 0.15f, 1f);
         private static readonly Color CurrentLevelGlow = new Color(0.95f, 0.55f, 0.15f, 0.30f);
@@ -244,12 +245,14 @@ namespace Zoologic
 
             var titleText = titleGO.AddComponent<TextMeshProUGUI>();
             titleText.font = _fontTitle;
-            titleText.text = "ZOO LOGIC";
+            titleText.text = "Niveaux";
             titleText.fontSize = 44;
             titleText.fontStyle = FontStyles.Bold;
             titleText.color = TitleColor;
             titleText.alignment = TextAlignmentOptions.Center;
             titleText.raycastTarget = false;
+
+            CreerPiluleVies(header.transform);
         }
 
         private void CreerBoutonRetour(Transform parent)
@@ -296,6 +299,59 @@ namespace Zoologic
                 SFXManager.Instance.PlayMenuClose();
                 SceneManager.LoadScene("MainMenu");
             });
+        }
+
+        // ------------------------------------------------------------------
+        // Pilule de ressources : cœurs (vies) alignés à droite du header.
+        // ------------------------------------------------------------------
+
+        private void CreerPiluleVies(Transform parent)
+        {
+            var pill = new GameObject("HeartsPill");
+            pill.transform.SetParent(parent, false);
+            var pillRect = pill.AddComponent<RectTransform>();
+            pillRect.anchorMin = new Vector2(1f, 0.5f);
+            pillRect.anchorMax = new Vector2(1f, 0.5f);
+            pillRect.pivot = new Vector2(1f, 0.5f);
+            pillRect.sizeDelta = new Vector2(118f, 52f);
+            pillRect.anchoredPosition = new Vector2(-22f, 0f);
+
+            var pillImg = pill.AddComponent<Image>();
+            pillImg.sprite = CreerSpriteArrondi(128, 0.5f);
+            pillImg.type = Image.Type.Simple;
+            pillImg.color = BubbleWhite;
+            pillImg.raycastTarget = false;
+
+            Sprite heart = Resources.Load<Sprite>("UI/heart");
+            var heartObj = new GameObject("Heart");
+            heartObj.transform.SetParent(pill.transform, false);
+            var heartRect = heartObj.AddComponent<RectTransform>();
+            heartRect.anchorMin = new Vector2(0f, 0.5f);
+            heartRect.anchorMax = new Vector2(0f, 0.5f);
+            heartRect.pivot = new Vector2(0.5f, 0.5f);
+            heartRect.sizeDelta = new Vector2(30f, 30f);
+            heartRect.anchoredPosition = new Vector2(26f, 0f);
+            var heartImg = heartObj.AddComponent<Image>();
+            heartImg.sprite = heart;
+            heartImg.preserveAspect = true;
+            heartImg.color = GoldStar;
+            heartImg.raycastTarget = false;
+
+            var txtObj = new GameObject("Count");
+            txtObj.transform.SetParent(pill.transform, false);
+            var txtRect = txtObj.AddComponent<RectTransform>();
+            txtRect.anchorMin = Vector2.zero;
+            txtRect.anchorMax = Vector2.one;
+            txtRect.offsetMin = new Vector2(44f, 0f);
+            txtRect.offsetMax = Vector2.zero;
+            var txt = txtObj.AddComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.text = LivesManager.ViesDepart.ToString();
+            txt.fontSize = 30;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = NumberColor;
+            txt.alignment = TextAlignmentOptions.MidlineRight;
+            txt.raycastTarget = false;
         }
 
         // ------------------------------------------------------------------
@@ -357,7 +413,44 @@ namespace Zoologic
 
             scrollGO.AddComponent<DragScrollHandler>();
 
+            CreerFadesScroll(parent);
+
             return scrollRect;
+        }
+
+        // Fondu haut/bas au-dessus de la zone de scroll : évite la coupe brutale
+        // des tuiles qui passent sous le frame de l'écran.
+        private void CreerFadesScroll(Transform parent)
+        {
+            float fadeH = 90f;
+
+            var top = new GameObject("FadeTop");
+            top.transform.SetParent(parent, false);
+            var topRect = top.AddComponent<RectTransform>();
+            topRect.anchorMin = new Vector2(0f, 1f);
+            topRect.anchorMax = new Vector2(1f, 1f);
+            topRect.pivot = new Vector2(0.5f, 1f);
+            topRect.sizeDelta = new Vector2(0f, fadeH);
+            topRect.anchoredPosition = new Vector2(0f, -_headerTotal);
+            var topImg = top.AddComponent<Image>();
+            topImg.sprite = CreerSpriteFonduVertical(true);
+            topImg.type = Image.Type.Simple;
+            topImg.color = Color.white;
+            topImg.raycastTarget = false;
+
+            var bottom = new GameObject("FadeBottom");
+            bottom.transform.SetParent(parent, false);
+            var bottomRect = bottom.AddComponent<RectTransform>();
+            bottomRect.anchorMin = new Vector2(0f, 0f);
+            bottomRect.anchorMax = new Vector2(1f, 0f);
+            bottomRect.pivot = new Vector2(0.5f, 0f);
+            bottomRect.sizeDelta = new Vector2(0f, fadeH);
+            bottomRect.anchoredPosition = Vector2.zero;
+            var bottomImg = bottom.AddComponent<Image>();
+            bottomImg.sprite = CreerSpriteFonduVertical(false);
+            bottomImg.type = Image.Type.Simple;
+            bottomImg.color = Color.white;
+            bottomImg.raycastTarget = false;
         }
 
         // ------------------------------------------------------------------
@@ -444,39 +537,52 @@ namespace Zoologic
             le.preferredHeight = SeparatorHeight;
             le.flexibleWidth = 1f;
 
-            // Reflet haut (liseré lumineux) pour un rendu "bossé".
-            var sheenGO = new GameObject("Sheen");
+            // Reflet haut discret (liseré lumineux subtil, pas "brillant saturé").
+            var sheenGO = new GameObject("Sheen", typeof(RectTransform));
             sheenGO.transform.SetParent(go.transform, false);
-            var sheenRect = sheenGO.AddComponent<RectTransform>();
+            var sheenRect = sheenGO.GetComponent<RectTransform>();
             sheenRect.anchorMin = new Vector2(0.02f, 0.62f);
             sheenRect.anchorMax = new Vector2(0.98f, 0.98f);
             sheenRect.offsetMin = Vector2.zero;
             sheenRect.offsetMax = Vector2.zero;
             var sheenImg = sheenGO.AddComponent<Image>();
             sheenImg.sprite = CreerSpriteArrondi(64, 0.5f);
-            sheenImg.color = new Color(1f, 1f, 1f, 0.16f);
+            sheenImg.color = new Color(1f, 1f, 1f, 0.07f);
             sheenImg.raycastTarget = false;
 
-            // Petit accent décoratif : pastille enthousiaste à gauche (cœur d'étoile).
-            var dotGO = new GameObject("Accent");
-            dotGO.transform.SetParent(go.transform, false);
-            var dotRect = dotGO.AddComponent<RectTransform>();
-            dotRect.anchorMin = new Vector2(0f, 0.5f);
-            dotRect.anchorMax = new Vector2(0f, 0.5f);
-            dotRect.pivot = new Vector2(0.5f, 0.5f);
-            dotRect.sizeDelta = new Vector2(14f, 14f);
-            dotRect.anchoredPosition = new Vector2(26f, 0f);
+            // Pastille blanche pleinement visible à gauche, avec l'étoile centrée
+            // dedans (aucune troncature, contrairement à l'ancien accent nu).
+            var badgeGO = new GameObject("Badge", typeof(RectTransform));
+            badgeGO.transform.SetParent(go.transform, false);
+            var badgeRect = badgeGO.GetComponent<RectTransform>();
+            badgeRect.anchorMin = new Vector2(0f, 0.5f);
+            badgeRect.anchorMax = new Vector2(0f, 0.5f);
+            badgeRect.pivot = new Vector2(0.5f, 0.5f);
+            badgeRect.sizeDelta = new Vector2(44f, 44f);
+            badgeRect.anchoredPosition = new Vector2(30f, 0f);
+            var badgeImg = badgeGO.AddComponent<Image>();
+            badgeImg.sprite = CreerSpriteArrondi(64, 0.5f);
+            badgeImg.color = new Color(1f, 1f, 1f, 0.95f);
+            badgeImg.raycastTarget = false;
+
+            var dotGO = new GameObject("Accent", typeof(RectTransform));
+            dotGO.transform.SetParent(badgeGO.transform, false);
+            var dotRect = dotGO.GetComponent<RectTransform>();
+            dotRect.anchorMin = Vector2.zero;
+            dotRect.anchorMax = Vector2.one;
+            dotRect.offsetMin = Vector2.zero;
+            dotRect.offsetMax = Vector2.zero;
             var dotImg = dotGO.AddComponent<Image>();
             dotImg.sprite = GetStarSprite();
-            dotImg.color = new Color(1f, 1f, 1f, 0.9f);
+            dotImg.color = SeparatorBg;
             dotImg.raycastTarget = false;
 
-            var txtGO = new GameObject("Label");
+            var txtGO = new GameObject("Label", typeof(RectTransform));
             txtGO.transform.SetParent(go.transform, false);
-            var txtRect = txtGO.AddComponent<RectTransform>();
+            var txtRect = txtGO.GetComponent<RectTransform>();
             txtRect.anchorMin = Vector2.zero;
             txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = Vector2.zero;
+            txtRect.offsetMin = new Vector2(70f, 0f);
             txtRect.offsetMax = Vector2.zero;
 
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
@@ -538,6 +644,35 @@ namespace Zoologic
                 new Vector2(0.5f, 0.5f));
         }
 
+
+        /// <summary>
+        /// Sprite de fondu vertical. fadeFromTop = true : opaque avec BgTop en
+        /// haut du sprite, transparent en bas. false : opaque avec BgBottom en
+        /// bas, transparent en haut. Ainsi le fondu se noie dans le fond.
+        /// </summary>
+        private static Sprite CreerSpriteFonduVertical(bool fadeFromTop)
+        {
+            const int h = 64;
+            var tex = new Texture2D(1, h, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            Color edge = fadeFromTop ? BackgroundHelper.BgTop : BackgroundHelper.BgBottom;
+
+            for (int y = 0; y < h; y++)
+            {
+                float t = (float)y / (h - 1); // 0 = bas du sprite, 1 = haut
+                Color c;
+                if (fadeFromTop)
+                    c = new Color(edge.r, edge.g, edge.b, t);      // opaque (haut) -> transparent (bas)
+                else
+                    c = new Color(edge.r, edge.g, edge.b, 1f - t);  // transparent (haut) -> opaque (bas)
+                tex.SetPixel(0, y, c);
+            }
+
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, 1, h), new Vector2(0.5f, 0.5f));
+        }
 
         // ------------------------------------------------------------------
         // Ligne de 4 bulles.
@@ -677,7 +812,7 @@ namespace Zoologic
             txt.text = level.ToString();
             txt.fontSize = 48;
             txt.fontStyle = FontStyles.Bold;
-            txt.color = unlocked ? NumberColor : new Color(0.65f, 0.65f, 0.68f, 1f);
+            txt.color = unlocked ? NumberColor : NumberLockedColor;
             txt.alignment = TextAlignmentOptions.Center;
             txt.enableAutoSizing = true;
             txt.fontSizeMin = 20f;
@@ -702,6 +837,7 @@ namespace Zoologic
             hlg.childForceExpandHeight = false;
 
             Sprite starSprite = GetStarSprite();
+            int shownStars = unlocked ? starCount : 0;
 
             for (int i = 0; i < 3; i++)
             {
@@ -710,13 +846,13 @@ namespace Zoologic
                 var starImg = starGO.AddComponent<Image>();
                 starImg.sprite = starSprite;
                 starImg.preserveAspect = true;
-                starImg.color = i < starCount ? GoldStar :
+                starImg.color = i < shownStars ? GoldStar :
                     (unlocked ? EmptyStar : LockedStar);
                 starImg.raycastTarget = false;
 
                 var starLE = starGO.AddComponent<LayoutElement>();
-                starLE.preferredWidth = 34f;
-                starLE.preferredHeight = 34f;
+                starLE.preferredWidth = 38f;
+                starLE.preferredHeight = 38f;
             }
         }
 
