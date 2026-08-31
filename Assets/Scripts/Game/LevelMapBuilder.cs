@@ -217,17 +217,15 @@ namespace Zoologic
             img.color = HeaderBg;
             img.raycastTarget = false;
 
-
-
-            CreerBoutonRetour(header.transform);
+            // Bouton retour retiré à la demande (flèche entourée en rouge)
 
             var titleGO = new GameObject("Title");
             titleGO.transform.SetParent(header.transform, false);
             var titleRect = titleGO.AddComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0f, 0f);
             titleRect.anchorMax = new Vector2(1f, 1f);
-            titleRect.offsetMin = new Vector2(88f, 0f);
-            titleRect.offsetMax = new Vector2(-24f, 0f);
+            titleRect.offsetMin = new Vector2(24f, 0f);
+            titleRect.offsetMax = new Vector2(-140f, 0f);
 
             var titleText = titleGO.AddComponent<TextMeshProUGUI>();
             titleText.font = _fontTitle;
@@ -355,7 +353,7 @@ namespace Zoologic
             viewportRect.offsetMax = Vector2.zero;
 
             var viewportImg = viewportGO.AddComponent<Image>();
-            viewportImg.color = new Color(0f, 0f, 0f, 0f);
+            viewportImg.color = new Color(0f, 0f, 0f, 0.01f);
             viewportImg.raycastTarget = true;
 
             var mask = viewportGO.AddComponent<Mask>();
