@@ -62,8 +62,12 @@ namespace Zoologic
             BuildTitle(canvasGO.transform);
             BuildOwlMascot(canvasGO.transform);
             BuildPlayButton(canvasGO.transform);
+            BuildDailyButton(canvasGO.transform);
             BuildSettingsButton(canvasGO.transform);
             BuildVersion(canvasGO.transform);
+
+            if (DailyRewardManager.CanClaimToday())
+                StartCoroutine(ShowDailyPopupDelayed());
         }
 
         private void BuildBackground(Transform parent)
@@ -220,6 +224,68 @@ namespace Zoologic
                 SFXManager.Instance.PlayMenuOpen();
                 SettingsPanel.Open();
             });
+        }
+
+        private void BuildDailyButton(Transform parent)
+        {
+            var go = new GameObject("DailyButton");
+            go.transform.SetParent(parent, false);
+            var rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.sizeDelta = new Vector2(190f, 62f);
+            rect.anchoredPosition = new Vector2(20f, -20f);
+
+            var img = go.AddComponent<Image>();
+            img.sprite = CreerSpriteArrondi(128, 0.35f);
+            img.color = DailyRewardManager.CanClaimToday() ? new Color(1f, 0.96f, 0.78f) : new Color(1f, 0.98f, 0.96f);
+
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(() =>
+            {
+                SFXManager.Instance.PlayMenuOpen();
+                var canvas = FindFirstObjectByType<Canvas>();
+                if (canvas != null) DailyRewardUI.Show(canvas);
+            });
+
+            var txtGO = new GameObject("Text");
+            txtGO.transform.SetParent(go.transform, false);
+            var txtRect = txtGO.AddComponent<RectTransform>();
+            txtRect.anchorMin = Vector2.zero;
+            txtRect.anchorMax = Vector2.one;
+            txtRect.offsetMin = Vector2.zero;
+            txtRect.offsetMax = Vector2.zero;
+            var txt = txtGO.AddComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.text = DailyRewardManager.CanClaimToday() ? "🎁 Cadeau !" : "Cadeau";
+            txt.fontSize = 22;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = new Color(0.29f, 0.18f, 0.10f);
+            txt.alignment = TextAlignmentOptions.Center;
+
+            if (DailyRewardManager.CanClaimToday())
+            {
+                var pulse = go.AddComponent<DailyPulse>();
+            }
+        }
+
+        private IEnumerator ShowDailyPopupDelayed()
+        {
+            yield return new WaitForSecondsRealtime(0.6f);
+            var canvas = FindFirstObjectByType<Canvas>();
+            if (canvas != null && DailyRewardManager.CanClaimToday())
+                DailyRewardUI.Show(canvas);
+        }
+
+        private class DailyPulse : MonoBehaviour
+        {
+            private void Update()
+            {
+                float s = 1f + Mathf.Sin(Time.unscaledTime * 3f) * 0.06f;
+                transform.localScale = new Vector3(s, s, 1f);
+            }
         }
 
         // ------------------------------------------------------------------

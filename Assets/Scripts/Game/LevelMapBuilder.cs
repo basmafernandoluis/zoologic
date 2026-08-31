@@ -109,6 +109,8 @@ namespace Zoologic
             BuildScene();
             LoadBubbles(40);
             StartCoroutine(ScrollToCurrentLevel());
+            if (DailyRewardManager.CanClaimToday())
+                StartCoroutine(ShowDailyDelayed());
         }
 
         // ------------------------------------------------------------------
@@ -217,7 +219,40 @@ namespace Zoologic
             img.color = HeaderBg;
             img.raycastTarget = false;
 
-            // Bouton retour retiré à la demande (flèche entourée en rouge)
+            var giftGO = new GameObject("DailyGift");
+            giftGO.transform.SetParent(header.transform, false);
+            var giftRect = giftGO.AddComponent<RectTransform>();
+            giftRect.anchorMin = new Vector2(0f, 0.5f);
+            giftRect.anchorMax = new Vector2(0f, 0.5f);
+            giftRect.pivot = new Vector2(0f, 0.5f);
+            giftRect.sizeDelta = new Vector2(138f, 52f);
+            giftRect.anchoredPosition = new Vector2(22f, 0f);
+            var giftImg = giftGO.AddComponent<Image>();
+            giftImg.sprite = CreerSpriteArrondi(128, 0.5f);
+            giftImg.type = Image.Type.Simple;
+            giftImg.color = DailyRewardManager.CanClaimToday() ? new Color(1f, 0.96f, 0.78f) : BubbleWhite;
+            var giftBtn = giftGO.AddComponent<Button>();
+            giftBtn.targetGraphic = giftImg;
+            giftBtn.onClick.AddListener(() =>
+            {
+                SFXManager.Instance.PlayMenuOpen();
+                var c = FindFirstObjectByType<Canvas>();
+                if (c != null) DailyRewardUI.Show(c);
+            });
+            var giftTxtGO = new GameObject("Text");
+            giftTxtGO.transform.SetParent(giftGO.transform, false);
+            var giftTxtRect = giftTxtGO.AddComponent<RectTransform>();
+            giftTxtRect.anchorMin = Vector2.zero;
+            giftTxtRect.anchorMax = Vector2.one;
+            giftTxtRect.offsetMin = Vector2.zero;
+            giftTxtRect.offsetMax = Vector2.zero;
+            var giftTxt = giftTxtGO.AddComponent<TextMeshProUGUI>();
+            giftTxt.font = _fontTitle;
+            giftTxt.text = DailyRewardManager.CanClaimToday() ? "🎁 Cadeau" : "Cadeau";
+            giftTxt.fontSize = 20;
+            giftTxt.fontStyle = FontStyles.Bold;
+            giftTxt.color = TitleColor;
+            giftTxt.alignment = TextAlignmentOptions.Center;
 
             var titleGO = new GameObject("Title");
             titleGO.transform.SetParent(header.transform, false);
@@ -930,6 +965,14 @@ namespace Zoologic
 
             float normalized = Mathf.Clamp01(targetY / (contentH - viewportH));
             _scrollRect.verticalNormalizedPosition = Mathf.Clamp01(1f - normalized);
+        }
+
+        private IEnumerator ShowDailyDelayed()
+        {
+            yield return new WaitForSeconds(0.8f);
+            var canvas = FindFirstObjectByType<Canvas>();
+            if (canvas != null && DailyRewardManager.CanClaimToday())
+                DailyRewardUI.Show(canvas);
         }
 
         // ------------------------------------------------------------------
