@@ -279,7 +279,7 @@ namespace Zoologic
             progIconRect.anchorMin = new Vector2(0f, 0.5f);
             progIconRect.anchorMax = new Vector2(0f, 0.5f);
             progIconRect.pivot = new Vector2(0.5f, 0.5f);
-            progIconRect.sizeDelta = new Vector2(30f, 30f);
+            progIconRect.sizeDelta = new Vector2(34f, 34f);
             progIconRect.anchoredPosition = new Vector2(22f, 0f);
             _progressionIconImage = progIconGO.AddComponent<Image>();
             _progressionIconImage.sprite = Resources.Load<Sprite>("Art/Animals/cat") ?? Resources.Load<Sprite>("Art/Animals/bear");
@@ -296,12 +296,12 @@ namespace Zoologic
             var progTxtRect = progTxtGO.GetComponent<RectTransform>();
             progTxtRect.anchorMin = new Vector2(0f, 0f);
             progTxtRect.anchorMax = new Vector2(1f, 1f);
-            progTxtRect.offsetMin = new Vector2(54f, 0f);
+            progTxtRect.offsetMin = new Vector2(58f, 0f);
             progTxtRect.offsetMax = new Vector2(-10f, 0f);
             _progressionText = progTxtGO.AddComponent<TextMeshProUGUI>();
             _progressionText.font = _fontTitle;
             _progressionText.text = $"<color=#22C55E>0</color><color=#4A2C12>/{Mathf.Max(_progressionTotal, 5)}</color>";
-            _progressionText.fontSize = 26;
+            _progressionText.fontSize = 30;
             _progressionText.alignment = TextAlignmentOptions.MidlineLeft;
             _progressionText.fontStyle = FontStyles.Bold;
             _progressionText.raycastTarget = false;
@@ -384,7 +384,7 @@ namespace Zoologic
                 coinIconRect.anchorMin = new Vector2(0f, 0.5f);
                 coinIconRect.anchorMax = new Vector2(0f, 0.5f);
                 coinIconRect.pivot = new Vector2(0.5f, 0.5f);
-                coinIconRect.sizeDelta = new Vector2(28f, 28f);
+                coinIconRect.sizeDelta = new Vector2(32f, 32f);
                 coinIconRect.anchoredPosition = new Vector2(22f, 0f);
 
                 _coinsIconImage = coinIconObj.AddComponent<Image>();
@@ -401,12 +401,12 @@ namespace Zoologic
             coinCountRect.anchorMax = new Vector2(0f, 0.5f);
             coinCountRect.pivot = new Vector2(0f, 0.5f);
             coinCountRect.sizeDelta = new Vector2(52f, pillH);
-            coinCountRect.anchoredPosition = new Vector2(50f, 0f);
+            coinCountRect.anchoredPosition = new Vector2(52f, 0f);
 
             _coinsValueText = coinCountObj.AddComponent<TextMeshProUGUI>();
             _coinsValueText.font = _fontTitle;
             _coinsValueText.text = CurrencyManager.GetCoins().ToString();
-            _coinsValueText.fontSize = 26;
+            _coinsValueText.fontSize = 28;
             _coinsValueText.alignment = TextAlignmentOptions.MidlineLeft;
             _coinsValueText.color = CoinPillTextColor;
             _coinsValueText.fontStyle = FontStyles.Bold;
@@ -429,8 +429,8 @@ namespace Zoologic
             hintIconRect.anchorMin = new Vector2(0f, 0.5f);
             hintIconRect.anchorMax = new Vector2(0f, 0.5f);
             hintIconRect.pivot = new Vector2(0.5f, 0.5f);
-            hintIconRect.sizeDelta = new Vector2(28f, 28f);
-            hintIconRect.anchoredPosition = new Vector2(116f, 0f);
+            hintIconRect.sizeDelta = new Vector2(32f, 32f);
+            hintIconRect.anchoredPosition = new Vector2(118f, 0f);
 
             _indiceIconImage = hintIconObj.AddComponent<Image>();
             _indiceIconImage.sprite = potionSprite;
@@ -445,12 +445,12 @@ namespace Zoologic
             hintCountRect.anchorMax = new Vector2(0f, 0.5f);
             hintCountRect.pivot = new Vector2(0f, 0.5f);
             hintCountRect.sizeDelta = new Vector2(36f, pillH);
-            hintCountRect.anchoredPosition = new Vector2(144f, 0f);
+            hintCountRect.anchoredPosition = new Vector2(148f, 0f);
 
             _indiceCountText = hintCountObj.AddComponent<TextMeshProUGUI>();
             _indiceCountText.font = _fontTitle;
             _indiceCountText.text = _indiceCount.ToString();
-            _indiceCountText.fontSize = 26;
+            _indiceCountText.fontSize = 28;
             _indiceCountText.alignment = TextAlignmentOptions.MidlineLeft;
             _indiceCountText.color = HintPillTextColor;
             _indiceCountText.fontStyle = FontStyles.Bold;
@@ -492,13 +492,13 @@ namespace Zoologic
             var text = texte.AddComponent<TextMeshProUGUI>();
             text.font = _fontTitle;
             text.text = $"Niveau {numero}";
-            text.fontSize = 42;
+            text.fontSize = 48;
             text.alignment = TextAlignmentOptions.Center;
             text.color = TitleBrown;
             text.fontStyle = FontStyles.Bold;
             text.raycastTarget = false;
-            text.outlineWidth = 0.18f;
-            text.outlineColor = new Color(1f, 1f, 1f, 0.55f);
+            text.outlineWidth = 0.34f;
+            text.outlineColor = new Color(1f, 1f, 1f, 0.85f);
         }
 
         // ------------------------------------------------------------------
@@ -605,15 +605,14 @@ namespace Zoologic
             iconRect.anchoredPosition = new Vector2(46f, 0f);
 
             var iconText = iconObj.AddComponent<TextMeshProUGUI>();
-            iconText.font = _fontBody;
+            iconText.font = _fontTitle;
             iconText.text = icone;
-            iconText.fontSize = 38;
+            iconText.fontSize = 42;
             iconText.alignment = TextAlignmentOptions.Center;
             iconText.color = GetRuleAccent(index);
             iconText.fontStyle = FontStyles.Bold;
             iconText.raycastTarget = false;
 
-            // Label
             var labelObj = CreerObjetUI("Label", carte.transform);
             var labelRect = labelObj.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;
@@ -622,12 +621,13 @@ namespace Zoologic
             labelRect.offsetMax = new Vector2(-10f, -10f);
 
             var labelText = labelObj.AddComponent<TextMeshProUGUI>();
-            labelText.font = _fontBody;
+            labelText.font = _fontTitle;
             labelText.text = label;
-            labelText.fontSize = 26;
+            labelText.fontSize = 28;
             labelText.alignment = TextAlignmentOptions.MidlineLeft;
             labelText.color = ScoreValueColor;
-            labelText.lineSpacing = 0f;
+            labelText.fontStyle = FontStyles.Bold;
+            labelText.lineSpacing = 2f;
             labelText.raycastTarget = false;
         }
 
@@ -1690,7 +1690,6 @@ namespace Zoologic
             iconImage.color = GetRuleAccent(index);
             iconImage.raycastTarget = false;
 
-            // Label
             var labelObj = CreerObjetUI("Label", carte.transform);
             var labelRect = labelObj.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;
@@ -1699,12 +1698,13 @@ namespace Zoologic
             labelRect.offsetMax = new Vector2(-10f, -10f);
 
             var labelText = labelObj.AddComponent<TextMeshProUGUI>();
-            labelText.font = _fontBody;
+            labelText.font = _fontTitle;
             labelText.text = label;
-            labelText.fontSize = 26;
+            labelText.fontSize = 28;
             labelText.alignment = TextAlignmentOptions.MidlineLeft;
             labelText.color = ScoreValueColor;
-            labelText.lineSpacing = 0f;
+            labelText.fontStyle = FontStyles.Bold;
+            labelText.lineSpacing = 2f;
             labelText.raycastTarget = false;
         }
 
