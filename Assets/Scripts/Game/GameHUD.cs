@@ -40,7 +40,7 @@ namespace Zoologic
         private static readonly Color PillColor = new Color(0.62f, 0.80f, 0.96f, 1f);
         private static readonly Color PillTextColor = new Color(0.10f, 0.30f, 0.52f, 1f);
         private static readonly Color HeartFullColor = new Color(0.93f, 0.22f, 0.33f, 1f);
-        private static readonly Color HeartEmptyColor = new Color(0.80f, 0.80f, 0.82f, 0.4f);
+        private static readonly Color HeartEmptyColor = new Color(0.80f, 0.80f, 0.82f, 0.55f);
         private static readonly Color OverlayColor = new Color(0f, 0f, 0f, 0.55f);
         private static readonly Color RetryButtonColor = new Color(0.15f, 0.50f, 0.92f, 1f);
         private static readonly Color HintCountColor = new Color(0.35f, 0.40f, 0.50f, 1f);
@@ -689,7 +689,7 @@ namespace Zoologic
             badgeRect.anchorMax = new Vector2(1f, 1f);
             badgeRect.pivot = new Vector2(0.5f, 0.5f);
             badgeRect.sizeDelta = new Vector2(56f, 30f);
-            badgeRect.anchoredPosition = new Vector2(12f, 12f);
+            badgeRect.anchoredPosition = new Vector2(8f, 10f);
             var badgeImg = badgeGO.AddComponent<Image>();
             badgeImg.sprite = GetPiluleSprite();
             badgeImg.type = Image.Type.Simple;
