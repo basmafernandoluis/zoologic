@@ -766,8 +766,7 @@ namespace Zoologic
             {
                 catImg.type = Image.Type.Simple;
                 catImg.preserveAspect = true;
-                catImg.color = new Color(0.63f, 0.85f, 0.94f, 1f);
-                catImg.color = new Color(1f, 1f, 1f, 0.22f);
+                catImg.color = new Color(1f, 1f, 1f, 0.35f);
                 catImg.raycastTarget = false;
             }
             else catGO.SetActive(false);

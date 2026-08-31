@@ -217,31 +217,7 @@ namespace Zoologic
             img.color = HeaderBg;
             img.raycastTarget = false;
 
-            // Ombre douce sous le header
-            var headerShadow = new GameObject("HeaderShadow");
-            headerShadow.transform.SetParent(header.transform, false);
-            var hsRect = headerShadow.AddComponent<RectTransform>();
-            hsRect.anchorMin = new Vector2(0f, 0f);
-            hsRect.anchorMax = new Vector2(1f, 0f);
-            hsRect.pivot = new Vector2(0.5f, 1f);
-            hsRect.sizeDelta = new Vector2(0f, 14f);
-            hsRect.anchoredPosition = new Vector2(0f, -2f);
-            var hsImg = headerShadow.AddComponent<Image>();
-            hsImg.color = new Color(0f, 0f, 0f, 0.16f);
-            hsImg.raycastTarget = false;
-            hsRect.SetAsFirstSibling();
 
-            var sep = new GameObject("Separateur");
-            sep.transform.SetParent(header.transform, false);
-            var sepRect = sep.AddComponent<RectTransform>();
-            sepRect.anchorMin = new Vector2(0f, 0f);
-            sepRect.anchorMax = new Vector2(1f, 0f);
-            sepRect.pivot = new Vector2(0.5f, 1f);
-            sepRect.sizeDelta = new Vector2(0f, 2f);
-            sepRect.anchoredPosition = Vector2.zero;
-            var sepImg = sep.AddComponent<Image>();
-            sepImg.color = HeaderSepColor;
-            sepImg.raycastTarget = false;
 
             CreerBoutonRetour(header.transform);
 
@@ -379,7 +355,7 @@ namespace Zoologic
             viewportRect.offsetMax = Vector2.zero;
 
             var viewportImg = viewportGO.AddComponent<Image>();
-            viewportImg.color = new Color(0f, 0f, 0f, 0.01f);
+            viewportImg.color = new Color(0f, 0f, 0f, 0f);
             viewportImg.raycastTarget = true;
 
             var mask = viewportGO.AddComponent<Mask>();
