@@ -161,8 +161,7 @@ namespace Zoologic
             {
                 // Zone haute : header (encoche comprise) + barre de règles.
                 float topOccupied = _headerBottom + RuleBarHeight;
-                // Zone basse : marge réservée en bas de l'écran (zone de confort des doigts).
-                float bottomReserved = 80f;
+                float bottomReserved = 35f;
                 // Référence : on travaille dans l'espace du canvas (hauteur 1920 en compte moyen).
                 float canvasHeight = 1920f;
                 float availableCenter = (topOccupied + (canvasHeight - bottomReserved)) * 0.5f;
@@ -357,39 +356,39 @@ namespace Zoologic
                 _heartRoots[i] = heartObj;
             }
 
-            // --- Coin pill (entre les cœurs et la pilule indice) ---
-            // Constantes de la pilule indice, déclarées ici pour positionner la pilule pièces.
-            float hintW = 132f;
-            float hintX = -HeaderPadding - hintW;
-
+            // --- Pilule économie combinée (pièces | indice) : une seule pilule à droite ---
             _coinSprite = Resources.Load<Sprite>("UI/coin");
-            float coinW = 124f;
-            float coinPillX = hintX - coinW - 16f;
+            float economyW = 202f;
+            float economyX = -HeaderPadding;
 
-            var coinPill = CreerObjetUI("CoinPill", header);
-            var cpRect = coinPill.GetComponent<RectTransform>();
-            cpRect.anchorMin = new Vector2(1f, 0.5f);
-            cpRect.anchorMax = new Vector2(1f, 0.5f);
-            cpRect.pivot = new Vector2(1f, 0.5f);
-            cpRect.sizeDelta = new Vector2(coinW, pillH);
-            cpRect.anchoredPosition = new Vector2(coinPillX, y);
-            AjouterOmbre(cpRect, header, 3f, -5f);
+            var economyPill = CreerObjetUI("EconomyPill", header);
+            var epRect = economyPill.GetComponent<RectTransform>();
+            epRect.anchorMin = new Vector2(1f, 0.5f);
+            epRect.anchorMax = new Vector2(1f, 0.5f);
+            epRect.pivot = new Vector2(1f, 0.5f);
+            epRect.sizeDelta = new Vector2(economyW, pillH);
+            epRect.anchoredPosition = new Vector2(economyX, y);
+            AjouterOmbre(epRect, header, 3f, -5f);
 
-            var coinPillImg = coinPill.AddComponent<Image>();
-            coinPillImg.sprite = GetPiluleSprite();
-            coinPillImg.type = Image.Type.Simple;
-            coinPillImg.color = HintPillBg;
-            coinPillImg.raycastTarget = false;
+            _indiceButtonBg = economyPill.AddComponent<Image>();
+            _indiceButtonBg.sprite = GetPiluleSprite();
+            _indiceButtonBg.type = Image.Type.Simple;
+            _indiceButtonBg.color = HintPillBg;
+            _indiceButtonBg.raycastTarget = true;
+
+            _indiceButton = economyPill.AddComponent<Button>();
+            _indiceButton.targetGraphic = _indiceButtonBg;
+            _indiceButton.onClick.AddListener(() => OnIndiceDemande?.Invoke());
 
             if (_coinSprite != null)
             {
-                var coinIconObj = CreerObjetUI("CoinIcone", coinPill.transform);
+                var coinIconObj = CreerObjetUI("CoinIcone", economyPill.transform);
                 var coinIconRect = coinIconObj.GetComponent<RectTransform>();
                 coinIconRect.anchorMin = new Vector2(0f, 0.5f);
                 coinIconRect.anchorMax = new Vector2(0f, 0.5f);
                 coinIconRect.pivot = new Vector2(0.5f, 0.5f);
-                coinIconRect.sizeDelta = new Vector2(32f, 32f);
-                coinIconRect.anchoredPosition = new Vector2(26f, 0f);
+                coinIconRect.sizeDelta = new Vector2(28f, 28f);
+                coinIconRect.anchoredPosition = new Vector2(22f, 0f);
 
                 _coinsIconImage = coinIconObj.AddComponent<Image>();
                 _coinsIconImage.sprite = _coinSprite;
@@ -399,87 +398,76 @@ namespace Zoologic
                 _coinsIconImage.raycastTarget = false;
             }
 
-            var coinCountObj = CreerObjetUI("CoinNombre", coinPill.transform);
+            var coinCountObj = CreerObjetUI("CoinNombre", economyPill.transform);
             var coinCountRect = coinCountObj.GetComponent<RectTransform>();
-            coinCountRect.anchorMin = new Vector2(0f, 0f);
-            coinCountRect.anchorMax = new Vector2(1f, 1f);
-            coinCountRect.offsetMin = new Vector2(50f, 0f);
-            coinCountRect.offsetMax = new Vector2(-10f, 0f);
+            coinCountRect.anchorMin = new Vector2(0f, 0.5f);
+            coinCountRect.anchorMax = new Vector2(0f, 0.5f);
+            coinCountRect.pivot = new Vector2(0f, 0.5f);
+            coinCountRect.sizeDelta = new Vector2(52f, pillH);
+            coinCountRect.anchoredPosition = new Vector2(50f, 0f);
 
             _coinsValueText = coinCountObj.AddComponent<TextMeshProUGUI>();
             _coinsValueText.font = _fontTitle;
             _coinsValueText.text = CurrencyManager.GetCoins().ToString();
-            _coinsValueText.fontSize = 30;
-            _coinsValueText.alignment = TextAlignmentOptions.MidlineRight;
+            _coinsValueText.fontSize = 26;
+            _coinsValueText.alignment = TextAlignmentOptions.MidlineLeft;
             _coinsValueText.color = CoinPillTextColor;
             _coinsValueText.fontStyle = FontStyles.Bold;
             _coinsValueText.raycastTarget = false;
 
-            // --- Hint pill (right) ---
-            var hintPill = CreerObjetUI("HintPill", header);
-            var hpRect = hintPill.GetComponent<RectTransform>();
-            hpRect.anchorMin = new Vector2(1f, 0.5f);
-            hpRect.anchorMax = new Vector2(1f, 0.5f);
-            hpRect.pivot = new Vector2(1f, 0.5f);
-            hpRect.sizeDelta = new Vector2(hintW, pillH);
-            hpRect.anchoredPosition = new Vector2(hintX, y);
-            AjouterOmbre(hpRect, header, 3f, -5f);
+            var divider = CreerObjetUI("Divider", economyPill.transform);
+            var divRect = divider.GetComponent<RectTransform>();
+            divRect.anchorMin = new Vector2(0.5f, 0.15f);
+            divRect.anchorMax = new Vector2(0.5f, 0.85f);
+            divRect.pivot = new Vector2(0.5f, 0.5f);
+            divRect.sizeDelta = new Vector2(2f, 0f);
+            divRect.anchoredPosition = new Vector2(1f, 0f);
+            var divImg = divider.AddComponent<Image>();
+            divImg.color = new Color(0f, 0f, 0f, 0.12f);
+            divImg.raycastTarget = false;
 
-            _indiceButtonBg = hintPill.AddComponent<Image>();
-            _indiceButtonBg.sprite = GetPiluleSprite();
-            _indiceButtonBg.type = Image.Type.Simple;
-            _indiceButtonBg.color = HintPillBg;
-            _indiceButtonBg.raycastTarget = true;
-
-            _indiceButton = hintPill.AddComponent<Button>();
-            _indiceButton.targetGraphic = _indiceButtonBg;
-            _indiceButton.onClick.AddListener(() => OnIndiceDemande?.Invoke());
-
-            // Potion icon
             Sprite potionSprite = Resources.Load<Sprite>("UI/potion");
-            var iconObj = CreerObjetUI("IndiceIcone", hintPill.transform);
-            var iconRect = iconObj.GetComponent<RectTransform>();
-            iconRect.anchorMin = new Vector2(0f, 0.5f);
-            iconRect.anchorMax = new Vector2(0f, 0.5f);
-            iconRect.pivot = new Vector2(0.5f, 0.5f);
-            iconRect.sizeDelta = new Vector2(34f, 34f);
-            iconRect.anchoredPosition = new Vector2(28f, 0f);
+            var hintIconObj = CreerObjetUI("IndiceIcone", economyPill.transform);
+            var hintIconRect = hintIconObj.GetComponent<RectTransform>();
+            hintIconRect.anchorMin = new Vector2(0f, 0.5f);
+            hintIconRect.anchorMax = new Vector2(0f, 0.5f);
+            hintIconRect.pivot = new Vector2(0.5f, 0.5f);
+            hintIconRect.sizeDelta = new Vector2(28f, 28f);
+            hintIconRect.anchoredPosition = new Vector2(116f, 0f);
 
-            _indiceIconImage = iconObj.AddComponent<Image>();
+            _indiceIconImage = hintIconObj.AddComponent<Image>();
             _indiceIconImage.sprite = potionSprite;
             _indiceIconImage.type = Image.Type.Simple;
             _indiceIconImage.preserveAspect = true;
             _indiceIconImage.color = HintPillTextColor;
             _indiceIconImage.raycastTarget = false;
 
-            // Count text
-            var countObj = CreerObjetUI("IndiceNombre", hintPill.transform);
-            var countRect = countObj.GetComponent<RectTransform>();
-            countRect.anchorMin = new Vector2(0f, 0f);
-            countRect.anchorMax = new Vector2(1f, 1f);
-            countRect.offsetMin = new Vector2(52f, 0f);
-            countRect.offsetMax = new Vector2(-12f, 0f);
+            var hintCountObj = CreerObjetUI("IndiceNombre", economyPill.transform);
+            var hintCountRect = hintCountObj.GetComponent<RectTransform>();
+            hintCountRect.anchorMin = new Vector2(0f, 0.5f);
+            hintCountRect.anchorMax = new Vector2(0f, 0.5f);
+            hintCountRect.pivot = new Vector2(0f, 0.5f);
+            hintCountRect.sizeDelta = new Vector2(36f, pillH);
+            hintCountRect.anchoredPosition = new Vector2(144f, 0f);
 
-            _indiceCountText = countObj.AddComponent<TextMeshProUGUI>();
+            _indiceCountText = hintCountObj.AddComponent<TextMeshProUGUI>();
             _indiceCountText.font = _fontTitle;
             _indiceCountText.text = _indiceCount.ToString();
-            _indiceCountText.fontSize = 30;
-            _indiceCountText.alignment = TextAlignmentOptions.MidlineRight;
+            _indiceCountText.fontSize = 26;
+            _indiceCountText.alignment = TextAlignmentOptions.MidlineLeft;
             _indiceCountText.color = HintPillTextColor;
             _indiceCountText.fontStyle = FontStyles.Bold;
             _indiceCountText.raycastTarget = false;
 
-            // Piécette d'achat : visible quand les indices gratuits sont épuisés
-            // (l'indice s'achète alors avec des pièces).
             if (_coinSprite != null)
             {
-                var coinObj = CreerObjetUI("IndiceAchatIcone", hintPill.transform);
+                var coinObj = CreerObjetUI("IndiceAchatIcone", economyPill.transform);
                 var coinRect = coinObj.GetComponent<RectTransform>();
-                coinRect.anchorMin = new Vector2(1f, 0.5f);
-                coinRect.anchorMax = new Vector2(1f, 0.5f);
+                coinRect.anchorMin = new Vector2(0f, 0.5f);
+                coinRect.anchorMax = new Vector2(0f, 0.5f);
                 coinRect.pivot = new Vector2(0.5f, 0.5f);
-                coinRect.sizeDelta = new Vector2(22f, 22f);
-                coinRect.anchoredPosition = new Vector2(-30f, 0f);
+                coinRect.sizeDelta = new Vector2(18f, 18f);
+                coinRect.anchoredPosition = new Vector2(170f, 0f);
 
                 _indiceCoinIconImage = coinObj.AddComponent<Image>();
                 _indiceCoinIconImage.sprite = _coinSprite;
@@ -637,11 +625,22 @@ namespace Zoologic
         // 3bis) POWER-UP « GOMME » : bouton flottant, coin bas-droit.
         // ------------------------------------------------------------------
 
+        private float BottomInset
+        {
+            get
+            {
+                Rect safe = Screen.safeArea;
+                float insetPx = safe.yMin;
+                if (insetPx <= 1f) return 18f;
+                return insetPx * (1920f / Mathf.Max(Screen.height, 1));
+            }
+        }
+
         private void BuildGommeBouton(Canvas canvas)
         {
-            float bottomMargin = 34f;
-            float rightMargin = 34f;
-            float size = 76f;
+            float bottomMargin = 22f + BottomInset;
+            float rightMargin = 22f;
+            float size = 84f;
 
             var btnObj = CreerObjetUI("GommeBouton", canvas.transform);
             var btnRect = btnObj.GetComponent<RectTransform>();
@@ -684,23 +683,44 @@ namespace Zoologic
                 iconImg.raycastTarget = false;
             }
 
-            // Coût affiché sous l'icône (petit libellé pièce).
-            var costObj = CreerObjetUI("Cout", btnObj.transform);
-            var costRect = costObj.GetComponent<RectTransform>();
-            costRect.anchorMin = new Vector2(0f, 1f);
-            costRect.anchorMax = new Vector2(1f, 1f);
-            costRect.pivot = new Vector2(0.5f, 0f);
-            costRect.sizeDelta = new Vector2(0f, 24f);
-            costRect.anchoredPosition = new Vector2(0f, -4f);
+            var badgeGO = CreerObjetUI("BadgeCout", btnObj.transform);
+            var badgeRect = badgeGO.GetComponent<RectTransform>();
+            badgeRect.anchorMin = new Vector2(1f, 1f);
+            badgeRect.anchorMax = new Vector2(1f, 1f);
+            badgeRect.pivot = new Vector2(0.5f, 0.5f);
+            badgeRect.sizeDelta = new Vector2(56f, 30f);
+            badgeRect.anchoredPosition = new Vector2(12f, 12f);
+            var badgeImg = badgeGO.AddComponent<Image>();
+            badgeImg.sprite = GetPiluleSprite();
+            badgeImg.type = Image.Type.Simple;
+            badgeImg.color = new Color(1f, 1f, 1f, 0.97f);
+            badgeImg.raycastTarget = false;
+            var badgeShadow = CreerObjetUI("Shadow", badgeGO.transform);
+            var bsRect2 = badgeShadow.GetComponent<RectTransform>();
+            bsRect2.anchorMin = Vector2.zero;
+            bsRect2.anchorMax = Vector2.one;
+            bsRect2.offsetMin = new Vector2(2f, -3f);
+            bsRect2.offsetMax = new Vector2(2f, -3f);
+            var bsImg2 = badgeShadow.AddComponent<Image>();
+            bsImg2.sprite = GetPiluleSprite();
+            bsImg2.color = new Color(0f, 0f, 0f, 0.18f);
+            bsImg2.raycastTarget = false;
+            badgeShadow.transform.SetAsFirstSibling();
 
-            var costText = costObj.AddComponent<TextMeshProUGUI>();
-            costText.font = _fontTitle;
-            costText.text = PuzzleGameController.GommeCout.ToString();
-            costText.fontSize = 20;
-            costText.alignment = TextAlignmentOptions.Center;
-            costText.color = Color.white;
-            costText.fontStyle = FontStyles.Bold;
-            costText.raycastTarget = false;
+            var badgeTxtGO = CreerObjetUI("Text", badgeGO.transform);
+            var badgeTxtRect = badgeTxtGO.GetComponent<RectTransform>();
+            badgeTxtRect.anchorMin = Vector2.zero;
+            badgeTxtRect.anchorMax = Vector2.one;
+            badgeTxtRect.offsetMin = Vector2.zero;
+            badgeTxtRect.offsetMax = Vector2.zero;
+            var badgeTxt = badgeTxtGO.AddComponent<TextMeshProUGUI>();
+            badgeTxt.font = _fontTitle;
+            badgeTxt.text = PuzzleGameController.GommeCout.ToString();
+            badgeTxt.fontSize = 20;
+            badgeTxt.alignment = TextAlignmentOptions.Center;
+            badgeTxt.color = GumBgColor;
+            badgeTxt.fontStyle = FontStyles.Bold;
+            badgeTxt.raycastTarget = false;
         }
 
         // ------------------------------------------------------------------

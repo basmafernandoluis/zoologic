@@ -171,6 +171,16 @@ namespace Zoologic
                 canvasGO.AddComponent<StandaloneInputModule>();
             }
 
+            if (FindFirstObjectByType<Camera>() == null)
+            {
+                var camGO = new GameObject("Main Camera");
+                camGO.tag = "MainCamera";
+                var cam = camGO.AddComponent<Camera>();
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = BackgroundHelper.BgBottom;
+                camGO.AddComponent<AudioListener>();
+            }
+
             BuildBackground(canvasGO.transform);
             BuildHeader(canvasGO.transform);
             _scrollRect = BuildScrollArea(canvasGO.transform);
@@ -822,6 +832,8 @@ namespace Zoologic
 
         private void CreerEtoiles(Transform parent, int starCount, bool unlocked)
         {
+            if (!unlocked) return;
+
             var starsGO = new GameObject("Stars");
             starsGO.transform.SetParent(parent, false);
             var rect = starsGO.AddComponent<RectTransform>();
@@ -837,7 +849,6 @@ namespace Zoologic
             hlg.childForceExpandHeight = false;
 
             Sprite starSprite = GetStarSprite();
-            int shownStars = unlocked ? starCount : 0;
 
             for (int i = 0; i < 3; i++)
             {
@@ -846,8 +857,7 @@ namespace Zoologic
                 var starImg = starGO.AddComponent<Image>();
                 starImg.sprite = starSprite;
                 starImg.preserveAspect = true;
-                starImg.color = i < shownStars ? GoldStar :
-                    (unlocked ? EmptyStar : LockedStar);
+                starImg.color = i < starCount ? GoldStar : EmptyStar;
                 starImg.raycastTarget = false;
 
                 var starLE = starGO.AddComponent<LayoutElement>();

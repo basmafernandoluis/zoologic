@@ -121,6 +121,36 @@ namespace Zoologic
             _boardContainer.anchoredPosition = Vector2.zero;
             _boardContainer.sizeDelta = new Vector2(slotSize * n, slotSize * n);
 
+            var boardBg = new GameObject("BoardBg", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            boardBg.transform.SetParent(_boardContainer, false);
+            var bgRect = (RectTransform)boardBg.transform;
+            bgRect.anchorMin = new Vector2(0.5f, 0.5f);
+            bgRect.anchorMax = new Vector2(0.5f, 0.5f);
+            bgRect.pivot = new Vector2(0.5f, 0.5f);
+            bgRect.sizeDelta = new Vector2(slotSize * n + 24f, slotSize * n + 24f);
+            bgRect.anchoredPosition = Vector2.zero;
+            var bgImg = boardBg.GetComponent<Image>();
+            bgImg.sprite = GetRoundedRectSprite();
+            bgImg.type = Image.Type.Simple;
+            bgImg.color = new Color(1f, 1f, 1f, 0.96f);
+            bgImg.raycastTarget = false;
+            boardBg.transform.SetAsFirstSibling();
+
+            var boardShadow = new GameObject("BoardShadow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            boardShadow.transform.SetParent(_boardContainer, false);
+            var bsRect = (RectTransform)boardShadow.transform;
+            bsRect.anchorMin = new Vector2(0.5f, 0.5f);
+            bsRect.anchorMax = new Vector2(0.5f, 0.5f);
+            bsRect.pivot = new Vector2(0.5f, 0.5f);
+            bsRect.sizeDelta = new Vector2(slotSize * n + 24f, slotSize * n + 24f);
+            bsRect.anchoredPosition = new Vector2(4f, -6f);
+            var bsImg = boardShadow.GetComponent<Image>();
+            bsImg.sprite = GetRoundedRectSprite();
+            bsImg.type = Image.Type.Simple;
+            bsImg.color = new Color(0f, 0f, 0f, 0.13f);
+            bsImg.raycastTarget = false;
+            boardShadow.transform.SetAsFirstSibling();
+
             _regionColors.Clear();
             _regionIcons.Clear();
             _levelIcons = AnimalIconSet.GetShuffled();

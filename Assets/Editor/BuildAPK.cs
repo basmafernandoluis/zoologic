@@ -71,6 +71,7 @@ namespace Zoologic.EditorTools
             PlayerSettings.companyName = "AppWizards";
             PlayerSettings.productName = "Zoo Logic";
             PlayerSettings.bundleVersion = "0.2";
+            PlayerSettings.Android.bundleVersionCode = 2;
             PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android, "com.appwizards.zoologic");
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
             PlayerSettings.allowedAutorotateToPortrait = true;
