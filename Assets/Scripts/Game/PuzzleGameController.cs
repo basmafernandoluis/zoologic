@@ -150,6 +150,8 @@ namespace Zoologic
                 if (_gridView.BoardContainer != null)
                     _gridView.BoardContainer.anchoredPosition =
                         new Vector2(0f, _hud.BoardYOffset);
+
+                _hud.SetProgression(_grid.Pions.Count, _grid.Size);
             }
             catch (System.Exception e)
             {
@@ -423,23 +425,23 @@ namespace Zoologic
 
             if (_grid.HasPion(row, col))
             {
-                // Retirer le pion
                 _grid.RemovePion(row, col);
                 _gridView.SetPion(row, col, false);
 
                 SFXManager.Instance.PlayClickedOut();
 
+                _hud.SetProgression(_grid.Pions.Count, _grid.Size);
                 ReevaluerConflits();
                 UpdateVictoryVisibility();
                 return;
             }
 
-            // Placer un pion (retire le X s'il y en a un)
             _grid.PlacePion(row, col);
             _xMarks[row, col] = false;
             _gridView.SetPion(row, col, true);
             _gridView.SetX(row, col, false);
 
+            _hud.SetProgression(_grid.Pions.Count, _grid.Size);
             VerifierConflitPlacement(row, col);
             FlashAllConflicts();
             UpdateVictoryVisibility();
@@ -524,6 +526,7 @@ namespace Zoologic
                 _gridView.SetPion(row, col, false);
             }
 
+            _hud.SetProgression(_grid.Pions.Count, _grid.Size);
             _gridView.ShakeBoard(20f, 0.3f);
             _hud.BloquerPowerUpTemporairement(GommeRecharge);
             UpdateVictoryVisibility();
@@ -637,6 +640,7 @@ namespace Zoologic
 
             _livesManager.Reinitialiser();
             _hud.Reinitialiser(ScoreDepart, LivesManager.ViesDepart, _hud.IndiceCount);
+            _hud.SetProgression(0, _grid.Size);
 
             _grid.Clear();
             for (int row = 0; row < _grid.Size; row++)

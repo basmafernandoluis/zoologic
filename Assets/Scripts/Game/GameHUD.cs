@@ -35,7 +35,8 @@ namespace Zoologic
         // Couleurs.
         // ------------------------------------------------------------------
 
-        private static readonly Color HeaderBgColor = new Color(1f, 1f, 1f, 0.97f);
+        private static readonly Color HeaderBgColor = new Color(1f, 1f, 1f, 0f);
+        private static readonly Color TitleBrown = new Color(0.29f, 0.18f, 0.10f, 1f);
         private static readonly Color RuleCardBg = new Color(0.99f, 0.97f, 0.93f, 1f);
         private static readonly Color PillColor = new Color(0.62f, 0.80f, 0.96f, 1f);
         private static readonly Color PillTextColor = new Color(0.10f, 0.30f, 0.52f, 1f);
@@ -55,16 +56,15 @@ namespace Zoologic
         private static readonly Color RuleAccentColor2 = new Color(0.30f, 0.55f, 0.90f, 1f);
         private static readonly Color RuleAccentColor3 = new Color(0.92f, 0.30f, 0.55f, 1f);
 
-        // Tuile de bouton d'en-tête (retour / réglages) : pastel cohérente entre les deux.
-        private static readonly Color HeaderTileBg = new Color(0.91f, 0.94f, 0.97f, 1f);
-        private static readonly Color HeaderTileIcon = new Color(0.25f, 0.35f, 0.45f, 1f);
-        private static readonly Color HeartPillBg = new Color(1f, 0.94f, 0.95f, 1f);
-
-        private static readonly Color ScorePillBg = new Color(0.98f, 0.85f, 0.24f, 1f);
-        private static readonly Color ScorePillTextColor = new Color(0.42f, 0.28f, 0.02f, 1f);
-        private static readonly Color HintPillBg = new Color(0.78f, 0.89f, 1f, 1f);
-        private static readonly Color HintPillTextColor = new Color(0.10f, 0.35f, 0.78f, 1f);
-        private static readonly Color CoinPillTextColor = new Color(0.75f, 0.55f, 0.05f, 1f);
+        private static readonly Color HeaderTileBg = new Color(1f, 0.98f, 0.96f, 1f);
+        private static readonly Color HeaderTileIcon = new Color(0.29f, 0.18f, 0.10f, 1f);
+        private static readonly Color HeartPillBg = new Color(1f, 0.98f, 0.96f, 1f);
+        private static readonly Color BubbleBorderLight = new Color(0.92f, 0.89f, 0.86f, 1f);
+        private static readonly Color ScorePillBg = new Color(1f, 0.98f, 0.96f, 1f);
+        private static readonly Color ScorePillTextColor = new Color(0.22f, 0.19f, 0.16f, 1f);
+        private static readonly Color HintPillBg = new Color(1f, 0.98f, 0.96f, 1f);
+        private static readonly Color HintPillTextColor = new Color(0.22f, 0.19f, 0.16f, 1f);
+        private static readonly Color CoinPillTextColor = new Color(0.22f, 0.19f, 0.16f, 1f);
         private static readonly Color CoinInsufficientColor = new Color(0.85f, 0.30f, 0.30f, 1f);
         private static readonly Color GumBgColor = new Color(0.92f, 0.36f, 0.42f, 1f);
         private static readonly Color ScoreLabelColor = new Color(0.50f, 0.52f, 0.56f, 1f);
@@ -78,7 +78,7 @@ namespace Zoologic
         private TMP_FontAsset _fontTitle;
         private TMP_FontAsset _fontBody;
 
-        // Score
+        // Score (interne, non affiché en pill jeu — gardé pour logique)
         private TextMeshProUGUI _scoreValueText;
         private int _score;
         private Image _scorePillBg;
@@ -86,6 +86,11 @@ namespace Zoologic
         private Color _scorePillBgColor;
         private Coroutine _scorePunchRoutine;
         private static readonly Color ScorePunchBgColor = new Color(0.95f, 0.55f, 0.45f, 1f);
+
+        // Progression jeu : 🦊 X/Y chats/animaux placés
+        private Image _progressionIconImage;
+        private TextMeshProUGUI _progressionText;
+        private int _progressionTotal = 5;
 
         // Cœurs (images, pas de texte)
         private readonly Image[] _heartImages = new Image[LivesManager.ViesDepart];
@@ -184,6 +189,7 @@ namespace Zoologic
 
             BuildHeader(canvas, numeroNiveau);
             BuildBarreRegle(canvas);
+            BuildFooterWave(canvas);
             BuildGommeBouton(canvas);
         }
 
@@ -210,32 +216,7 @@ namespace Zoologic
 
             var image = header.AddComponent<Image>();
             image.color = HeaderBgColor;
-            image.raycastTarget = true;
-
-            // Ombre douce sous le header
-            var headerOmbre = CreerObjetUI("HeaderOmbre", header.transform);
-            var hoRect = headerOmbre.GetComponent<RectTransform>();
-            hoRect.anchorMin = new Vector2(0f, 0f);
-            hoRect.anchorMax = new Vector2(1f, 0f);
-            hoRect.pivot = new Vector2(0.5f, 1f);
-            hoRect.sizeDelta = new Vector2(0f, 12f);
-            hoRect.anchoredPosition = new Vector2(0f, -2f);
-            var hoImg = headerOmbre.AddComponent<Image>();
-            hoImg.color = new Color(0f, 0f, 0f, 0.14f);
-            hoImg.raycastTarget = false;
-            hoRect.SetAsFirstSibling();
-
-            // Séparateur fin en bas
-            var separateur = CreerObjetUI("Separateur", header.transform);
-            var sepRect = separateur.GetComponent<RectTransform>();
-            sepRect.anchorMin = new Vector2(0f, 0f);
-            sepRect.anchorMax = new Vector2(1f, 0f);
-            sepRect.pivot = new Vector2(0.5f, 1f);
-            sepRect.sizeDelta = new Vector2(0f, 2f);
-            sepRect.anchoredPosition = Vector2.zero;
-            var sepImg = separateur.AddComponent<Image>();
-            sepImg.color = new Color(0f, 0f, 0f, 0.10f);
-            sepImg.raycastTarget = false;
+            image.raycastTarget = false;
 
             // Row 1: ← back | Niveau X pill | ⚙ settings
             float row1Y = H * 0.5f - dRow1;
@@ -272,42 +253,58 @@ namespace Zoologic
         {
             float pillH = 56f;
 
-            // --- Score pill (left) ---
-            float scoreW = 150f;
-            float scoreX = HeaderPadding;
+            // --- Progression pill (left) : 🦊 1/5 — remplace le score technique par un feedback jeu ---
+            float progW = 150f;
+            float progX = HeaderPadding;
 
-            var scorePill = CreerObjetUI("ScorePill", header);
-            var spRect = scorePill.GetComponent<RectTransform>();
-            spRect.anchorMin = new Vector2(0f, 0.5f);
-            spRect.anchorMax = new Vector2(0f, 0.5f);
-            spRect.pivot = new Vector2(0f, 0.5f);
-            spRect.sizeDelta = new Vector2(scoreW, pillH);
-            spRect.anchoredPosition = new Vector2(scoreX, y);
-            AjouterOmbre(spRect, header, 3f, -5f);
+            var progPill = CreerObjetUI("ProgressionPill", header);
+            var progRect = progPill.GetComponent<RectTransform>();
+            progRect.anchorMin = new Vector2(0f, 0.5f);
+            progRect.anchorMax = new Vector2(0f, 0.5f);
+            progRect.pivot = new Vector2(0f, 0.5f);
+            progRect.sizeDelta = new Vector2(progW, 52f);
+            progRect.anchoredPosition = new Vector2(progX, y);
+            AjouterOmbre(progRect, header, 3f, -5f);
 
-            _scorePillBg = scorePill.AddComponent<Image>();
+            _scorePillBg = progPill.AddComponent<Image>();
             _scorePillBg.sprite = GetPiluleSprite();
             _scorePillBg.type = Image.Type.Simple;
-            _scorePillBg.color = ScorePillBg;
+            _scorePillBg.color = new Color(1f, 0.98f, 0.96f, 1f);
             _scorePillBg.raycastTarget = false;
-            _scorePillRect = spRect;
-            _scorePillBgColor = ScorePillBg;
+            _scorePillRect = progRect;
+            _scorePillBgColor = _scorePillBg.color;
 
-            var scoreTxt = CreerObjetUI("ScoreText", scorePill.transform);
-            var stRect = scoreTxt.GetComponent<RectTransform>();
-            stRect.anchorMin = Vector2.zero;
-            stRect.anchorMax = Vector2.one;
-            stRect.offsetMin = Vector2.zero;
-            stRect.offsetMax = Vector2.zero;
+            var progIconGO = CreerObjetUI("ProgIcon", progPill.transform);
+            var progIconRect = progIconGO.GetComponent<RectTransform>();
+            progIconRect.anchorMin = new Vector2(0f, 0.5f);
+            progIconRect.anchorMax = new Vector2(0f, 0.5f);
+            progIconRect.pivot = new Vector2(0.5f, 0.5f);
+            progIconRect.sizeDelta = new Vector2(30f, 30f);
+            progIconRect.anchoredPosition = new Vector2(22f, 0f);
+            _progressionIconImage = progIconGO.AddComponent<Image>();
+            _progressionIconImage.sprite = Resources.Load<Sprite>("Art/Animals/cat") ?? Resources.Load<Sprite>("Art/Animals/bear");
+            if (_progressionIconImage.sprite == null)
+            {
+                var all = AnimalIconSet.LoadAll();
+                if (all != null && all.Length > 0) _progressionIconImage.sprite = all[0];
+            }
+            _progressionIconImage.type = Image.Type.Simple;
+            _progressionIconImage.preserveAspect = true;
+            _progressionIconImage.raycastTarget = false;
 
-            _scoreValueText = scoreTxt.AddComponent<TextMeshProUGUI>();
-            _scoreValueText.font = _fontTitle;
-            _scoreValueText.text = _score.ToString();
-            _scoreValueText.fontSize = 34;
-            _scoreValueText.alignment = TextAlignmentOptions.Center;
-            _scoreValueText.color = ScorePillTextColor;
-            _scoreValueText.fontStyle = FontStyles.Bold;
-            _scoreValueText.raycastTarget = false;
+            var progTxtGO = CreerObjetUI("ProgText", progPill.transform);
+            var progTxtRect = progTxtGO.GetComponent<RectTransform>();
+            progTxtRect.anchorMin = new Vector2(0f, 0f);
+            progTxtRect.anchorMax = new Vector2(1f, 1f);
+            progTxtRect.offsetMin = new Vector2(54f, 0f);
+            progTxtRect.offsetMax = new Vector2(-10f, 0f);
+            _progressionText = progTxtGO.AddComponent<TextMeshProUGUI>();
+            _progressionText.font = _fontTitle;
+            _progressionText.text = $"<color=#22C55E>0</color><color=#4A2C12>/{Mathf.Max(_progressionTotal, 5)}</color>";
+            _progressionText.fontSize = 26;
+            _progressionText.alignment = TextAlignmentOptions.MidlineLeft;
+            _progressionText.fontStyle = FontStyles.Bold;
+            _progressionText.raycastTarget = false;
 
             // --- Hearts pill (center) ---
             Sprite heartSprite = Resources.Load<Sprite>("UI/heart");
@@ -484,36 +481,24 @@ namespace Zoologic
 
         private void CreerPiluleNiveau(Transform parent, int numero, float y)
         {
-            var pilule = CreerObjetUI("NiveauPilule", parent);
-            var piluleRect = pilule.GetComponent<RectTransform>();
-            piluleRect.anchorMin = new Vector2(0.5f, 0.5f);
-            piluleRect.anchorMax = new Vector2(0.5f, 0.5f);
-            piluleRect.pivot = new Vector2(0.5f, 0.5f);
-            piluleRect.sizeDelta = new Vector2(240f, 54f);
-            piluleRect.anchoredPosition = new Vector2(0f, y);
-            AjouterOmbre(piluleRect, parent, 3f, -5f);
-
-            var piluleImg = pilule.AddComponent<Image>();
-            piluleImg.sprite = GetPiluleSprite();
-            piluleImg.type = Image.Type.Simple;
-            piluleImg.color = PillColor;
-            piluleImg.raycastTarget = false;
-
-            var texte = CreerObjetUI("NiveauTexte", pilule.transform);
+            var texte = CreerObjetUI("NiveauTitre", parent);
             var textRect = texte.GetComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = Vector2.zero;
-            textRect.offsetMax = Vector2.zero;
+            textRect.anchorMin = new Vector2(0.5f, 0.5f);
+            textRect.anchorMax = new Vector2(0.5f, 0.5f);
+            textRect.pivot = new Vector2(0.5f, 0.5f);
+            textRect.sizeDelta = new Vector2(400f, 54f);
+            textRect.anchoredPosition = new Vector2(0f, y);
 
             var text = texte.AddComponent<TextMeshProUGUI>();
             text.font = _fontTitle;
             text.text = $"Niveau {numero}";
-            text.fontSize = 34;
+            text.fontSize = 42;
             text.alignment = TextAlignmentOptions.Center;
-            text.color = PillTextColor;
+            text.color = TitleBrown;
             text.fontStyle = FontStyles.Bold;
             text.raycastTarget = false;
+            text.outlineWidth = 0.18f;
+            text.outlineColor = new Color(1f, 1f, 1f, 0.55f);
         }
 
         // ------------------------------------------------------------------
@@ -530,6 +515,31 @@ namespace Zoologic
             rect.pivot = new Vector2(0.5f, 1f);
             rect.sizeDelta = new Vector2(0f, RuleBarHeight);
             rect.anchoredPosition = new Vector2(0f, -_headerBottom);
+
+            var barBg = CreerObjetUI("BarBg", container.transform);
+            var barBgRect = barBg.GetComponent<RectTransform>();
+            barBgRect.anchorMin = new Vector2(0f, 0.5f);
+            barBgRect.anchorMax = new Vector2(1f, 0.5f);
+            barBgRect.pivot = new Vector2(0.5f, 0.5f);
+            barBgRect.sizeDelta = new Vector2(-24f, RuleBarHeight - 8f);
+            barBgRect.anchoredPosition = Vector2.zero;
+            var barBgImg = barBg.AddComponent<Image>();
+            barBgImg.sprite = GetCarteSprite();
+            barBgImg.type = Image.Type.Simple;
+            barBgImg.color = new Color(1f, 1f, 1f, 0.98f);
+            barBgImg.raycastTarget = false;
+            barBg.transform.SetAsFirstSibling();
+            var barShadow = CreerObjetUI("BarShadow", barBg.transform);
+            var barShRect = barShadow.GetComponent<RectTransform>();
+            barShRect.anchorMin = Vector2.zero;
+            barShRect.anchorMax = Vector2.one;
+            barShRect.offsetMin = new Vector2(4f, -6f);
+            barShRect.offsetMax = new Vector2(4f, -6f);
+            var barShImg = barShadow.AddComponent<Image>();
+            barShImg.sprite = GetCarteSprite();
+            barShImg.color = new Color(0f, 0f, 0f, 0.10f);
+            barShImg.raycastTarget = false;
+            barShadow.transform.SetAsFirstSibling();
 
             CreerCarteRegle(container.transform, "\u25CB", "1 par couleur", 0);
             CreerCarteRegle(container.transform, "\u25A1", "1 par ligne\net colonne", 1);
@@ -723,21 +733,99 @@ namespace Zoologic
             badgeTxt.raycastTarget = false;
         }
 
+        private void BuildFooterWave(Canvas canvas)
+        {
+            var footer = CreerObjetUI("FooterWave", canvas.transform);
+            var rect = footer.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 0f);
+            rect.anchorMax = new Vector2(1f, 0f);
+            rect.pivot = new Vector2(0.5f, 0f);
+            rect.sizeDelta = new Vector2(0f, 148f);
+            rect.anchoredPosition = Vector2.zero;
+            var img = footer.AddComponent<Image>();
+            img.sprite = GetCarteSprite();
+            img.type = Image.Type.Simple;
+            img.color = new Color(0.63f, 0.85f, 0.94f, 1f);
+            img.raycastTarget = false;
+
+            var catGO = CreerObjetUI("CatSilhouette", footer.transform);
+            var catRect = catGO.GetComponent<RectTransform>();
+            catRect.anchorMin = new Vector2(0.5f, 1f);
+            catRect.anchorMax = new Vector2(0.5f, 1f);
+            catRect.pivot = new Vector2(0.5f, 0f);
+            catRect.sizeDelta = new Vector2(80f, 42f);
+            catRect.anchoredPosition = new Vector2(0f, -6f);
+            var catImg = catGO.AddComponent<Image>();
+            catImg.sprite = Resources.Load<Sprite>("Art/Animals/cat") ?? Resources.Load<Sprite>("Art/Animals/bear");
+            if (catImg.sprite == null)
+            {
+                var all = AnimalIconSet.LoadAll();
+                if (all != null && all.Length > 0) catImg.sprite = all[0];
+            }
+            if (catImg.sprite != null)
+            {
+                catImg.type = Image.Type.Simple;
+                catImg.preserveAspect = true;
+                catImg.color = new Color(0.63f, 0.85f, 0.94f, 1f);
+                catImg.color = new Color(1f, 1f, 1f, 0.22f);
+                catImg.raycastTarget = false;
+            }
+            else catGO.SetActive(false);
+
+            var paws = new Vector2[] { new Vector2(-320f, 45f), new Vector2(-180f, 28f), new Vector2(-40f, 52f), new Vector2(110f, 32f), new Vector2(300f, 48f), new Vector2(0f, 18f) };
+            foreach (var p in paws)
+            {
+                var pawGO = CreerObjetUI("Paw", footer.transform);
+                var pawRect = pawGO.GetComponent<RectTransform>();
+                pawRect.anchorMin = new Vector2(0.5f, 0.5f);
+                pawRect.anchorMax = new Vector2(0.5f, 0.5f);
+                pawRect.pivot = new Vector2(0.5f, 0.5f);
+                pawRect.sizeDelta = new Vector2(28f, 28f);
+                pawRect.anchoredPosition = p;
+                var pawTxt = pawGO.AddComponent<TextMeshProUGUI>();
+                pawTxt.font = _fontBody;
+                pawTxt.text = "🐾";
+                pawTxt.fontSize = 22;
+                pawTxt.alignment = TextAlignmentOptions.Center;
+                pawTxt.color = new Color(1f, 1f, 1f, 0.18f);
+                pawTxt.raycastTarget = false;
+            }
+
+            var labelGO = CreerObjetUI("FooterLabel", footer.transform);
+            var labelRect = labelGO.GetComponent<RectTransform>();
+            labelRect.anchorMin = new Vector2(0f, 0.5f);
+            labelRect.anchorMax = new Vector2(1f, 0.5f);
+            labelRect.pivot = new Vector2(0.5f, 0.5f);
+            labelRect.sizeDelta = new Vector2(0f, 60f);
+            labelRect.anchoredPosition = new Vector2(0f, -6f);
+            var label = labelGO.AddComponent<TextMeshProUGUI>();
+            label.font = _fontTitle;
+            label.text = "Trouve les animaux";
+            label.fontSize = 38;
+            label.alignment = TextAlignmentOptions.Center;
+            label.color = Color.white;
+            label.fontStyle = FontStyles.Bold;
+            label.outlineWidth = 0.28f;
+            label.outlineColor = new Color(0.20f, 0.55f, 0.80f, 1f);
+            label.raycastTarget = false;
+        }
+
         // ------------------------------------------------------------------
         // 4) CŒURS : animations.
         // ------------------------------------------------------------------
 
         public void SetScore(int score)
         {
-            if (score == _score)
-                return;
-            bool decreased = score < _score;
             _score = score;
-            if (_scoreValueText != null)
-                _scoreValueText.text = _score.ToString();
+        }
 
-            if (decreased)
-                PunchScore();
+        public void SetProgression(int placed, int total)
+        {
+            _progressionTotal = Mathf.Max(1, total);
+            if (_progressionText != null)
+                _progressionText.text = $"<color=#22C55E>{placed}</color><color=#4A2C12>/{_progressionTotal}</color>";
+            if (_progressionIconImage != null && placed > 0)
+                Punch.Scale(this, _progressionIconImage.rectTransform, 1.18f, 0.22f);
         }
 
         /// <summary>Petit punch rouge sur la pilule de score quand le score diminue.</summary>
@@ -1305,14 +1393,14 @@ namespace Zoologic
         public void Reinitialiser(int score, int vies, int indices)
         {
             _score = score;
-            if (_scoreValueText != null)
-                _scoreValueText.text = _score.ToString();
 
             SetVies(vies);
 
             _indiceCount = indices;
             if (_indiceCountText != null)
                 _indiceCountText.text = _indiceCount.ToString();
+
+            SetProgression(0, _progressionTotal);
 
             CacherDefaite();
             BloquerInteractions(false);

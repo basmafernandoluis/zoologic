@@ -31,21 +31,17 @@ namespace Zoologic
         /// </summary>
         public static readonly Color[] RegionPalette =
         {
-            new Color(0.72f, 0.90f, 0.82f), // Vert menthe vif
-            new Color(0.80f, 0.88f, 0.97f), // Bleu ciel
-            new Color(0.88f, 0.82f, 0.96f), // Lavande
-            new Color(1.00f, 0.86f, 0.88f), // Rose pêche
-            new Color(1.00f, 0.91f, 0.78f), // Pêche dorée
-            new Color(0.98f, 0.96f, 0.76f), // Jaune crème
-            new Color(0.78f, 0.94f, 0.86f), // Vert d'eau
-            new Color(0.83f, 0.85f, 0.97f), // Bleu lavande
+            new Color(0.96f, 0.55f, 0.65f),
+            new Color(0.99f, 0.80f, 0.25f),
+            new Color(0.45f, 0.80f, 0.99f),
+            new Color(0.78f, 0.60f, 0.97f),
+            new Color(1.00f, 0.65f, 0.45f),
+            new Color(0.60f, 0.88f, 0.55f),
+            new Color(0.55f, 0.75f, 0.98f),
+            new Color(1.00f, 0.68f, 0.78f),
         };
 
-        /// <summary>
-        /// Espacement visible entre deux cases, en fraction de la taille d'une case
-        /// (0.05 = 5 %). Augmente la valeur pour des cases plus "aérées".
-        /// </summary>
-        public const float CellGapRatio = 0.05f;
+        public const float CellGapRatio = 0.03f;
 
         /// <summary>Décalage de l'ombre portée, en fraction de la taille d'une case (x : droite, y : bas).</summary>
         private static readonly Vector2 ShadowOffsetRatio = new Vector2(0.02f, -0.04f);
@@ -127,12 +123,12 @@ namespace Zoologic
             bgRect.anchorMin = new Vector2(0.5f, 0.5f);
             bgRect.anchorMax = new Vector2(0.5f, 0.5f);
             bgRect.pivot = new Vector2(0.5f, 0.5f);
-            bgRect.sizeDelta = new Vector2(slotSize * n + 24f, slotSize * n + 24f);
+            bgRect.sizeDelta = new Vector2(slotSize * n + 32f, slotSize * n + 32f);
             bgRect.anchoredPosition = Vector2.zero;
             var bgImg = boardBg.GetComponent<Image>();
             bgImg.sprite = GetRoundedRectSprite();
             bgImg.type = Image.Type.Simple;
-            bgImg.color = new Color(1f, 1f, 1f, 0.96f);
+            bgImg.color = new Color(1f, 1f, 1f, 0.98f);
             bgImg.raycastTarget = false;
             boardBg.transform.SetAsFirstSibling();
 
@@ -142,12 +138,12 @@ namespace Zoologic
             bsRect.anchorMin = new Vector2(0.5f, 0.5f);
             bsRect.anchorMax = new Vector2(0.5f, 0.5f);
             bsRect.pivot = new Vector2(0.5f, 0.5f);
-            bsRect.sizeDelta = new Vector2(slotSize * n + 24f, slotSize * n + 24f);
-            bsRect.anchoredPosition = new Vector2(4f, -6f);
+            bsRect.sizeDelta = new Vector2(slotSize * n + 32f, slotSize * n + 32f);
+            bsRect.anchoredPosition = new Vector2(5f, -8f);
             var bsImg = boardShadow.GetComponent<Image>();
             bsImg.sprite = GetRoundedRectSprite();
             bsImg.type = Image.Type.Simple;
-            bsImg.color = new Color(0f, 0f, 0f, 0.13f);
+            bsImg.color = new Color(0f, 0f, 0f, 0.14f);
             bsImg.raycastTarget = false;
             boardShadow.transform.SetAsFirstSibling();
 
