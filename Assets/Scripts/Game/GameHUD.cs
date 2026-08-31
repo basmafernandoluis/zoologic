@@ -772,25 +772,6 @@ namespace Zoologic
             }
             else catGO.SetActive(false);
 
-            var paws = new Vector2[] { new Vector2(-320f, 45f), new Vector2(-180f, 28f), new Vector2(-40f, 52f), new Vector2(110f, 32f), new Vector2(300f, 48f), new Vector2(0f, 18f) };
-            foreach (var p in paws)
-            {
-                var pawGO = CreerObjetUI("Paw", footer.transform);
-                var pawRect = pawGO.GetComponent<RectTransform>();
-                pawRect.anchorMin = new Vector2(0.5f, 0.5f);
-                pawRect.anchorMax = new Vector2(0.5f, 0.5f);
-                pawRect.pivot = new Vector2(0.5f, 0.5f);
-                pawRect.sizeDelta = new Vector2(28f, 28f);
-                pawRect.anchoredPosition = p;
-                var pawTxt = pawGO.AddComponent<TextMeshProUGUI>();
-                pawTxt.font = _fontBody;
-                pawTxt.text = "🐾";
-                pawTxt.fontSize = 22;
-                pawTxt.alignment = TextAlignmentOptions.Center;
-                pawTxt.color = new Color(1f, 1f, 1f, 0.18f);
-                pawTxt.raycastTarget = false;
-            }
-
             var labelGO = CreerObjetUI("FooterLabel", footer.transform);
             var labelRect = labelGO.GetComponent<RectTransform>();
             labelRect.anchorMin = new Vector2(0f, 0.5f);
@@ -800,7 +781,7 @@ namespace Zoologic
             labelRect.anchoredPosition = new Vector2(0f, -6f);
             var label = labelGO.AddComponent<TextMeshProUGUI>();
             label.font = _fontTitle;
-            label.text = "Trouve les animaux";
+            label.text = "Place les animaux";
             label.fontSize = 38;
             label.alignment = TextAlignmentOptions.Center;
             label.color = Color.white;
