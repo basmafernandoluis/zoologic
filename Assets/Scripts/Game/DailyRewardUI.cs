@@ -86,7 +86,7 @@ namespace Zoologic
 
             var gridGO = new GameObject("Grid", typeof(RectTransform));
             gridGO.transform.SetParent(card.transform, false);
-            var gridRect = gridGO.AddComponent<RectTransform>();
+            var gridRect = gridGO.GetComponent<RectTransform>();
             var gridLE = gridGO.AddComponent<LayoutElement>();
             gridLE.preferredHeight = 280f;
             var hlg = gridGO.AddComponent<HorizontalLayoutGroup>();
@@ -110,7 +110,7 @@ namespace Zoologic
 
             var btnRow = new GameObject("BtnRow", typeof(RectTransform));
             btnRow.transform.SetParent(card.transform, false);
-            var btnRowRect = btnRow.AddComponent<RectTransform>();
+            var btnRowRect = btnRow.GetComponent<RectTransform>();
             var btnRowLE = btnRow.AddComponent<LayoutElement>();
             btnRowLE.preferredHeight = 90f;
             var bh = btnRow.AddComponent<HorizontalLayoutGroup>();
@@ -220,7 +220,7 @@ namespace Zoologic
             coinGO.transform.SetParent(cell.transform, false);
             var coinRect = coinGO.GetComponent<RectTransform>();
             coinRect.sizeDelta = new Vector2(36f, 36f);
-            var coinImg = coinGO.AddComponent<Image>();
+            var coinImg = coinGO.GetComponent<Image>();
             coinImg.sprite = Resources.Load<Sprite>("UI/coin");
             coinImg.preserveAspect = true;
             var coinLE = coinGO.AddComponent<LayoutElement>();
