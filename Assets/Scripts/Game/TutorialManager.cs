@@ -534,8 +534,14 @@ namespace Zoologic
         private static void EnsureEventSystem()
         {
             if (EventSystem.current != null)
+            {
+                var cur = EventSystem.current;
+                var legacy = cur.GetComponent<StandaloneInputModule>();
+                if (legacy != null) Object.Destroy(legacy);
+                if (cur.GetComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>() == null)
+                    cur.gameObject.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
                 return;
-
+            }
             var es = new GameObject("EventSystem", typeof(EventSystem));
             es.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
         }

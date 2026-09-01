@@ -78,6 +78,11 @@ namespace Zoologic
 
             if (UnityEngine.EventSystems.EventSystem.current == null)
                 _root.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            else
+            {
+                var legacy = Object.FindFirstObjectByType<StandaloneInputModule>();
+                if (legacy != null) Object.Destroy(legacy);
+            }
             if (Object.FindFirstObjectByType<UnityEngine.InputSystem.UI.InputSystemUIInputModule>() == null)
                 _root.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
 

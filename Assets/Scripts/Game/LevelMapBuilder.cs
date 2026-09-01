@@ -200,6 +200,13 @@ namespace Zoologic
                 canvasGO.AddComponent<EventSystem>();
                 canvasGO.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
             }
+            else
+            {
+                var legacy = EventSystem.current.GetComponent<StandaloneInputModule>();
+                if (legacy != null) Object.Destroy(legacy);
+                if (EventSystem.current.GetComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>() == null)
+                    EventSystem.current.gameObject.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+            }
 
             if (FindFirstObjectByType<Camera>() == null)
             {
