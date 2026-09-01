@@ -247,18 +247,48 @@ namespace Zoologic
 
         private void BuildDailyButton(Transform parent)
         {
+            bool canClaim = DailyRewardManager.CanClaimToday();
             var go = new GameObject("DailyButton");
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
-            rect.sizeDelta = new Vector2(190f, 62f);
-            rect.anchoredPosition = new Vector2(20f, -20f);
+            rect.sizeDelta = new Vector2(210f, 66f);
+            rect.anchoredPosition = new Vector2(18f, -18f);
 
             var img = go.AddComponent<Image>();
-            img.sprite = CreerSpriteArrondi(128, 0.35f);
-            img.color = DailyRewardManager.CanClaimToday() ? new Color(1f, 0.96f, 0.78f) : new Color(1f, 0.98f, 0.96f);
+            img.sprite = KenneyUI.Button(canClaim ? "Yellow" : "Grey") ?? CreerSpriteArrondi(128, 0.35f);
+            img.type = Image.Type.Simple;
+            img.color = Color.white;
+
+            var hlg = go.AddComponent<HorizontalLayoutGroup>();
+            hlg.padding = new RectOffset(14, 12, 0, 0);
+            hlg.spacing = 8f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childForceExpandWidth = false;
+            hlg.childControlWidth = false;
+
+            var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconGO.transform.SetParent(go.transform, false);
+            var iconRect = iconGO.GetComponent<RectTransform>();
+            iconRect.sizeDelta = new Vector2(28f, 28f);
+            var iconImg = iconGO.GetComponent<Image>();
+            iconImg.sprite = Resources.Load<Sprite>("UI/Icons/gem_icon");
+            iconImg.preserveAspect = true;
+            iconImg.raycastTarget = false;
+            iconGO.AddComponent<LayoutElement>().preferredWidth = 28f;
+
+            var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            txtGO.transform.SetParent(go.transform, false);
+            var txt = txtGO.GetComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.text = "Cadeau";
+            txt.fontSize = 21;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = canClaim ? new Color(0.32f, 0.20f, 0.10f) : new Color(0.45f, 0.40f, 0.36f);
+            txt.alignment = TextAlignmentOptions.Center;
+            txtGO.AddComponent<LayoutElement>().flexibleWidth = 1f;
 
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
@@ -269,40 +299,58 @@ namespace Zoologic
                 if (canvas != null) DailyRewardUI.Show(canvas);
             });
 
-            var txtGO = new GameObject("Text");
-            txtGO.transform.SetParent(go.transform, false);
-            var txtRect = txtGO.AddComponent<RectTransform>();
-            txtRect.anchorMin = Vector2.zero;
-            txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = Vector2.zero;
-            txtRect.offsetMax = Vector2.zero;
-            var txt = txtGO.AddComponent<TextMeshProUGUI>();
-            txt.font = _fontTitle;
-            txt.text = DailyRewardManager.CanClaimToday() ? "Cadeau" : "Cadeau";
-            txt.fontSize = 22;
-            txt.fontStyle = FontStyles.Bold;
-            txt.color = new Color(0.29f, 0.18f, 0.10f);
-            txt.alignment = TextAlignmentOptions.Center;
+            var sh = go.AddComponent<Shadow>();
+            sh.effectColor = new Color(0.38f, 0.24f, 0.14f, 0.14f);
+            sh.effectDistance = new Vector2(0f, -4f);
 
-            if (DailyRewardManager.CanClaimToday())
-            {
-                var pulse = go.AddComponent<DailyPulse>();
-            }
+            if (canClaim) go.AddComponent<DailyPulse>();
         }
 
         private void BuildMissionsButton(Transform parent)
         {
+            int done = MissionManager.GetCompletedCount();
+            bool hasClaim = done > 0;
             var go = new GameObject("MissionsButton");
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
-            rect.sizeDelta = new Vector2(190f, 62f);
-            rect.anchoredPosition = new Vector2(220f, -20f);
+            rect.sizeDelta = new Vector2(210f, 66f);
+            rect.anchoredPosition = new Vector2(236f, -18f);
+
             var img = go.AddComponent<Image>();
-            img.sprite = CreerSpriteArrondi(128, 0.35f);
-            img.color = new Color(0.92f, 0.89f, 0.86f);
+            img.sprite = KenneyUI.Button(hasClaim ? "Yellow" : "Blue") ?? CreerSpriteArrondi(128, 0.35f);
+            img.type = Image.Type.Simple;
+            img.color = Color.white;
+
+            var hlg = go.AddComponent<HorizontalLayoutGroup>();
+            hlg.padding = new RectOffset(14, 12, 0, 0);
+            hlg.spacing = 8f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childForceExpandWidth = false;
+
+            var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconGO.transform.SetParent(go.transform, false);
+            var iconRect = iconGO.GetComponent<RectTransform>();
+            iconRect.sizeDelta = new Vector2(26f, 26f);
+            var iconImg = iconGO.GetComponent<Image>();
+            iconImg.sprite = Resources.Load<Sprite>("UI/Icons/scroll_icon");
+            iconImg.preserveAspect = true;
+            iconImg.raycastTarget = false;
+            iconGO.AddComponent<LayoutElement>().preferredWidth = 26f;
+
+            var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            txtGO.transform.SetParent(go.transform, false);
+            var txt = txtGO.AddComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.text = "Missions";
+            txt.fontSize = 20;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = hasClaim ? new Color(0.32f, 0.20f, 0.10f) : Color.white;
+            txt.alignment = TextAlignmentOptions.Center;
+            txtGO.AddComponent<LayoutElement>().flexibleWidth = 1f;
+
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.onClick.AddListener(() =>
@@ -311,19 +359,11 @@ namespace Zoologic
                 var canvas = FindFirstObjectByType<Canvas>();
                 if (canvas != null) MissionUI.Show(canvas);
             });
-            var txtGO = new GameObject("Text");
-            txtGO.transform.SetParent(go.transform, false);
-            var txtRect = txtGO.AddComponent<RectTransform>();
-            txtRect.anchorMin = Vector2.zero; txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = Vector2.zero; txtRect.offsetMax = Vector2.zero;
-            var txt = txtGO.AddComponent<TextMeshProUGUI>();
-            txt.font = _fontTitle;
-            txt.text = "Missions";
-            txt.fontSize = 20;
-            txt.fontStyle = FontStyles.Bold;
-            txt.color = new Color(0.29f, 0.18f, 0.10f);
-            txt.alignment = TextAlignmentOptions.Center;
-            int done = MissionManager.GetCompletedCount();
+
+            var sh = go.AddComponent<Shadow>();
+            sh.effectColor = new Color(0.38f, 0.24f, 0.14f, 0.14f);
+            sh.effectDistance = new Vector2(0f, -4f);
+
             if (done > 0)
             {
                 var badgeGO = new GameObject("Badge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
