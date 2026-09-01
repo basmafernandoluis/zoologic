@@ -692,7 +692,7 @@ namespace Zoologic
             titleGO.transform.SetParent(leftGO.transform, false);
             var title = titleGO.GetComponent<TextMeshProUGUI>();
             title.font = _fontTitle;
-            title.text = done ? "Défi du jour — Terminé ✓" : "⭐ Défi du jour";
+            title.text = done ? "Défi du jour — Terminé" : "Défi du jour";
             title.fontSize = 26;
             title.fontStyle = FontStyles.Bold;
             title.color = done ? new Color(0.40f, 0.38f, 0.34f) : new Color(0.29f, 0.18f, 0.10f);

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using TMPro;
 using UnityEngine;
@@ -1323,6 +1323,50 @@ namespace Zoologic
             btnText.fontStyle = FontStyles.Bold;
             btnText.raycastTarget = false;
 
+            var homeGO = CreerObjetUI("BtnHome", _defaitePanel.transform);
+            var homeRect = homeGO.GetComponent<RectTransform>();
+            homeRect.anchorMin = new Vector2(0f, 1f);
+            homeRect.anchorMax = new Vector2(0f, 1f);
+            homeRect.pivot = new Vector2(0f, 1f);
+            homeRect.sizeDelta = new Vector2(48f, 48f);
+            homeRect.anchoredPosition = new Vector2(12f, -12f);
+            var homeImg = homeGO.AddComponent<Image>();
+            homeImg.sprite = GetPiluleSprite();
+            homeImg.type = Image.Type.Simple;
+            homeImg.color = new Color(1f, 1f, 1f, 0.95f);
+            var homeBtn = homeGO.AddComponent<Button>();
+            homeBtn.targetGraphic = homeImg;
+            homeBtn.onClick.AddListener(() =>
+            {
+                SFXManager.Instance.PlayMenuClose();
+                PuzzleGameController.IsDailyPuzzle = false;
+                UnityEngine.SceneManagement.SceneManager.LoadScene("LevelMap");
+            });
+            var homeIconGO = CreerObjetUI("Icon", homeGO.transform);
+            var homeIconRect = homeIconGO.GetComponent<RectTransform>();
+            homeIconRect.anchorMin = Vector2.zero;
+            homeIconRect.anchorMax = Vector2.one;
+            homeIconRect.offsetMin = new Vector2(12f, 12f);
+            homeIconRect.offsetMax = new Vector2(-12f, -12f);
+            var homeIconImg = homeIconGO.AddComponent<Image>();
+            homeIconImg.sprite = GetBackSprite();
+            homeIconImg.type = Image.Type.Simple;
+            homeIconImg.preserveAspect = true;
+            homeIconImg.color = new Color(0.29f, 0.18f, 0.10f);
+            homeIconImg.raycastTarget = false;
+
+            var topBarGO = CreerObjetUI("TopAccent", _defaitePanel.transform);
+            var topBarRect = topBarGO.GetComponent<RectTransform>();
+            topBarRect.anchorMin = new Vector2(0f, 1f);
+            topBarRect.anchorMax = new Vector2(1f, 1f);
+            topBarRect.pivot = new Vector2(0.5f, 1f);
+            topBarRect.sizeDelta = new Vector2(-24f, 8f);
+            topBarRect.anchoredPosition = new Vector2(0f, -12f);
+            var topBarImg = topBarGO.AddComponent<Image>();
+            topBarImg.sprite = GetPiluleSprite();
+            topBarImg.type = Image.Type.Simple;
+            topBarImg.color = new Color(0.95f, 0.70f, 0.35f);
+            topBarImg.raycastTarget = false;
             // Le root reste actif ; ce sont overlay et panel qui basculent.
             _overlay.SetActive(false);
             _defaitePanel.SetActive(false);
