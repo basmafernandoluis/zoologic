@@ -75,6 +75,9 @@ namespace Zoologic
         private int _currentLevel;
         private float _topInset;
         private float _headerTotal;
+        private TMP_Text _livesCountText;
+        private TMP_Text _livesTimerText;
+        private float _livesTimerAccum;
 
         private struct LevelBubble
         {
@@ -148,6 +151,26 @@ namespace Zoologic
                 if (SettingsPanel.HandleBackButton()) return;
                 SFXManager.Instance.PlayMenuClose();
                 SceneManager.LoadScene("MainMenu");
+            }
+
+            _livesTimerAccum += Time.unscaledDeltaTime;
+            if (_livesTimerAccum >= 1f)
+            {
+                _livesTimerAccum = 0f;
+                if (_livesCountText != null)
+                {
+                    int lives = LivesManager.GetStoredLives();
+                    _livesCountText.text = lives.ToString();
+                    if (_livesTimerText != null)
+                    {
+                        if (lives >= LivesManager.MaxVies) _livesTimerText.text = "";
+                        else
+                        {
+                            int secs = LivesManager.GetSecondsUntilNextLife();
+                            _livesTimerText.text = $"{secs / 60:00}:{secs % 60:00}";
+                        }
+                    }
+                }
             }
         }
 
@@ -367,12 +390,29 @@ namespace Zoologic
             txtRect.offsetMax = Vector2.zero;
             var txt = txtObj.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
-            txt.text = LivesManager.ViesDepart.ToString();
+            txt.text = LivesManager.GetStoredLives().ToString();
             txt.fontSize = 30;
             txt.fontStyle = FontStyles.Bold;
             txt.color = NumberColor;
             txt.alignment = TextAlignmentOptions.MidlineRight;
             txt.raycastTarget = false;
+            _livesCountText = txt;
+
+            var timerObj = new GameObject("Timer");
+            timerObj.transform.SetParent(pill.transform, false);
+            var timerRect = timerObj.AddComponent<RectTransform>();
+            timerRect.anchorMin = new Vector2(0.5f, 0f);
+            timerRect.anchorMax = new Vector2(0.5f, 0f);
+            timerRect.pivot = new Vector2(0.5f, 1f);
+            timerRect.sizeDelta = new Vector2(120f, 18f);
+            timerRect.anchoredPosition = new Vector2(0f, -2f);
+            _livesTimerText = timerObj.AddComponent<TextMeshProUGUI>();
+            _livesTimerText.font = _fontBody;
+            _livesTimerText.fontSize = 14;
+            _livesTimerText.color = new Color(0.60f, 0.48f, 0.35f);
+            _livesTimerText.alignment = TextAlignmentOptions.Center;
+            _livesTimerText.raycastTarget = false;
+            _livesTimerText.text = "";
         }
 
         // ------------------------------------------------------------------

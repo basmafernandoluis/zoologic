@@ -1,50 +1,87 @@
 using System;
+using UnityEngine;
 
 namespace Zoologic
 {
-    /// <summary>
-    /// Gestionnaire de vies du joueur : compteur de 3 cœurs décrémenté
-    /// à chaque conflit, avec un événement quand les vies sont épuisées.
-    /// Classe pure (pas de MonoBehaviour) : instanciée et pilotée par
-    /// <see cref="PuzzleGameController"/>.
-    /// </summary>
     public sealed class LivesManager
     {
         public const int ViesDepart = 3;
+        public const int MaxVies = 3;
+        public const int RegenSeconds = 900;
+
+        private const string LivesKey = "player_lives";
+        private const string LastLostKey = "lives_last_lost_ticks";
 
         private int _vies;
 
-        /// <summary>
-        /// Nombre de vies restantes (0 = partie perdue).
-        /// </summary>
-        public int Vies => _vies;
-
-        /// <summary>
-        /// Événement invoqué quand le joueur atteint 0 vie.
-        /// Le contrôleur principal l'écoute pour bloquer les interactions
-        /// et afficher le panneau de défaite.
-        /// </summary>
-        public Action OnPartiePerdue;
-
-        /// <summary>
-        /// Crée un gestionnaire avec le maximum de vies (<see cref="ViesDepart"/>).
-        /// </summary>
-        public LivesManager()
+        public int Vies
         {
-            _vies = ViesDepart;
+            get
+            {
+                RefreshFromStorage();
+                return _vies;
+            }
         }
 
-        /// <summary>
-        /// Retire une vie. Renvoie true si la vie a bien été retirée,
-        /// false si le compteur est déjà à 0.
-        /// Invoque <see cref="OnPartiePerdue"/> si les vies atteignent 0.
-        /// </summary>
+        public Action OnPartiePerdue;
+
+        public LivesManager()
+        {
+            RefreshFromStorage();
+        }
+
+        private void RefreshFromStorage()
+        {
+            int stored = PlayerPrefs.GetInt(LivesKey, ViesDepart);
+            if (stored >= MaxVies)
+            {
+                _vies = MaxVies;
+                return;
+            }
+
+            string lastStr = PlayerPrefs.GetString(LastLostKey, "");
+            if (string.IsNullOrEmpty(lastStr) || !long.TryParse(lastStr, out long ticks))
+            {
+                _vies = stored;
+                return;
+            }
+
+            DateTime last = new DateTime(ticks, DateTimeKind.Local);
+            TimeSpan elapsed = DateTime.Now - last;
+            int regen = (int)(elapsed.TotalSeconds / RegenSeconds);
+            if (regen <= 0)
+            {
+                _vies = stored;
+                return;
+            }
+
+            int newVies = Mathf.Min(MaxVies, stored + regen);
+            PlayerPrefs.SetInt(LivesKey, newVies);
+            if (newVies >= MaxVies)
+            {
+                PlayerPrefs.DeleteKey(LastLostKey);
+            }
+            else
+            {
+                DateTime newLast = last.AddSeconds(regen * RegenSeconds);
+                PlayerPrefs.SetString(LastLostKey, newLast.Ticks.ToString());
+            }
+            PlayerPrefs.Save();
+            _vies = newVies;
+        }
+
         public bool PerdreVie()
         {
-            if (_vies <= 0)
-                return false;
+            RefreshFromStorage();
+            if (_vies <= 0) return false;
 
             _vies--;
+            PlayerPrefs.SetInt(LivesKey, _vies);
+            if (_vies < MaxVies && !PlayerPrefs.HasKey(LastLostKey))
+                PlayerPrefs.SetString(LastLostKey, DateTime.Now.Ticks.ToString());
+            if (_vies < MaxVies && PlayerPrefs.GetInt(LivesKey, MaxVies) == MaxVies)
+                PlayerPrefs.SetString(LastLostKey, DateTime.Now.Ticks.ToString());
+            PlayerPrefs.Save();
 
             if (_vies <= 0)
                 OnPartiePerdue?.Invoke();
@@ -52,13 +89,53 @@ namespace Zoologic
             return true;
         }
 
-        /// <summary>
-        /// Remet les vies au maximum (<see cref="ViesDepart"/>).
-        /// Utilisé lors de la réinitialisation du niveau (bouton Réessayer).
-        /// </summary>
         public void Reinitialiser()
         {
-            _vies = ViesDepart;
+            _vies = MaxVies;
+            PlayerPrefs.SetInt(LivesKey, _vies);
+            PlayerPrefs.DeleteKey(LastLostKey);
+            PlayerPrefs.Save();
+        }
+
+        public void AjouterVies(int count)
+        {
+            RefreshFromStorage();
+            _vies = Mathf.Min(MaxVies, _vies + count);
+            PlayerPrefs.SetInt(LivesKey, _vies);
+            if (_vies >= MaxVies)
+                PlayerPrefs.DeleteKey(LastLostKey);
+            PlayerPrefs.Save();
+        }
+
+        public static int GetStoredLives()
+        {
+            int stored = PlayerPrefs.GetInt(LivesKey, ViesDepart);
+            string lastStr = PlayerPrefs.GetString(LastLostKey, "");
+            if (stored >= MaxVies || string.IsNullOrEmpty(lastStr) || !long.TryParse(lastStr, out long ticks))
+                return Mathf.Clamp(stored, 0, MaxVies);
+
+            DateTime last = new DateTime(ticks, DateTimeKind.Local);
+            int regen = (int)((DateTime.Now - last).TotalSeconds / RegenSeconds);
+            return Mathf.Clamp(stored + regen, 0, MaxVies);
+        }
+
+        public static int GetSecondsUntilNextLife()
+        {
+            int stored = PlayerPrefs.GetInt(LivesKey, ViesDepart);
+            if (stored >= MaxVies) return 0;
+            string lastStr = PlayerPrefs.GetString(LastLostKey, "");
+            if (string.IsNullOrEmpty(lastStr) || !long.TryParse(lastStr, out long ticks)) return RegenSeconds;
+            DateTime last = new DateTime(ticks, DateTimeKind.Local);
+            double elapsed = (DateTime.Now - last).TotalSeconds;
+            int remaining = RegenSeconds - (int)(elapsed % RegenSeconds);
+            return Mathf.Clamp(remaining, 0, RegenSeconds);
+        }
+
+        public static void DebugReset()
+        {
+            PlayerPrefs.SetInt(LivesKey, MaxVies);
+            PlayerPrefs.DeleteKey(LastLostKey);
+            PlayerPrefs.Save();
         }
     }
 }

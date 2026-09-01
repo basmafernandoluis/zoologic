@@ -96,6 +96,8 @@ namespace Zoologic
         private readonly Image[] _heartImages = new Image[LivesManager.ViesDepart];
         private readonly GameObject[] _heartRoots = new GameObject[LivesManager.ViesDepart];
         private Coroutine[] _heartAnimRoutines = new Coroutine[LivesManager.ViesDepart];
+        private TextMeshProUGUI _livesTimerText;
+        private Coroutine _livesTimerRoutine;
 
         // Panneau défaite
         private GameObject _defaitePanel;
@@ -1240,7 +1242,50 @@ namespace Zoologic
             sousText.color = ScoreLabelColor;
             sousText.raycastTarget = false;
 
-            // Bouton « Réessayer »
+            var timerGO = CreerObjetUI("TimerVies", _defaitePanel.transform);
+            var timerRect = timerGO.GetComponent<RectTransform>();
+            timerRect.anchorMin = new Vector2(0.5f, 0.35f);
+            timerRect.anchorMax = new Vector2(0.5f, 0.35f);
+            timerRect.pivot = new Vector2(0.5f, 0.5f);
+            timerRect.sizeDelta = new Vector2(400f, 30f);
+            timerRect.anchoredPosition = Vector2.zero;
+            _livesTimerText = timerGO.AddComponent<TextMeshProUGUI>();
+            _livesTimerText.font = _fontBody;
+            _livesTimerText.text = "";
+            _livesTimerText.fontSize = 20;
+            _livesTimerText.alignment = TextAlignmentOptions.Center;
+            _livesTimerText.color = new Color(0.50f, 0.45f, 0.42f, 1f);
+            _livesTimerText.raycastTarget = false;
+
+            var pubGO = CreerObjetUI("BtnPubVies", _defaitePanel.transform);
+            var pubRect = pubGO.GetComponent<RectTransform>();
+            pubRect.anchorMin = new Vector2(0.5f, 0.22f);
+            pubRect.anchorMax = new Vector2(0.5f, 0.22f);
+            pubRect.pivot = new Vector2(0.5f, 0.5f);
+            pubRect.sizeDelta = new Vector2(360f, 56f);
+            pubRect.anchoredPosition = Vector2.zero;
+            var pubImg = pubGO.AddComponent<Image>();
+            pubImg.sprite = GetCarteSprite();
+            pubImg.type = Image.Type.Simple;
+            pubImg.color = new Color(0.22f, 0.65f, 0.30f, 1f);
+            var pubBtn = pubGO.AddComponent<Button>();
+            pubBtn.targetGraphic = pubImg;
+            pubBtn.onClick.AddListener(() => OnPubViesDemande?.Invoke());
+            var pubTxtGO = CreerObjetUI("Text", pubGO.transform);
+            var pubTxtRect = pubTxtGO.GetComponent<RectTransform>();
+            pubTxtRect.anchorMin = Vector2.zero;
+            pubTxtRect.anchorMax = Vector2.one;
+            pubTxtRect.offsetMin = Vector2.zero;
+            pubTxtRect.offsetMax = Vector2.zero;
+            var pubTxt = pubTxtGO.AddComponent<TextMeshProUGUI>();
+            pubTxt.font = _fontTitle;
+            pubTxt.text = "Regarder une pub (+3 ♥)";
+            pubTxt.fontSize = 22;
+            pubTxt.alignment = TextAlignmentOptions.Center;
+            pubTxt.color = Color.white;
+            pubTxt.fontStyle = FontStyles.Bold;
+            pubTxt.raycastTarget = false;
+
             var btnObj = CreerObjetUI("BtnReessayer", _defaitePanel.transform);
             var btnRect = btnObj.GetComponent<RectTransform>();
             btnRect.anchorMin = new Vector2(0.5f, 0.08f);
@@ -1288,6 +1333,8 @@ namespace Zoologic
         /// <summary>Événement invoqué quand le bouton gomme est pressé.</summary>
         public Action OnGommeDemande;
 
+        public Action OnPubViesDemande;
+
         /// <summary>
         /// Construit le panneau de défaite. À appeler APRÈS que la grille a été
         /// construite, pour qu'il soit le dernier enfant du canvas (rendu au premier plan).
@@ -1306,6 +1353,9 @@ namespace Zoologic
 
             if (_defeatOwl != null)
                 StartCoroutine(DefeatOwlFadeInRoutine());
+
+            if (_livesTimerRoutine != null) StopCoroutine(_livesTimerRoutine);
+            _livesTimerRoutine = StartCoroutine(LivesTimerRoutine());
         }
 
         private IEnumerator DefeatOwlFadeInRoutine()
@@ -1336,6 +1386,21 @@ namespace Zoologic
             owlT.localPosition = new Vector3(owlT.localPosition.x, endY, owlT.localPosition.z);
         }
 
+        private IEnumerator LivesTimerRoutine()
+        {
+            while (true)
+            {
+                int secs = LivesManager.GetSecondsUntilNextLife();
+                if (_livesTimerText != null)
+                {
+                    if (secs <= 0) _livesTimerText.text = "Vies pleines !";
+                    else _livesTimerText.text = $"Prochaine vie dans {secs / 60:00}:{secs % 60:00}";
+                }
+                if (LivesManager.GetStoredLives() >= LivesManager.MaxVies) yield break;
+                yield return new WaitForSecondsRealtime(1f);
+            }
+        }
+
         public void CacherDefaite()
         {
             if (_overlay != null)
@@ -1347,6 +1412,12 @@ namespace Zoologic
             {
                 _defeatOwl.color = new Color(1f, 1f, 1f, 0f);
                 _defeatOwl.transform.localPosition = Vector3.zero;
+            }
+
+            if (_livesTimerRoutine != null)
+            {
+                StopCoroutine(_livesTimerRoutine);
+                _livesTimerRoutine = null;
             }
         }
 

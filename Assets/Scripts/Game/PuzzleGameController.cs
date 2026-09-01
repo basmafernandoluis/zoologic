@@ -122,6 +122,7 @@ namespace Zoologic
                 _hud.OnReessayer = ReinitialiserNiveau;
                 _hud.OnIndiceDemande = DemanderIndice;
                 _hud.OnGommeDemande = UtiliserGomme;
+                _hud.OnPubViesDemande = HandlePubVies;
             }
             catch (System.Exception e)
             {
@@ -180,6 +181,8 @@ namespace Zoologic
                 _livesManager = new LivesManager();
                 _livesManager.OnPartiePerdue = GererPartiePerdue;
                 _hud.SetVies(_livesManager.Vies);
+                if (_livesManager.Vies <= 0)
+                    GererPartiePerdue();
             }
             catch (System.Exception e)
             {
@@ -542,6 +545,18 @@ namespace Zoologic
             _gridView.ShakeBoard(20f, 0.3f);
             _hud.BloquerPowerUpTemporairement(GommeRecharge);
             UpdateVictoryVisibility();
+        }
+
+        private void HandlePubVies()
+        {
+            if (_livesManager == null || _hud == null) return;
+            _livesManager.AjouterVies(LivesManager.MaxVies);
+            _hud.SetVies(_livesManager.Vies);
+            _hud.CacherDefaite();
+            _partieTerminee = false;
+            SFXManager.Instance.ResumeMusic();
+            _hud.BloquerInteractions(false);
+            SFXManager.Instance.PlayUnlock();
         }
 
         // ------------------------------------------------------------------
