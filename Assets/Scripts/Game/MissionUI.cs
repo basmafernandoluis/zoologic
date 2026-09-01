@@ -180,6 +180,8 @@ namespace Zoologic
             closeRect.anchorMin = new Vector2(1f, 1f); closeRect.anchorMax = new Vector2(1f, 1f);
             closeRect.pivot = new Vector2(1f, 1f); closeRect.sizeDelta = new Vector2(44f, 44f);
             closeRect.anchoredPosition = new Vector2(-10f, -10f);
+            var closeLayout = closeBtn.AddComponent<LayoutElement>();
+            closeLayout.ignoreLayout = true;
             var closeImg = closeBtn.GetComponent<Image>();
             closeImg.sprite = CreateRounded(64, 0.5f);
             closeImg.color = new Color(0f, 0f, 0f, 0.08f);

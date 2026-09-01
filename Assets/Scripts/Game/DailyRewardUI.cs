@@ -169,6 +169,8 @@ namespace Zoologic
             closeRect.pivot = new Vector2(1f, 1f);
             closeRect.sizeDelta = new Vector2(48f, 48f);
             closeRect.anchoredPosition = new Vector2(-12f, -12f);
+            var closeLayout = closeBtn.AddComponent<LayoutElement>();
+            closeLayout.ignoreLayout = true;
             var closeImg = closeBtn.GetComponent<Image>();
             closeImg.sprite = CreateRoundedSprite(64, 0.5f);
             closeImg.color = new Color(0f, 0f, 0f, 0.08f);
@@ -288,7 +290,7 @@ namespace Zoologic
             txt.text = label;
             txt.fontSize = 24;
             txt.fontStyle = FontStyles.Bold;
-            txt.color = Color.white;
+            txt.color = enabled ? Color.white : new Color(0.45f, 0.38f, 0.32f);
             txt.alignment = TextAlignmentOptions.Center;
             var le = go.AddComponent<LayoutElement>();
             le.preferredWidth = 240f;
