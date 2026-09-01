@@ -105,7 +105,7 @@ namespace Zoologic
                 fillRect.offsetMin = new Vector2(2f, 2f); fillRect.offsetMax = new Vector2(-2f, -2f);
                 float frac = Mathf.Clamp01((float)m.progress / Mathf.Max(1, m.target));
                 fillRect.anchorMax = new Vector2(frac, 1f);
-                var fillImg = fillGO.AddComponent<Image>();
+                var fillImg = fillGO.GetComponent<Image>();
                 fillImg.sprite = CreateRounded(64, 0.35f);
                 fillImg.type = Image.Type.Simple;
                 fillImg.color = m.IsCompleted ? new Color(0.22f, 0.65f, 0.30f) : new Color(0.95f, 0.70f, 0.20f);

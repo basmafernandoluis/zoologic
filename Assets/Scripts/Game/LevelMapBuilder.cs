@@ -299,7 +299,7 @@ namespace Zoologic
             var missionsTxtRect = missionsTxtGO.GetComponent<RectTransform>();
             missionsTxtRect.anchorMin = Vector2.zero; missionsTxtRect.anchorMax = Vector2.one;
             missionsTxtRect.offsetMin = Vector2.zero; missionsTxtRect.offsetMax = Vector2.zero;
-            var missionsTxt = missionsTxtGO.AddComponent<TextMeshProUGUI>();
+            var missionsTxt = missionsTxtGO.GetComponent<TextMeshProUGUI>();
             missionsTxt.font = _fontTitle; missionsTxt.text = "Missions"; missionsTxt.fontSize = 18; missionsTxt.fontStyle = FontStyles.Bold; missionsTxt.color = TitleColor; missionsTxt.alignment = TextAlignmentOptions.Center;
             int doneM = MissionManager.GetCompletedCount();
             if (doneM > 0)
