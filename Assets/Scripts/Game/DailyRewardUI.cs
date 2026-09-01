@@ -256,7 +256,7 @@ namespace Zoologic
             statusGO.transform.SetParent(cell.transform, false);
             var status = statusGO.GetComponent<TextMeshProUGUI>();
             status.font = _fontBody;
-            status.text = claimed ? "✓" : (today ? "★" : "");
+            status.text = claimed ? "Fait" : (today ? "Aujourd'hui" : "");
             status.fontSize = 20;
             status.color = claimed ? new Color(0.22f, 0.65f, 0.30f) : new Color(0.95f, 0.70f, 0.20f);
             status.alignment = TextAlignmentOptions.Center;

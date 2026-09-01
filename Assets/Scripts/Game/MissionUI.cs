@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -73,7 +73,9 @@ namespace Zoologic
                 hlg.padding = new RectOffset(18, 18, 12, 12);
                 hlg.spacing = 12f;
                 hlg.childAlignment = TextAnchor.MiddleLeft;
-                hlg.childForceExpandWidth = true;
+                hlg.childForceExpandWidth = false;
+                hlg.childForceExpandHeight = false;
+                hlg.childControlHeight = true;
 
                 var left = new GameObject("Left", typeof(RectTransform));
                 left.transform.SetParent(row.transform, false);
@@ -135,7 +137,7 @@ namespace Zoologic
                 var btxtRect = btxtGO.GetComponent<RectTransform>();
                 btxtRect.anchorMin = Vector2.zero; btxtRect.anchorMax = Vector2.one;
                 btxtRect.offsetMin = Vector2.zero; btxtRect.offsetMax = Vector2.zero;
-                var btxt = btxtGO.AddComponent<TextMeshProUGUI>();
+                var btxt = btxtGO.GetComponent<TextMeshProUGUI>();
                 btxt.font = _fontTitle;
                 btxt.text = canClaim ? $"+{m.reward}" : (m.claimed ? "Fait" : $"+{m.reward}");
                 btxt.fontSize = 18; btxt.fontStyle = FontStyles.Bold;
