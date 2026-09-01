@@ -1,6 +1,8 @@
 ﻿using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace Zoologic
@@ -10,6 +12,8 @@ namespace Zoologic
         private static GameObject _panelRoot;
         private static TMP_FontAsset _fontTitle;
         private static TMP_FontAsset _fontBody;
+
+        public static bool IsOpen => _panelRoot != null;
 
         public static void TryShowAutoPopup()
         {
@@ -35,6 +39,7 @@ namespace Zoologic
             var rootImg = _panelRoot.GetComponent<Image>();
             rootImg.color = new Color(0.24f, 0.16f, 0.10f, 0.62f);
             rootImg.raycastTarget = true;
+            _panelRoot.AddComponent<CloseHandler>();
 
             var card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             card.transform.SetParent(_panelRoot.transform, false);
@@ -194,6 +199,24 @@ namespace Zoologic
             closeT.fontSize = 36;
             closeT.color = new Color(0.40f, 0.40f, 0.42f);
             closeT.alignment = TextAlignmentOptions.Center;
+            closeT.raycastTarget = false;
+        }
+
+        public static void Close()
+        {
+            if (_panelRoot != null) { Object.Destroy(_panelRoot); _panelRoot = null; }
+        }
+
+        private class CloseHandler : MonoBehaviour, IPointerDownHandler
+        {
+            private void Update()
+            {
+                if (Keyboard.current?.escapeKey.wasPressedThisFrame ?? false) Close();
+            }
+            public void OnPointerDown(PointerEventData eventData)
+            {
+                if (eventData.pointerCurrentRaycast.gameObject == gameObject) Close();
+            }
         }
 
         private static void CreateDayCell(Transform parent, int day, bool claimed, bool today)

@@ -463,6 +463,8 @@ namespace Zoologic
         {
             if (Keyboard.current?.escapeKey.wasPressedThisFrame ?? false)
             {
+                if (DailyRewardUI.IsOpen) { DailyRewardUI.Close(); return; }
+                if (MissionUI.IsOpen) { MissionUI.Close(); return; }
                 if (SettingsPanel.HandleBackButton()) return;
                 ShowQuitConfirmation();
             }

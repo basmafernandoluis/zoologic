@@ -38,6 +38,7 @@ namespace Zoologic
         private const float SeparatorHeight = 68f;
         private const float SeparatorMargin = 12f;
         private const float SimulatedTopNotch = 70f;
+        private const float FixedDailyHeight = 122f;
 
         // ------------------------------------------------------------------
         // Palette pastel chaude cohérente avec l'écran de jeu.
@@ -112,7 +113,6 @@ namespace Zoologic
 
             PuzzleGameController.IsDailyPuzzle = false;
             BuildScene();
-            CreerCarteDefiDuJour();
             LoadBubbles(40);
             StartCoroutine(ScrollToCurrentLevel());
             if (DailyRewardManager.CanClaimToday())
@@ -149,6 +149,8 @@ namespace Zoologic
         {
             if (Keyboard.current?.escapeKey.wasPressedThisFrame ?? false)
             {
+                if (DailyRewardUI.IsOpen) { DailyRewardUI.Close(); return; }
+                if (MissionUI.IsOpen) { MissionUI.Close(); return; }
                 if (SettingsPanel.HandleBackButton()) return;
                 SFXManager.Instance.PlayMenuClose();
                 SceneManager.LoadScene("MainMenu");
@@ -211,6 +213,7 @@ namespace Zoologic
 
             BuildBackground(canvasGO.transform);
             BuildHeader(canvasGO.transform);
+            CreerDailyFixe(canvasGO.transform);
             _scrollRect = BuildScrollArea(canvasGO.transform);
             _content = _scrollRect.content;
         }
@@ -245,91 +248,14 @@ namespace Zoologic
             img.color = HeaderBg;
             img.raycastTarget = false;
 
-            var giftGO = new GameObject("DailyGift");
-            giftGO.transform.SetParent(header.transform, false);
-            var giftRect = giftGO.AddComponent<RectTransform>();
-            giftRect.anchorMin = new Vector2(0f, 0.5f);
-            giftRect.anchorMax = new Vector2(0f, 0.5f);
-            giftRect.pivot = new Vector2(0f, 0.5f);
-            giftRect.sizeDelta = new Vector2(138f, 52f);
-            giftRect.anchoredPosition = new Vector2(22f, 0f);
-            var giftImg = giftGO.AddComponent<Image>();
-            giftImg.sprite = KenneyUI.Button(DailyRewardManager.CanClaimToday() ? "Yellow" : "Grey") ?? CreerSpriteArrondi(128, 0.5f);
-            giftImg.type = Image.Type.Simple;
-            giftImg.color = Color.white;
-            var giftBtn = giftGO.AddComponent<Button>();
-            giftBtn.targetGraphic = giftImg;
-            giftBtn.onClick.AddListener(() =>
-            {
-                SFXManager.Instance.PlayMenuOpen();
-                var c = FindFirstObjectByType<Canvas>();
-                if (c != null) DailyRewardUI.Show(c);
-            });
-            var giftTxtGO = new GameObject("Text");
-            giftTxtGO.transform.SetParent(giftGO.transform, false);
-            var giftTxtRect = giftTxtGO.AddComponent<RectTransform>();
-            giftTxtRect.anchorMin = Vector2.zero;
-            giftTxtRect.anchorMax = Vector2.one;
-            giftTxtRect.offsetMin = Vector2.zero;
-            giftTxtRect.offsetMax = Vector2.zero;
-            var giftTxt = giftTxtGO.AddComponent<TextMeshProUGUI>();
-            giftTxt.font = _fontTitle;
-            giftTxt.text = "Cadeau";
-            giftTxt.fontSize = 20;
-            giftTxt.fontStyle = FontStyles.Bold;
-            giftTxt.color = TitleColor;
-            giftTxt.alignment = TextAlignmentOptions.Center;
-
-            var missionsGO = new GameObject("MissionsBtn");
-            missionsGO.transform.SetParent(header.transform, false);
-            var missionsRect = missionsGO.AddComponent<RectTransform>();
-            missionsRect.anchorMin = new Vector2(0f, 0.5f);
-            missionsRect.anchorMax = new Vector2(0f, 0.5f);
-            missionsRect.pivot = new Vector2(0f, 0.5f);
-            missionsRect.sizeDelta = new Vector2(130f, 52f);
-            missionsRect.anchoredPosition = new Vector2(170f, 0f);
-            var missionsImg = missionsGO.AddComponent<Image>();
-            missionsImg.sprite = KenneyUI.Button("Blue") ?? CreerSpriteArrondi(128, 0.5f);
-            missionsImg.type = Image.Type.Simple;
-            missionsImg.color = Color.white;
-            var missionsBtn = missionsGO.AddComponent<Button>();
-            missionsBtn.targetGraphic = missionsImg;
-            missionsBtn.onClick.AddListener(() => { SFXManager.Instance.PlayMenuOpen(); var c = FindFirstObjectByType<Canvas>(); if (c != null) MissionUI.Show(c); });
-            var missionsTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            missionsTxtGO.transform.SetParent(missionsGO.transform, false);
-            var missionsTxtRect = missionsTxtGO.GetComponent<RectTransform>();
-            missionsTxtRect.anchorMin = Vector2.zero; missionsTxtRect.anchorMax = Vector2.one;
-            missionsTxtRect.offsetMin = Vector2.zero; missionsTxtRect.offsetMax = Vector2.zero;
-            var missionsTxt = missionsTxtGO.GetComponent<TextMeshProUGUI>();
-            missionsTxt.font = _fontTitle; missionsTxt.text = "Missions"; missionsTxt.fontSize = 18; missionsTxt.fontStyle = FontStyles.Bold; missionsTxt.color = Color.white; missionsTxt.alignment = TextAlignmentOptions.Center;
-            int doneM = MissionManager.GetCompletedCount();
-            if (doneM > 0)
-            {
-                var badgeGO = new GameObject("Badge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                badgeGO.transform.SetParent(missionsGO.transform, false);
-                var badgeRect = badgeGO.GetComponent<RectTransform>();
-                badgeRect.anchorMin = new Vector2(1f, 1f); badgeRect.anchorMax = new Vector2(1f, 1f);
-                badgeRect.pivot = new Vector2(0.5f, 0.5f);
-                badgeRect.sizeDelta = new Vector2(22f, 22f);
-                badgeRect.anchoredPosition = new Vector2(8f, 8f);
-                var badgeImg = badgeGO.GetComponent<Image>();
-                badgeImg.sprite = CreerSpriteArrondi(64, 0.5f);
-                badgeImg.color = new Color(0.92f, 0.36f, 0.42f);
-                var badgeTxtGO2 = new GameObject("Count", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-                badgeTxtGO2.transform.SetParent(badgeGO.transform, false);
-                var btr2 = badgeTxtGO2.GetComponent<RectTransform>();
-                btr2.anchorMin = Vector2.zero; btr2.anchorMax = Vector2.one;
-                btr2.offsetMin = Vector2.zero; btr2.offsetMax = Vector2.zero;
-                var btxt2 = badgeTxtGO2.GetComponent<TextMeshProUGUI>();
-                btxt2.font = _fontTitle; btxt2.text = doneM.ToString(); btxt2.fontSize = 14; btxt2.fontStyle = FontStyles.Bold; btxt2.color = Color.white; btxt2.alignment = TextAlignmentOptions.Center;
-            }
+            CreerBoutonRetour(header.transform);
 
             var titleGO = new GameObject("Title");
             titleGO.transform.SetParent(header.transform, false);
             var titleRect = titleGO.AddComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0f, 0f);
             titleRect.anchorMax = new Vector2(1f, 1f);
-            titleRect.offsetMin = new Vector2(24f, 0f);
+            titleRect.offsetMin = new Vector2(90f, 0f);
             titleRect.offsetMax = new Vector2(-140f, 0f);
 
             var titleText = titleGO.AddComponent<TextMeshProUGUI>();
@@ -352,37 +278,31 @@ namespace Zoologic
             btnRect.anchorMin = new Vector2(0f, 0.5f);
             btnRect.anchorMax = new Vector2(0f, 0.5f);
             btnRect.pivot = new Vector2(0f, 0.5f);
-            btnRect.sizeDelta = new Vector2(64f, 64f);
-            btnRect.anchoredPosition = new Vector2(22f, 0f);
+            btnRect.sizeDelta = new Vector2(72f, 72f);
+            btnRect.anchoredPosition = new Vector2(16f, 0f);
 
-            // Ombre derrière la flèche
-            var arrowShadow = new GameObject("Shadow");
-            arrowShadow.transform.SetParent(btnGO.transform, false);
-            var asRect = arrowShadow.AddComponent<RectTransform>();
-            asRect.anchorMin = Vector2.zero;
-            asRect.anchorMax = Vector2.one;
-            asRect.offsetMin = new Vector2(2f, -3f);
-            asRect.offsetMax = new Vector2(2f, -3f);
-            var asImg = arrowShadow.AddComponent<Image>();
-            asImg.sprite = CreerFlecheRetourSprite();
-            asImg.color = new Color(0f, 0f, 0f, 0.25f);
-            asImg.raycastTarget = false;
-            arrowShadow.transform.SetAsFirstSibling();
+            var bgImg = btnGO.AddComponent<Image>();
+            bgImg.sprite = KenneyUI.Button("Grey") ?? CreerSpriteArrondi(128, 0.35f);
+            bgImg.type = Image.Type.Simple;
+            bgImg.color = Color.white;
 
-            var btnImg = btnGO.AddComponent<Image>();
-            btnImg.sprite = CreerFlecheRetourSprite();
-            btnImg.color = TitleColor;
-            btnImg.raycastTarget = true;
+            Sprite arrow = Resources.Load<Sprite>("UI/Icons/back");
+            var iconGO = new GameObject("Icon");
+            iconGO.transform.SetParent(btnGO.transform, false);
+            var iconRect = iconGO.AddComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+            iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+            iconRect.pivot = new Vector2(0.5f, 0.5f);
+            iconRect.sizeDelta = new Vector2(40f, 40f);
+            iconRect.anchoredPosition = Vector2.zero;
+            var iconImg = iconGO.AddComponent<Image>();
+            iconImg.sprite = arrow ?? CreerFlecheRetourSprite();
+            iconImg.preserveAspect = true;
+            iconImg.color = TitleColor;
+            iconImg.raycastTarget = false;
 
             var btn = btnGO.AddComponent<Button>();
-            btn.targetGraphic = btnImg;
-            btn.transition = Selectable.Transition.ColorTint;
-            var colors = btn.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(0.9f, 0.9f, 0.9f);
-            colors.pressedColor = new Color(0.7f, 0.7f, 0.7f);
-            btn.colors = colors;
-
+            btn.targetGraphic = bgImg;
             btn.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
@@ -472,7 +392,7 @@ namespace Zoologic
             scrollRectRT.anchorMin = Vector2.zero;
             scrollRectRT.anchorMax = Vector2.one;
             scrollRectRT.offsetMin = Vector2.zero;
-            scrollRectRT.offsetMax = new Vector2(0f, -_headerTotal);
+            scrollRectRT.offsetMax = new Vector2(0f, -(_headerTotal + FixedDailyHeight + 16f));
 
             var viewportGO = new GameObject("Viewport");
             viewportGO.transform.SetParent(scrollGO.transform, false);
@@ -704,14 +624,33 @@ namespace Zoologic
             txt.outlineColor = new Color(0f, 0f, 0f, 0.30f);
         }
 
-        private void CreerCarteDefiDuJour()
+        private void CreerDailyFixe(Transform canvas)
+        {
+            var fixedGO = new GameObject("FixedDaily");
+            fixedGO.transform.SetParent(canvas, false);
+            var rt = fixedGO.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.sizeDelta = new Vector2(0f, FixedDailyHeight);
+            rt.anchoredPosition = new Vector2(0f, -_headerTotal);
+            var pad = fixedGO.AddComponent<HorizontalLayoutGroup>();
+            pad.padding = new RectOffset((int)ContentPad, (int)ContentPad, 8, 8);
+            pad.childControlWidth = true;
+            pad.childControlHeight = true;
+            pad.childForceExpandWidth = true;
+            pad.childForceExpandHeight = true;
+            CreerCarteDefiDuJour(fixedGO.transform);
+        }
+
+        private void CreerCarteDefiDuJour(Transform overrideParent = null)
         {
             bool done = DailyPuzzleManager.IsCompletedToday();
             var go = new GameObject("DailyCard");
-            go.transform.SetParent(_content, false);
+            go.transform.SetParent(overrideParent != null ? overrideParent : _content, false);
             var le = go.AddComponent<LayoutElement>();
-            le.preferredHeight = 110f;
-            le.flexibleWidth = 1f;
+            if (overrideParent != null) { le.flexibleHeight = 1f; le.flexibleWidth = 1f; }
+            else { le.preferredHeight = 110f; le.flexibleWidth = 1f; }
 
             var bg = go.AddComponent<Image>();
             bg.sprite = CreerSpriteGradientArrondi(128, 0.28f, new Color(0.96f, 0.78f, 0.22f), new Color(1f, 0.92f, 0.45f));

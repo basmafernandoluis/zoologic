@@ -9,6 +9,8 @@ namespace Zoologic
         private static GameObject _root;
         private static TMP_FontAsset _fontTitle;
         private static TMP_FontAsset _fontBody;
+        public static bool IsOpen => _root != null;
+        public static void Close() { if (_root != null) { Object.Destroy(_root); _root = null; } }
 
         public static void Show(Canvas canvas)
         {
