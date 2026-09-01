@@ -342,7 +342,7 @@ namespace Zoologic
 
             var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             txtGO.transform.SetParent(go.transform, false);
-            var txt = txtGO.AddComponent<TextMeshProUGUI>();
+            var txt = txtGO.GetComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = "Missions";
             txt.fontSize = 20;
