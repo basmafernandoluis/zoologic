@@ -115,11 +115,11 @@ namespace Zoologic.EditorTools
             SerializedObject settings = new SerializedObject(
                 AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset")[0]);
             SerializedProperty inputHandler = settings.FindProperty("activeInputHandler");
-            if (inputHandler != null && inputHandler.intValue != 2)
+            if (inputHandler != null && inputHandler.intValue != 1)
             {
-                inputHandler.intValue = 2;
+                inputHandler.intValue = 1;
                 settings.ApplyModifiedPropertiesWithoutUndo();
-                Debug.Log("[Build] Set Active Input Handling to Both (Input Manager + Input System) for AdMob/InputSystemUI compat");
+                Debug.Log("[Build] Set Active Input Handling to Input System Package (New) - Android single handler for InputSystemUIInputModule");
             }
 
             EditorBuildSettings.scenes = new[]
