@@ -760,7 +760,7 @@ namespace Zoologic
             var btnRect = btnGO.GetComponent<RectTransform>();
             btnRect.sizeDelta = new Vector2(160f, 52f);
             var btnImg = btnGO.GetComponent<Image>();
-            btnImg.sprite = CreerSpriteArrondi(128, 0.35f);
+            btnImg.sprite = KenneyUI.Button(done ? "Grey" : "Green") ?? CreerSpriteArrondi(128, 0.35f);
             btnImg.type = Image.Type.Simple;
             btnImg.color = done ? new Color(0.75f, 0.75f, 0.78f) : new Color(0.22f, 0.65f, 0.30f);
             var btn = btnGO.GetComponent<Button>();
@@ -1253,7 +1253,7 @@ namespace Zoologic
             var rect = go.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(220f, 52f);
             var img = go.GetComponent<Image>();
-            img.sprite = CreerSpriteArrondi(128, 0.35f);
+            img.sprite = KenneyUI.Button(bg.g > bg.r ? "Green" : "Grey") ?? CreerSpriteArrondi(128, 0.35f);
             img.type = Image.Type.Simple;
             img.color = bg;
             var shadow = go.AddComponent<Shadow>();

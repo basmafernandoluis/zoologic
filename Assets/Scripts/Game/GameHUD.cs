@@ -664,7 +664,7 @@ namespace Zoologic
             btnRect.anchoredPosition = new Vector2(-rightMargin, bottomMargin);
 
             _gommeButtonBg = btnObj.AddComponent<Image>();
-            _gommeButtonBg.sprite = GetPiluleSprite();
+            _gommeButtonBg.sprite = KenneyUI.Button("Red") ?? GetPiluleSprite();
             _gommeButtonBg.type = Image.Type.Simple;
             _gommeButtonBg.color = GumBgColor;
             _gommeButtonBg.raycastTarget = true;
@@ -1302,7 +1302,7 @@ namespace Zoologic
             btnRect.anchoredPosition = Vector2.zero;
 
             var btnImg = btnObj.AddComponent<Image>();
-            btnImg.sprite = GetCarteSprite();
+            btnImg.sprite = KenneyUI.Button("Blue") ?? GetCarteSprite();
             btnImg.type = Image.Type.Simple;
             btnImg.color = RetryButtonColor;
             var btnShadow = btnObj.AddComponent<Shadow>();

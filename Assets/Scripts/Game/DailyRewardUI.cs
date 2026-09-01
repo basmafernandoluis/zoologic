@@ -175,7 +175,7 @@ namespace Zoologic
             var closeLayout = closeBtn.AddComponent<LayoutElement>();
             closeLayout.ignoreLayout = true;
             var closeImg = closeBtn.GetComponent<Image>();
-            closeImg.sprite = CreateRoundedSprite(64, 0.5f);
+            closeImg.sprite = KenneyUI.Cross() ?? CreateRoundedSprite(64, 0.5f);
             closeImg.color = new Color(0f, 0f, 0f, 0.08f);
             var closeBtnComp = closeBtn.GetComponent<Button>();
             closeBtnComp.targetGraphic = closeImg;
@@ -276,7 +276,7 @@ namespace Zoologic
             var rect = go.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(240f, 62f);
             var img = go.GetComponent<Image>();
-            img.sprite = CreateRoundedSprite(128, 0.35f);
+            img.sprite = KenneyUI.Button(enabled ? "Green" : "Grey") ?? CreateRoundedSprite(128, 0.35f);
             img.color = enabled ? bg : new Color(0.78f, 0.74f, 0.69f);
             var shadow = go.AddComponent<Shadow>();
             shadow.effectColor = new Color(0.20f, 0.12f, 0.07f, 0.22f);

@@ -128,7 +128,7 @@ namespace Zoologic
                 var btnRect = btnGO.GetComponent<RectTransform>();
                 btnRect.sizeDelta = new Vector2(160f, 52f);
                 var btnImg = btnGO.GetComponent<Image>();
-                btnImg.sprite = CreateRounded(128, 0.35f);
+                btnImg.sprite = KenneyUI.Button(canClaim ? "Green" : "Grey") ?? CreateRounded(128, 0.35f);
                 btnImg.type = Image.Type.Simple;
                 bool canClaim = m.IsCompleted && !m.claimed;
                 btnImg.color = canClaim ? new Color(0.22f, 0.65f, 0.30f) : new Color(0.85f, 0.79f, 0.71f);
@@ -189,7 +189,7 @@ namespace Zoologic
             var closeLayout = closeBtn.AddComponent<LayoutElement>();
             closeLayout.ignoreLayout = true;
             var closeImg = closeBtn.GetComponent<Image>();
-            closeImg.sprite = CreateRounded(64, 0.5f);
+            closeImg.sprite = KenneyUI.Cross() ?? CreateRounded(64, 0.5f);
             closeImg.color = new Color(0f, 0f, 0f, 0.08f);
             var closeBtnComp = closeBtn.GetComponent<Button>();
             closeBtnComp.targetGraphic = closeImg;
