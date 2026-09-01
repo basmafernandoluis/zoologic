@@ -99,37 +99,34 @@ namespace Zoologic
 
         private void BuildAnimalDecorations(Transform parent)
         {
-            string[] animals = { "lion", "penguin", "frog" };
+            var groundGO = new GameObject("GroundNature");
+            groundGO.transform.SetParent(parent, false);
+            var groundRect = groundGO.AddComponent<RectTransform>();
+            groundRect.anchorMin = new Vector2(0f, 0f);
+            groundRect.anchorMax = new Vector2(1f, 0f);
+            groundRect.pivot = new Vector2(0.5f, 0f);
+            groundRect.sizeDelta = new Vector2(0f, 220f);
+            groundRect.anchoredPosition = Vector2.zero;
+            var groundImg = groundGO.AddComponent<Image>();
+            groundImg.sprite = CreateGroundSprite();
+            groundImg.type = Image.Type.Simple;
+            groundImg.color = Color.white;
+            groundImg.raycastTarget = false;
 
-            Vector2[] positions = {
-                new Vector2(0.15f, 0.60f),
-                new Vector2(0.85f, 0.55f),
-                new Vector2(0.50f, 0.15f)
-            };
-
-            float[] sizes = { 130f, 110f, 100f };
-            float[] rotations = { -12f, 10f, -5f };
-
-            for (int i = 0; i < animals.Length; i++)
+            for (int i = 0; i < 2; i++)
             {
-                Sprite sprite = Resources.Load<Sprite>("Art/Animals/" + animals[i]);
-                if (sprite == null) continue;
-
-                var go = new GameObject("Animal_" + animals[i]);
-                go.transform.SetParent(parent, false);
-
-                var rect = go.AddComponent<RectTransform>();
-                rect.anchorMin = positions[i];
-                rect.anchorMax = positions[i];
-                rect.pivot = new Vector2(0.5f, 0.5f);
-                rect.sizeDelta = new Vector2(sizes[i], sizes[i]);
-                rect.anchoredPosition = Vector2.zero;
-                rect.localRotation = Quaternion.Euler(0f, 0f, rotations[i]);
-
-                var img = go.AddComponent<Image>();
-                img.sprite = sprite;
-                img.color = new Color(1f, 1f, 1f, 0.30f);
-                img.raycastTarget = false;
+                var tuftGO = new GameObject("Tuft" + i);
+                tuftGO.transform.SetParent(groundGO.transform, false);
+                var tuftRect = tuftGO.AddComponent<RectTransform>();
+                tuftRect.anchorMin = new Vector2(i == 0 ? 0.12f : 0.88f, 1f);
+                tuftRect.anchorMax = new Vector2(i == 0 ? 0.12f : 0.88f, 1f);
+                tuftRect.pivot = new Vector2(0.5f, 0f);
+                tuftRect.sizeDelta = new Vector2(80f, 40f);
+                tuftRect.anchoredPosition = new Vector2(0f, -6f);
+                var tuftImg = tuftGO.AddComponent<Image>();
+                tuftImg.sprite = CreateTuftSprite();
+                tuftImg.color = new Color(0.62f, 0.78f, 0.55f, 0.85f);
+                tuftImg.raycastTarget = false;
             }
         }
 
@@ -174,16 +171,18 @@ namespace Zoologic
             rect.anchoredPosition = Vector2.zero;
 
             var img = go.AddComponent<Image>();
-            img.sprite = CreerSpriteArrondi(128, 0.35f);
-            img.color = PlayGreen;
+            Sprite wood = Resources.Load<Sprite>("UI/Cozy/btn_wood_light");
+            img.sprite = wood != null ? wood : CreerSpriteArrondi(128, 0.35f);
+            img.type = wood != null ? Image.Type.Sliced : Image.Type.Simple;
+            img.color = Color.white;
 
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.transition = Selectable.Transition.ColorTint;
             var colors = btn.colors;
-            colors.normalColor = PlayGreen;
-            colors.highlightedColor = PlayGreenHighlight;
-            colors.pressedColor = PlayGreenPressed;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 0.96f, 0.88f);
+            colors.pressedColor = new Color(0.92f, 0.86f, 0.78f);
             btn.colors = colors;
 
             btn.onClick.AddListener(() =>
@@ -204,17 +203,15 @@ namespace Zoologic
             txt.text = "JOUER";
             txt.fontSize = 52;
             txt.fontStyle = FontStyles.Bold;
-            txt.color = Color.white;
+            txt.color = new Color(0.32f, 0.20f, 0.12f);
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
+            txt.outlineWidth = 0.18f;
+            txt.outlineColor = new Color(1f, 1f, 1f, 0.85f);
 
             var shadow = go.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.30f);
+            shadow.effectColor = new Color(0.38f, 0.24f, 0.14f, 0.14f);
             shadow.effectDistance = new Vector2(0f, -5f);
-
-            var outline = go.AddComponent<Outline>();
-            outline.effectColor = new Color(0.15f, 0.35f, 0.15f, 0.60f);
-            outline.effectDistance = new Vector2(2f, -2f);
         }
 
         private void BuildSettingsButton(Transform parent)
@@ -376,15 +373,49 @@ namespace Zoologic
             Sprite owlSprite = Resources.Load<Sprite>("Art/Animals/owl");
             if (owlSprite == null) return;
 
+            var branchGO = new GameObject("Branch");
+            branchGO.transform.SetParent(parent, false);
+            var branchRect = branchGO.AddComponent<RectTransform>();
+            branchRect.anchorMin = new Vector2(0.5f, 0.46f);
+            branchRect.anchorMax = new Vector2(0.5f, 0.46f);
+            branchRect.pivot = new Vector2(0.5f, 0.5f);
+            branchRect.sizeDelta = new Vector2(360f, 22f);
+            branchRect.anchoredPosition = new Vector2(0f, -18f);
+            var branchImg = branchGO.AddComponent<Image>();
+            branchImg.sprite = CreateBranchSprite();
+            branchImg.type = Image.Type.Simple;
+            branchImg.color = Color.white;
+            branchImg.raycastTarget = false;
+            var branchSh = branchGO.AddComponent<Shadow>();
+            branchSh.effectColor = new Color(0f, 0f, 0f, 0.12f);
+            branchSh.effectDistance = new Vector2(0f, -6f);
+
+            for (int i = 0; i < 2; i++)
+            {
+                var leafGO = new GameObject("Leaf" + i);
+                leafGO.transform.SetParent(branchGO.transform, false);
+                var leafRect = leafGO.AddComponent<RectTransform>();
+                leafRect.anchorMin = new Vector2(i == 0 ? 0.08f : 0.92f, 0.5f);
+                leafRect.anchorMax = new Vector2(i == 0 ? 0.08f : 0.92f, 0.5f);
+                leafRect.pivot = new Vector2(0.5f, 0.5f);
+                leafRect.sizeDelta = new Vector2(26f, 26f);
+                leafRect.anchoredPosition = new Vector2(0f, 10f);
+                leafRect.localRotation = Quaternion.Euler(0f, 0f, i == 0 ? -22f : 22f);
+                var leafImg = leafGO.AddComponent<Image>();
+                leafImg.sprite = CreateLeafSprite();
+                leafImg.color = new Color(0.68f, 0.84f, 0.58f, 1f);
+                leafImg.raycastTarget = false;
+            }
+
             var go = new GameObject("OwlMascot");
-            go.transform.SetParent(parent, false);
+            go.transform.SetParent(branchGO.transform, false);
 
             var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.52f);
-            rect.anchorMax = new Vector2(0.5f, 0.52f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(280f, 280f);
-            rect.anchoredPosition = Vector2.zero;
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 0f);
+            rect.sizeDelta = new Vector2(260f, 260f);
+            rect.anchoredPosition = new Vector2(0f, 8f);
 
             _owlImage = go.AddComponent<Image>();
             _owlImage.sprite = owlSprite;
@@ -683,6 +714,82 @@ namespace Zoologic
             texture.Apply();
             return Sprite.Create(texture, new Rect(0f, 0f, resolution, resolution),
                 new Vector2(0.5f, 0.5f));
+        }
+
+        private static Sprite CreateGroundSprite()
+        {
+            int w = 256; int h = 80;
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp; tex.filterMode = FilterMode.Bilinear;
+            Color bottom = new Color(0.68f, 0.84f, 0.60f);
+            Color top = new Color(0.92f, 0.95f, 0.88f, 0f);
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+            {
+                float t = (float)y / h;
+                float wave = Mathf.Sin((float)x / w * Mathf.PI * 3f) * 0.04f;
+                Color c = Color.Lerp(bottom, top, Mathf.Clamp01(t + wave));
+                float a = Mathf.Lerp(0.95f, 0f, t);
+                c.a = a; tex.SetPixel(x, y, c);
+            }
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0f));
+        }
+
+        private static Sprite CreateTuftSprite()
+        {
+            int s = 64;
+            var tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp; tex.filterMode = FilterMode.Bilinear;
+            for (int y = 0; y < s; y++) for (int x = 0; x < s; x++) tex.SetPixel(x, y, new Color(0f, 0f, 0f, 0f));
+            Vector2 c = new Vector2(s * 0.5f, s * 0.35f);
+            for (int y = 0; y < s; y++) for (int x = 0; x < s; x++)
+            {
+                Vector2 p = new Vector2(x, y);
+                float d = (p - c).magnitude;
+                float angle = Mathf.Atan2(p.y - c.y, p.x - c.x);
+                float r = 22f + Mathf.Sin(angle * 3f) * 4f;
+                if (d <= r && p.y >= c.y - 4f) tex.SetPixel(x, y, Color.white);
+            }
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, s, s), new Vector2(0.5f, 0f));
+        }
+
+        private static Sprite CreateBranchSprite()
+        {
+            int w = 360; int h = 22;
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp; tex.filterMode = FilterMode.Bilinear;
+            Color wood = new Color(0.72f, 0.52f, 0.36f);
+            Color dark = new Color(0.48f, 0.34f, 0.22f);
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+            {
+                float t = Mathf.Abs(y - h * 0.5f) / (h * 0.5f);
+                float round = Mathf.Clamp01(1f - t * 0.85f);
+                float vein = Mathf.Sin((float)x * 0.08f + y * 0.2f) * 0.04f;
+                Color c = Color.Lerp(dark, wood, round + vein);
+                float endFade = Mathf.Clamp01(Mathf.Min(x, w - 1 - x) / 18f);
+                c.a = endFade;
+                tex.SetPixel(x, y, c);
+            }
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f));
+        }
+
+        private static Sprite CreateLeafSprite()
+        {
+            int s = 32;
+            var tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp; tex.filterMode = FilterMode.Bilinear;
+            for (int y = 0; y < s; y++) for (int x = 0; x < s; x++) tex.SetPixel(x, y, new Color(0f, 0f, 0f, 0f));
+            Vector2 c = new Vector2(s * 0.5f, s * 0.5f);
+            for (int y = 0; y < s; y++) for (int x = 0; x < s; x++)
+            {
+                Vector2 p = new Vector2(x, y) - c;
+                float d = (p.x * p.x) / 64f + (p.y * p.y) / 100f;
+                if (d <= 1f) tex.SetPixel(x, y, Color.white);
+            }
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f));
         }
     }
 }
