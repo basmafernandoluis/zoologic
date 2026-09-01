@@ -106,7 +106,9 @@ namespace Zoologic
             _currentLevel = FindCurrentLevel();
             _topInset = CalcTopInset();
 
+            PuzzleGameController.IsDailyPuzzle = false;
             BuildScene();
+            CreerCarteDefiDuJour();
             LoadBubbles(40);
             StartCoroutine(ScrollToCurrentLevel());
             if (DailyRewardManager.CanClaimToday())
@@ -615,6 +617,97 @@ namespace Zoologic
             txt.raycastTarget = false;
             txt.outlineWidth = 0.35f;
             txt.outlineColor = new Color(0f, 0f, 0f, 0.30f);
+        }
+
+        private void CreerCarteDefiDuJour()
+        {
+            bool done = DailyPuzzleManager.IsCompletedToday();
+            var go = new GameObject("DailyCard");
+            go.transform.SetParent(_content, false);
+            var le = go.AddComponent<LayoutElement>();
+            le.preferredHeight = 110f;
+            le.flexibleWidth = 1f;
+
+            var bg = go.AddComponent<Image>();
+            bg.sprite = CreerSpriteGradientArrondi(128, 0.28f, new Color(0.96f, 0.78f, 0.22f), new Color(1f, 0.92f, 0.45f));
+            bg.raycastTarget = false;
+
+            var hlg = go.AddComponent<HorizontalLayoutGroup>();
+            hlg.padding = new RectOffset(22, 22, 12, 12);
+            hlg.spacing = 12f;
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = true;
+
+            var leftGO = new GameObject("Left", typeof(RectTransform));
+            leftGO.transform.SetParent(go.transform, false);
+            var leftLE = leftGO.AddComponent<LayoutElement>();
+            leftLE.flexibleWidth = 1f;
+            var leftVLG = leftGO.AddComponent<VerticalLayoutGroup>();
+            leftVLG.spacing = 4f;
+            leftVLG.childAlignment = TextAnchor.MiddleLeft;
+            leftVLG.childForceExpandWidth = true;
+
+            var titleGO = new GameObject("Title", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            titleGO.transform.SetParent(leftGO.transform, false);
+            var title = titleGO.GetComponent<TextMeshProUGUI>();
+            title.font = _fontTitle;
+            title.text = done ? "Défi du jour — Terminé ✓" : "⭐ Défi du jour";
+            title.fontSize = 26;
+            title.fontStyle = FontStyles.Bold;
+            title.color = done ? new Color(0.40f, 0.38f, 0.34f) : new Color(0.29f, 0.18f, 0.10f);
+            title.alignment = TextAlignmentOptions.MidlineLeft;
+            var titleLE2 = titleGO.AddComponent<LayoutElement>();
+            titleLE2.preferredHeight = 30f;
+
+            var subGO = new GameObject("Sub", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            subGO.transform.SetParent(leftGO.transform, false);
+            var sub = subGO.GetComponent<TextMeshProUGUI>();
+            sub.font = _fontBody;
+            sub.text = done ? "Reviens demain" : $"Grille {DailyPuzzleManager.GetTodaySize()}×{DailyPuzzleManager.GetTodaySize()}  •  +{DailyPuzzleManager.RewardCoins} pièces";
+            sub.fontSize = 20;
+            sub.color = new Color(0.50f, 0.42f, 0.35f);
+            sub.alignment = TextAlignmentOptions.MidlineLeft;
+            var subLE = subGO.AddComponent<LayoutElement>();
+            subLE.preferredHeight = 24f;
+
+            var btnGO = new GameObject("BtnDaily", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            btnGO.transform.SetParent(go.transform, false);
+            var btnRect = btnGO.GetComponent<RectTransform>();
+            btnRect.sizeDelta = new Vector2(160f, 52f);
+            var btnImg = btnGO.GetComponent<Image>();
+            btnImg.sprite = CreerSpriteArrondi(128, 0.35f);
+            btnImg.type = Image.Type.Simple;
+            btnImg.color = done ? new Color(0.75f, 0.75f, 0.78f) : new Color(0.22f, 0.65f, 0.30f);
+            var btn = btnGO.GetComponent<Button>();
+            btn.targetGraphic = btnImg;
+            btn.interactable = !done;
+            var btnLE = btnGO.AddComponent<LayoutElement>();
+            btnLE.preferredWidth = 160f;
+            btnLE.preferredHeight = 52f;
+            var btnTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            btnTxtGO.transform.SetParent(btnGO.transform, false);
+            var btnTxtRect = btnTxtGO.GetComponent<RectTransform>();
+            btnTxtRect.anchorMin = Vector2.zero;
+            btnTxtRect.anchorMax = Vector2.one;
+            btnTxtRect.offsetMin = Vector2.zero;
+            btnTxtRect.offsetMax = Vector2.zero;
+            var btnTxt = btnTxtGO.GetComponent<TextMeshProUGUI>();
+            btnTxt.font = _fontTitle;
+            btnTxt.text = done ? "Fait" : "Jouer";
+            btnTxt.fontSize = 22;
+            btnTxt.fontStyle = FontStyles.Bold;
+            btnTxt.color = Color.white;
+            btnTxt.alignment = TextAlignmentOptions.Center;
+            if (!done)
+            {
+                btn.onClick.AddListener(() =>
+                {
+                    SFXManager.Instance.PlayMenuOpen();
+                    PuzzleGameController.IsDailyPuzzle = true;
+                    SceneManager.LoadScene("TestGrid");
+                });
+            }
         }
 
         private static Color Lighten(Color c, float amount)

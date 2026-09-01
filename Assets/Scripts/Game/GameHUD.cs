@@ -227,6 +227,7 @@ namespace Zoologic
             {
                 SFXManager.Instance.PlayMenuClose();
                 SFXManager.Instance.ResumeMusic();
+                PuzzleGameController.IsDailyPuzzle = false;
                 UnityEngine.SceneManagement.SceneManager.LoadScene("LevelMap");
             });
 
@@ -491,7 +492,7 @@ namespace Zoologic
 
             var text = texte.AddComponent<TextMeshProUGUI>();
             text.font = _fontTitle;
-            text.text = $"Niveau {numero}";
+            text.text = PuzzleGameController.IsDailyPuzzle ? "Défi du jour" : $"Niveau {numero}";
             text.fontSize = 48;
             text.alignment = TextAlignmentOptions.Center;
             text.color = TitleBrown;

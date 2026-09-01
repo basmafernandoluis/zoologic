@@ -26,11 +26,8 @@ namespace Zoologic
     {
         [SerializeField] private int _numeroNiveau = 1;
 
-        /// <summary>
-        /// Numéro de niveau à charger. À définir AVANT de charger la scène de jeu.
-        /// Par défaut 1 (mode test sans passer par la LevelMap).
-        /// </summary>
         public static int SelectedLevel = 1;
+        public static bool IsDailyPuzzle = false;
 
         private PuzzleGrid _grid;
         private bool[,] _xMarks;
@@ -269,6 +266,7 @@ namespace Zoologic
             btnOui.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
+                IsDailyPuzzle = false;
                 UnityEngine.SceneManagement.SceneManager.LoadScene("LevelMap");
             });
 
@@ -328,6 +326,20 @@ namespace Zoologic
 
         private PuzzleGrid GenerateLevel()
         {
+            if (IsDailyPuzzle)
+            {
+                var dailyGen = new LevelGenerator(seed: DailyPuzzleManager.GetTodaySeed());
+                int dailySize = DailyPuzzleManager.GetTodaySize();
+                int dailyDiff = 3;
+                try
+                {
+                    PuzzleGrid g = dailyGen.GenerateLevel(dailySize, dailyDiff);
+                    if (g != null) return g;
+                }
+                catch (Exception) { }
+                return dailyGen.GenerateUniqueGrid(dailySize);
+            }
+
             var generator = new LevelGenerator(seed: _numeroNiveau);
             int size = Core.LevelConfig.GetGridSize(_numeroNiveau);
             int difficulty = Core.LevelConfig.GetTargetDifficulty(_numeroNiveau);
@@ -678,16 +690,28 @@ namespace Zoologic
             SFXManager.Instance.PauseMusic();
             SFXManager.Instance.PlaySuccess();
 
-            int stars = _conflictsThisLevel == 0 ? 3
-                : _conflictsThisLevel <= 2 ? 2
-                : 1;
+            if (IsDailyPuzzle)
+            {
+                if (!DailyPuzzleManager.IsCompletedToday())
+                {
+                    CurrencyManager.AddCoins(DailyPuzzleManager.RewardCoins);
+                    DailyPuzzleManager.MarkCompletedToday();
+                    _hud.RefreshCoins();
+                }
+            }
+            else
+            {
+                int stars = _conflictsThisLevel == 0 ? 3
+                    : _conflictsThisLevel <= 2 ? 2
+                    : 1;
 
-            LevelProgressManager.SetStars(_numeroNiveau, stars);
-            LevelProgressManager.UnlockNextLevel(_numeroNiveau);
+                LevelProgressManager.SetStars(_numeroNiveau, stars);
+                LevelProgressManager.UnlockNextLevel(_numeroNiveau);
 
-            int coinReward = CoinBaseReward + stars * CoinStarBonus;
-            CurrencyManager.AddCoins(coinReward);
-            _hud.RefreshCoins();
+                int coinReward = CoinBaseReward + stars * CoinStarBonus;
+                CurrencyManager.AddCoins(coinReward);
+                _hud.RefreshCoins();
+            }
 
             Canvas canvas = FindFirstObjectByType<Canvas>();
             if (canvas != null)
@@ -1064,10 +1088,19 @@ namespace Zoologic
             btnComp.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
-                SelectedLevel = _numeroNiveau + 1;
                 Canvas c = FindFirstObjectByType<Canvas>();
-                SceneFader.FadeOut(this, c, 0.3f,
-                    () => UnityEngine.SceneManagement.SceneManager.LoadScene("TestGrid"));
+                if (IsDailyPuzzle)
+                {
+                    IsDailyPuzzle = false;
+                    SceneFader.FadeOut(this, c, 0.3f,
+                        () => UnityEngine.SceneManagement.SceneManager.LoadScene("LevelMap"));
+                }
+                else
+                {
+                    SelectedLevel = _numeroNiveau + 1;
+                    SceneFader.FadeOut(this, c, 0.3f,
+                        () => UnityEngine.SceneManagement.SceneManager.LoadScene("TestGrid"));
+                }
             });
 
             var btnTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
