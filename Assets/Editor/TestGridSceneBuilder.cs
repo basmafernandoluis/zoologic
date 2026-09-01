@@ -47,8 +47,8 @@ namespace Zoologic.EditorTools
             scaler.matchWidthOrHeight = 0.5f;
 
             // EventSystem : gère les taps / appuis longs sur les cases.
-            var eventSystemGameObject = new GameObject(
-                "EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            var eventSystemGameObject = new GameObject("EventSystem", typeof(EventSystem));
+            eventSystemGameObject.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
 
             // Racine du jeu : le contrôleur s'auto-câble en Awake/Start.
             var gameRoot = new GameObject("GameRoot");

@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
@@ -54,7 +55,7 @@ namespace Zoologic
             if (EventSystem.current == null)
             {
                 canvasGO.AddComponent<EventSystem>();
-                canvasGO.AddComponent<StandaloneInputModule>();
+                canvasGO.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
             }
 
             EnsureMainCamera();
@@ -460,7 +461,7 @@ namespace Zoologic
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (Keyboard.current?.escapeKey.wasPressedThisFrame ?? false)
             {
                 if (SettingsPanel.HandleBackButton()) return;
                 ShowQuitConfirmation();

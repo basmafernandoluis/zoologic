@@ -257,16 +257,31 @@ namespace Zoologic
             var amtLE = amtGO.AddComponent<LayoutElement>();
             amtLE.preferredHeight = 24f;
 
-            var statusGO = new GameObject("Status", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            statusGO.transform.SetParent(cell.transform, false);
-            var status = statusGO.GetComponent<TextMeshProUGUI>();
-            status.font = _fontBody;
-            status.text = claimed ? "Fait" : (today ? "Aujourd'hui" : "");
-            status.fontSize = 20;
-            status.color = claimed ? new Color(0.22f, 0.65f, 0.30f) : new Color(0.95f, 0.70f, 0.20f);
-            status.alignment = TextAlignmentOptions.Center;
-            var sLE = statusGO.AddComponent<LayoutElement>();
-            sLE.preferredHeight = 22f;
+            if (claimed)
+            {
+                var checkGO = new GameObject("Check", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                checkGO.transform.SetParent(cell.transform, false);
+                var checkRect = checkGO.GetComponent<RectTransform>();
+                checkRect.sizeDelta = new Vector2(24f, 24f);
+                var checkImg = checkGO.GetComponent<Image>();
+                checkImg.sprite = KenneyUI.Checkmark();
+                checkImg.preserveAspect = true;
+                var checkLE = checkGO.AddComponent<LayoutElement>();
+                checkLE.preferredHeight = 22f;
+            }
+            else
+            {
+                var statusGO = new GameObject("Status", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                statusGO.transform.SetParent(cell.transform, false);
+                var status = statusGO.GetComponent<TextMeshProUGUI>();
+                status.font = _fontBody;
+                status.text = today ? "Aujourd'hui" : "";
+                status.fontSize = 20;
+                status.color = new Color(0.95f, 0.70f, 0.20f);
+                status.alignment = TextAlignmentOptions.Center;
+                var sLE = statusGO.AddComponent<LayoutElement>();
+                sLE.preferredHeight = 22f;
+            }
         }
 
         private static Button CreateButton(Transform parent, string label, Color bg, bool enabled)

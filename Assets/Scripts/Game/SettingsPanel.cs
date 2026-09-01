@@ -78,8 +78,8 @@ namespace Zoologic
 
             if (UnityEngine.EventSystems.EventSystem.current == null)
                 _root.AddComponent<UnityEngine.EventSystems.EventSystem>();
-            if (Object.FindFirstObjectByType<StandaloneInputModule>() == null)
-                _root.AddComponent<StandaloneInputModule>();
+            if (Object.FindFirstObjectByType<UnityEngine.InputSystem.UI.InputSystemUIInputModule>() == null)
+                _root.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
 
             CreerOverlayFond(_root.transform);
             BuildPanel(_root.transform);

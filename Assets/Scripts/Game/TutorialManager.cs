@@ -536,7 +536,8 @@ namespace Zoologic
             if (EventSystem.current != null)
                 return;
 
-            new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            var es = new GameObject("EventSystem", typeof(EventSystem));
+            es.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
         }
 
         private void CreateBackground(Canvas canvas)

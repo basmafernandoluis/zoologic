@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 using Zoologic.Core;
 
@@ -192,7 +194,7 @@ namespace Zoologic
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (Keyboard.current?.escapeKey.wasPressedThisFrame ?? false)
             {
                 if (SettingsPanel.HandleBackButton()) return;
                 ShowQuitConfirmation();
@@ -988,7 +990,8 @@ namespace Zoologic
             if (EventSystem.current != null)
                 return;
 
-            new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            var es = new GameObject("EventSystem", typeof(EventSystem));
+            es.AddComponent<InputSystemUIInputModule>();
         }
 
         private void CreateBackground(Canvas canvas)

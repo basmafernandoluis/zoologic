@@ -129,9 +129,17 @@ namespace Zoologic
                 btnRect.sizeDelta = new Vector2(160f, 52f);
                 var btnImg = btnGO.GetComponent<Image>();
                 bool canClaim = m.IsCompleted && !m.claimed;
-                btnImg.sprite = KenneyUI.Button(canClaim ? "Green" : "Grey") ?? CreateRounded(128, 0.35f);
+                if (m.claimed)
+                {
+                    btnImg.sprite = KenneyUI.Checkmark() ?? CreateRounded(128, 0.35f);
+                    btnImg.color = new Color(0.22f, 0.65f, 0.30f);
+                }
+                else
+                {
+                    btnImg.sprite = KenneyUI.Button(canClaim ? "Green" : "Grey") ?? CreateRounded(128, 0.35f);
+                    btnImg.color = canClaim ? new Color(0.22f, 0.65f, 0.30f) : new Color(0.85f, 0.79f, 0.71f);
+                }
                 btnImg.type = Image.Type.Simple;
-                btnImg.color = canClaim ? new Color(0.22f, 0.65f, 0.30f) : new Color(0.85f, 0.79f, 0.71f);
                 var btnShadow = btnGO.AddComponent<Shadow>();
                 btnShadow.effectColor = new Color(0.20f, 0.12f, 0.07f, 0.20f);
                 btnShadow.effectDistance = new Vector2(0f, -3f);
@@ -145,7 +153,7 @@ namespace Zoologic
                 btxtRect.offsetMin = Vector2.zero; btxtRect.offsetMax = Vector2.zero;
                 var btxt = btxtGO.GetComponent<TextMeshProUGUI>();
                 btxt.font = _fontTitle;
-                btxt.text = canClaim ? $"+{m.reward}" : (m.claimed ? "Fait" : $"+{m.reward}");
+                btxt.text = m.claimed ? "" : (canClaim ? $"+{m.reward}" : $"+{m.reward}");
                 btxt.fontSize = 18; btxt.fontStyle = FontStyles.Bold;
                 btxt.color = canClaim ? Color.white : new Color(0.60f, 0.48f, 0.35f);
                 btxt.alignment = TextAlignmentOptions.Center;
