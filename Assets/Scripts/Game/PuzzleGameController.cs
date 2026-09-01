@@ -658,6 +658,12 @@ namespace Zoologic
 
         private void ReinitialiserNiveau()
         {
+            if (LivesManager.GetStoredLives() <= 0)
+            {
+                _hud.NotifierViesEpuisees();
+                return;
+            }
+
             _partieTerminee = false;
             SFXManager.Instance.ResumeMusic();
             _conflictsThisLevel = 0;
@@ -665,8 +671,8 @@ namespace Zoologic
             _hud.CacherDefaite();
             HideVictory();
 
-            _livesManager.Reinitialiser();
-            _hud.Reinitialiser(ScoreDepart, LivesManager.ViesDepart, _hud.IndiceCount);
+            int livesForRetry = LivesManager.GetStoredLives();
+            _hud.Reinitialiser(ScoreDepart, livesForRetry, _hud.IndiceCount);
             _hud.SetProgression(0, _grid.Size);
 
             _grid.Clear();

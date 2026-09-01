@@ -1034,6 +1034,12 @@ namespace Zoologic
             Haptics.VibrateLight();
         }
 
+        public void NotifierViesEpuisees()
+        {
+            ShowCoinToast("Plus de vies ! Patiente ou regarde une pub");
+            Haptics.VibrateLight();
+        }
+
         /// <summary>
         /// Désactive brièvement le bouton gomme après usage (évite les doubles-clics
         /// qui paieraient deux fois), puis le réarme.
@@ -1163,7 +1169,6 @@ namespace Zoologic
             rootRect.offsetMin = Vector2.zero;
             rootRect.offsetMax = Vector2.zero;
 
-            // Fond semi-transparent
             _overlay = CreerObjetUI("Overlay", _gameOverRoot.transform);
             var overlayRect = _overlay.GetComponent<RectTransform>();
             CreerRemplissage(overlayRect, 0f, ancreHaut: false);
@@ -1172,22 +1177,21 @@ namespace Zoologic
             overlayRect.offsetMin = Vector2.zero;
             overlayRect.offsetMax = Vector2.zero;
             var overlayImg = _overlay.AddComponent<Image>();
-            overlayImg.color = OverlayColor;
+            overlayImg.color = new Color(0.15f, 0.12f, 0.10f, 0.48f);
             overlayImg.raycastTarget = true;
 
-            // Panneau central (agrandi pour le hibou)
             _defaitePanel = CreerObjetUI("DefaitePanel", _gameOverRoot.transform);
             var panelRect = _defaitePanel.GetComponent<RectTransform>();
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.pivot = new Vector2(0.5f, 0.5f);
-            panelRect.sizeDelta = new Vector2(700f, 480f);
+            panelRect.sizeDelta = new Vector2(700f, 540f);
             panelRect.anchoredPosition = Vector2.zero;
 
             var panelImg = _defaitePanel.AddComponent<Image>();
             panelImg.sprite = GetCarteSprite();
             panelImg.type = Image.Type.Simple;
-            panelImg.color = Color.white;
+            panelImg.color = new Color(1f, 0.98f, 0.96f, 1f);
 
             // Hibou mascotte — inclinaison triste à -12°
             Sprite owlSprite = Resources.Load<Sprite>("Art/Animals/owl");
@@ -1229,40 +1233,40 @@ namespace Zoologic
             // Sous-titre « Plus de vies ! »
             var sousObj = CreerObjetUI("SousTitre", _defaitePanel.transform);
             var sousRect = sousObj.GetComponent<RectTransform>();
-            sousRect.anchorMin = new Vector2(0f, 0.42f);
-            sousRect.anchorMax = new Vector2(1f, 0.58f);
+            sousRect.anchorMin = new Vector2(0f, 0.50f);
+            sousRect.anchorMax = new Vector2(1f, 0.62f);
             sousRect.offsetMin = Vector2.zero;
             sousRect.offsetMax = Vector2.zero;
 
             var sousText = sousObj.AddComponent<TextMeshProUGUI>();
             sousText.font = _fontBody;
             sousText.text = "Plus de vies !";
-            sousText.fontSize = 28;
+            sousText.fontSize = 26;
             sousText.alignment = TextAlignmentOptions.Center;
             sousText.color = ScoreLabelColor;
             sousText.raycastTarget = false;
 
             var timerGO = CreerObjetUI("TimerVies", _defaitePanel.transform);
             var timerRect = timerGO.GetComponent<RectTransform>();
-            timerRect.anchorMin = new Vector2(0.5f, 0.35f);
-            timerRect.anchorMax = new Vector2(0.5f, 0.35f);
+            timerRect.anchorMin = new Vector2(0.5f, 0.38f);
+            timerRect.anchorMax = new Vector2(0.5f, 0.38f);
             timerRect.pivot = new Vector2(0.5f, 0.5f);
-            timerRect.sizeDelta = new Vector2(400f, 30f);
+            timerRect.sizeDelta = new Vector2(400f, 26f);
             timerRect.anchoredPosition = Vector2.zero;
             _livesTimerText = timerGO.AddComponent<TextMeshProUGUI>();
             _livesTimerText.font = _fontBody;
             _livesTimerText.text = "";
-            _livesTimerText.fontSize = 20;
+            _livesTimerText.fontSize = 18;
             _livesTimerText.alignment = TextAlignmentOptions.Center;
-            _livesTimerText.color = new Color(0.50f, 0.45f, 0.42f, 1f);
+            _livesTimerText.color = new Color(0.55f, 0.48f, 0.40f, 1f);
             _livesTimerText.raycastTarget = false;
 
             var pubGO = CreerObjetUI("BtnPubVies", _defaitePanel.transform);
             var pubRect = pubGO.GetComponent<RectTransform>();
-            pubRect.anchorMin = new Vector2(0.5f, 0.22f);
-            pubRect.anchorMax = new Vector2(0.5f, 0.22f);
+            pubRect.anchorMin = new Vector2(0.5f, 0.24f);
+            pubRect.anchorMax = new Vector2(0.5f, 0.24f);
             pubRect.pivot = new Vector2(0.5f, 0.5f);
-            pubRect.sizeDelta = new Vector2(360f, 56f);
+            pubRect.sizeDelta = new Vector2(360f, 52f);
             pubRect.anchoredPosition = Vector2.zero;
             var pubImg = pubGO.AddComponent<Image>();
             pubImg.sprite = GetCarteSprite();
