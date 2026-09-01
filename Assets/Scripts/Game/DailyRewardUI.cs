@@ -44,7 +44,7 @@ namespace Zoologic
             cardRect.pivot = new Vector2(0.5f, 0.5f);
             cardRect.sizeDelta = new Vector2(860f, 780f);
             cardRect.anchoredPosition = Vector2.zero;
-            var cardImg = card.AddComponent<Image>();
+            var cardImg = card.GetComponent<Image>();
             cardImg.sprite = CreateRoundedSprite(256, 0.18f);
             cardImg.type = Image.Type.Simple;
             cardImg.color = Color.white;
