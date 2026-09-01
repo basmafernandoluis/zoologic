@@ -181,8 +181,6 @@ namespace Zoologic
                 _livesManager = new LivesManager();
                 _livesManager.OnPartiePerdue = GererPartiePerdue;
                 _hud.SetVies(_livesManager.Vies);
-                if (_livesManager.Vies <= 0)
-                    GererPartiePerdue();
             }
             catch (System.Exception e)
             {

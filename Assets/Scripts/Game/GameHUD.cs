@@ -1323,38 +1323,6 @@ namespace Zoologic
             btnText.fontStyle = FontStyles.Bold;
             btnText.raycastTarget = false;
 
-            var homeGO = CreerObjetUI("BtnHome", _defaitePanel.transform);
-            var homeRect = homeGO.GetComponent<RectTransform>();
-            homeRect.anchorMin = new Vector2(0f, 1f);
-            homeRect.anchorMax = new Vector2(0f, 1f);
-            homeRect.pivot = new Vector2(0f, 1f);
-            homeRect.sizeDelta = new Vector2(48f, 48f);
-            homeRect.anchoredPosition = new Vector2(12f, -12f);
-            var homeImg = homeGO.AddComponent<Image>();
-            homeImg.sprite = GetPiluleSprite();
-            homeImg.type = Image.Type.Simple;
-            homeImg.color = new Color(1f, 1f, 1f, 0.95f);
-            var homeBtn = homeGO.AddComponent<Button>();
-            homeBtn.targetGraphic = homeImg;
-            homeBtn.onClick.AddListener(() =>
-            {
-                SFXManager.Instance.PlayMenuClose();
-                PuzzleGameController.IsDailyPuzzle = false;
-                UnityEngine.SceneManagement.SceneManager.LoadScene("LevelMap");
-            });
-            var homeIconGO = CreerObjetUI("Icon", homeGO.transform);
-            var homeIconRect = homeIconGO.GetComponent<RectTransform>();
-            homeIconRect.anchorMin = Vector2.zero;
-            homeIconRect.anchorMax = Vector2.one;
-            homeIconRect.offsetMin = new Vector2(12f, 12f);
-            homeIconRect.offsetMax = new Vector2(-12f, -12f);
-            var homeIconImg = homeIconGO.AddComponent<Image>();
-            homeIconImg.sprite = GetBackSprite();
-            homeIconImg.type = Image.Type.Simple;
-            homeIconImg.preserveAspect = true;
-            homeIconImg.color = new Color(0.29f, 0.18f, 0.10f);
-            homeIconImg.raycastTarget = false;
-
             var topBarGO = CreerObjetUI("TopAccent", _defaitePanel.transform);
             var topBarRect = topBarGO.GetComponent<RectTransform>();
             topBarRect.anchorMin = new Vector2(0f, 1f);
@@ -1367,6 +1335,39 @@ namespace Zoologic
             topBarImg.type = Image.Type.Simple;
             topBarImg.color = new Color(0.95f, 0.70f, 0.35f);
             topBarImg.raycastTarget = false;
+            var menuGO = CreerObjetUI("BtnMenu", _defaitePanel.transform);
+            var menuRect = menuGO.GetComponent<RectTransform>();
+            menuRect.anchorMin = new Vector2(0.5f, 0.02f);
+            menuRect.anchorMax = new Vector2(0.5f, 0.02f);
+            menuRect.pivot = new Vector2(0.5f, 0.5f);
+            menuRect.sizeDelta = new Vector2(200f, 44f);
+            menuRect.anchoredPosition = Vector2.zero;
+            var menuImg = menuGO.AddComponent<Image>();
+            menuImg.sprite = GetCarteSprite();
+            menuImg.type = Image.Type.Simple;
+            menuImg.color = new Color(0.92f, 0.89f, 0.86f, 1f);
+            var menuBtn = menuGO.AddComponent<Button>();
+            menuBtn.targetGraphic = menuImg;
+            menuBtn.onClick.AddListener(() =>
+            {
+                SFXManager.Instance.PlayMenuClose();
+                PuzzleGameController.IsDailyPuzzle = false;
+                UnityEngine.SceneManagement.SceneManager.LoadScene("LevelMap");
+            });
+            var menuTxtGO = CreerObjetUI("Text", menuGO.transform);
+            var menuTxtRect = menuTxtGO.GetComponent<RectTransform>();
+            menuTxtRect.anchorMin = Vector2.zero;
+            menuTxtRect.anchorMax = Vector2.one;
+            menuTxtRect.offsetMin = Vector2.zero;
+            menuTxtRect.offsetMax = Vector2.zero;
+            var menuTxt = menuTxtGO.AddComponent<TextMeshProUGUI>();
+            menuTxt.font = _fontBody;
+            menuTxt.text = "Retour menu";
+            menuTxt.fontSize = 20;
+            menuTxt.alignment = TextAlignmentOptions.Center;
+            menuTxt.color = new Color(0.29f, 0.18f, 0.10f);
+            menuTxt.fontStyle = FontStyles.Bold;
+            menuTxt.raycastTarget = false;
             // Le root reste actif ; ce sont overlay et panel qui basculent.
             _overlay.SetActive(false);
             _defaitePanel.SetActive(false);
