@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -92,7 +92,7 @@ namespace Zoologic
             var hlg = gridGO.AddComponent<HorizontalLayoutGroup>();
             hlg.spacing = 10f;
             hlg.childAlignment = TextAnchor.MiddleCenter;
-            hlg.childForceExpandWidth = true;
+            hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = false;
             hlg.padding = new RectOffset(0, 0, 10, 10);
 

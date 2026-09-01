@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -248,7 +248,7 @@ namespace Zoologic
             giftTxtRect.offsetMax = Vector2.zero;
             var giftTxt = giftTxtGO.AddComponent<TextMeshProUGUI>();
             giftTxt.font = _fontTitle;
-            giftTxt.text = DailyRewardManager.CanClaimToday() ? "🎁 Cadeau" : "Cadeau";
+            giftTxt.text = DailyRewardManager.CanClaimToday() ? "Cadeau" : "Cadeau";
             giftTxt.fontSize = 20;
             giftTxt.fontStyle = FontStyles.Bold;
             giftTxt.color = TitleColor;

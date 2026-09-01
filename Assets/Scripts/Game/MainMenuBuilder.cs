@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -259,7 +259,7 @@ namespace Zoologic
             txtRect.offsetMax = Vector2.zero;
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
-            txt.text = DailyRewardManager.CanClaimToday() ? "🎁 Cadeau !" : "Cadeau";
+            txt.text = DailyRewardManager.CanClaimToday() ? "Cadeau" : "Cadeau";
             txt.fontSize = 22;
             txt.fontStyle = FontStyles.Bold;
             txt.color = new Color(0.29f, 0.18f, 0.10f);
