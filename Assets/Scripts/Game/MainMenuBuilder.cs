@@ -63,6 +63,7 @@ namespace Zoologic
             BuildOwlMascot(canvasGO.transform);
             BuildPlayButton(canvasGO.transform);
             BuildDailyButton(canvasGO.transform);
+            BuildMissionsButton(canvasGO.transform);
             BuildSettingsButton(canvasGO.transform);
             BuildVersion(canvasGO.transform);
 
@@ -268,6 +269,63 @@ namespace Zoologic
             if (DailyRewardManager.CanClaimToday())
             {
                 var pulse = go.AddComponent<DailyPulse>();
+            }
+        }
+
+        private void BuildMissionsButton(Transform parent)
+        {
+            var go = new GameObject("MissionsButton");
+            go.transform.SetParent(parent, false);
+            var rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.sizeDelta = new Vector2(190f, 62f);
+            rect.anchoredPosition = new Vector2(220f, -20f);
+            var img = go.AddComponent<Image>();
+            img.sprite = CreerSpriteArrondi(128, 0.35f);
+            img.color = new Color(0.92f, 0.89f, 0.86f);
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(() =>
+            {
+                SFXManager.Instance.PlayMenuOpen();
+                var canvas = FindFirstObjectByType<Canvas>();
+                if (canvas != null) MissionUI.Show(canvas);
+            });
+            var txtGO = new GameObject("Text");
+            txtGO.transform.SetParent(go.transform, false);
+            var txtRect = txtGO.AddComponent<RectTransform>();
+            txtRect.anchorMin = Vector2.zero; txtRect.anchorMax = Vector2.one;
+            txtRect.offsetMin = Vector2.zero; txtRect.offsetMax = Vector2.zero;
+            var txt = txtGO.AddComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.text = "Missions";
+            txt.fontSize = 20;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = new Color(0.29f, 0.18f, 0.10f);
+            txt.alignment = TextAlignmentOptions.Center;
+            int done = MissionManager.GetCompletedCount();
+            if (done > 0)
+            {
+                var badgeGO = new GameObject("Badge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                badgeGO.transform.SetParent(go.transform, false);
+                var badgeRect = badgeGO.GetComponent<RectTransform>();
+                badgeRect.anchorMin = new Vector2(1f, 1f); badgeRect.anchorMax = new Vector2(1f, 1f);
+                badgeRect.pivot = new Vector2(0.5f, 0.5f);
+                badgeRect.sizeDelta = new Vector2(28f, 28f);
+                badgeRect.anchoredPosition = new Vector2(10f, 10f);
+                var badgeImg = badgeGO.AddComponent<Image>();
+                badgeImg.sprite = CreerSpriteArrondi(64, 0.5f);
+                badgeImg.color = new Color(0.92f, 0.36f, 0.42f);
+                var badgeTxtGO = new GameObject("Count", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                badgeTxtGO.transform.SetParent(badgeGO.transform, false);
+                var btr = badgeTxtGO.GetComponent<RectTransform>();
+                btr.anchorMin = Vector2.zero; btr.anchorMax = Vector2.one;
+                btr.offsetMin = Vector2.zero; btr.offsetMax = Vector2.zero;
+                var btxt = badgeTxtGO.GetComponent<TextMeshProUGUI>();
+                btxt.font = _fontTitle; btxt.text = done.ToString(); btxt.fontSize = 18;
+                btxt.fontStyle = FontStyles.Bold; btxt.color = Color.white; btxt.alignment = TextAlignmentOptions.Center;
             }
         }
 

@@ -455,6 +455,7 @@ namespace Zoologic
             _gridView.SetX(row, col, false);
 
             _hud.SetProgression(_grid.Pions.Count, _grid.Size);
+            MissionManager.AddProgress(MissionType.PlaceAnimals, 1);
             VerifierConflitPlacement(row, col);
             FlashAllConflicts();
             UpdateVictoryVisibility();
@@ -490,6 +491,7 @@ namespace Zoologic
                 SFXManager.Instance.PlayUnlock();
                 _hud.RefreshCoins();
             }
+            MissionManager.AddProgress(MissionType.UseHints, 1);
         }
 
         /// <summary>
@@ -540,6 +542,7 @@ namespace Zoologic
             }
 
             _hud.SetProgression(_grid.Pions.Count, _grid.Size);
+            MissionManager.AddProgress(MissionType.UseEraser, 1);
             _gridView.ShakeBoard(20f, 0.3f);
             _hud.BloquerPowerUpTemporairement(GommeRecharge);
             UpdateVictoryVisibility();
@@ -726,6 +729,8 @@ namespace Zoologic
 
                 LevelProgressManager.SetStars(_numeroNiveau, stars);
                 LevelProgressManager.UnlockNextLevel(_numeroNiveau);
+                MissionManager.AddProgress(MissionType.CompleteLevels, 1);
+                MissionManager.AddProgress(MissionType.EarnStars, stars);
 
                 int coinReward = CoinBaseReward + stars * CoinStarBonus;
                 CurrencyManager.AddCoins(coinReward);

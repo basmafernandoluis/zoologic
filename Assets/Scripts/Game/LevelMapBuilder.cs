@@ -273,11 +273,55 @@ namespace Zoologic
             giftTxtRect.offsetMax = Vector2.zero;
             var giftTxt = giftTxtGO.AddComponent<TextMeshProUGUI>();
             giftTxt.font = _fontTitle;
-            giftTxt.text = DailyRewardManager.CanClaimToday() ? "Cadeau" : "Cadeau";
+            giftTxt.text = "Cadeau";
             giftTxt.fontSize = 20;
             giftTxt.fontStyle = FontStyles.Bold;
             giftTxt.color = TitleColor;
             giftTxt.alignment = TextAlignmentOptions.Center;
+
+            var missionsGO = new GameObject("MissionsBtn");
+            missionsGO.transform.SetParent(header.transform, false);
+            var missionsRect = missionsGO.AddComponent<RectTransform>();
+            missionsRect.anchorMin = new Vector2(0f, 0.5f);
+            missionsRect.anchorMax = new Vector2(0f, 0.5f);
+            missionsRect.pivot = new Vector2(0f, 0.5f);
+            missionsRect.sizeDelta = new Vector2(130f, 52f);
+            missionsRect.anchoredPosition = new Vector2(170f, 0f);
+            var missionsImg = missionsGO.AddComponent<Image>();
+            missionsImg.sprite = CreerSpriteArrondi(128, 0.5f);
+            missionsImg.type = Image.Type.Simple;
+            missionsImg.color = BubbleWhite;
+            var missionsBtn = missionsGO.AddComponent<Button>();
+            missionsBtn.targetGraphic = missionsImg;
+            missionsBtn.onClick.AddListener(() => { SFXManager.Instance.PlayMenuOpen(); var c = FindFirstObjectByType<Canvas>(); if (c != null) MissionUI.Show(c); });
+            var missionsTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            missionsTxtGO.transform.SetParent(missionsGO.transform, false);
+            var missionsTxtRect = missionsTxtGO.GetComponent<RectTransform>();
+            missionsTxtRect.anchorMin = Vector2.zero; missionsTxtRect.anchorMax = Vector2.one;
+            missionsTxtRect.offsetMin = Vector2.zero; missionsTxtRect.offsetMax = Vector2.zero;
+            var missionsTxt = missionsTxtGO.AddComponent<TextMeshProUGUI>();
+            missionsTxt.font = _fontTitle; missionsTxt.text = "Missions"; missionsTxt.fontSize = 18; missionsTxt.fontStyle = FontStyles.Bold; missionsTxt.color = TitleColor; missionsTxt.alignment = TextAlignmentOptions.Center;
+            int doneM = MissionManager.GetCompletedCount();
+            if (doneM > 0)
+            {
+                var badgeGO = new GameObject("Badge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                badgeGO.transform.SetParent(missionsGO.transform, false);
+                var badgeRect = badgeGO.GetComponent<RectTransform>();
+                badgeRect.anchorMin = new Vector2(1f, 1f); badgeRect.anchorMax = new Vector2(1f, 1f);
+                badgeRect.pivot = new Vector2(0.5f, 0.5f);
+                badgeRect.sizeDelta = new Vector2(22f, 22f);
+                badgeRect.anchoredPosition = new Vector2(8f, 8f);
+                var badgeImg = badgeGO.AddComponent<Image>();
+                badgeImg.sprite = CreerSpriteArrondi(64, 0.5f);
+                badgeImg.color = new Color(0.92f, 0.36f, 0.42f);
+                var badgeTxtGO2 = new GameObject("Count", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                badgeTxtGO2.transform.SetParent(badgeGO.transform, false);
+                var btr2 = badgeTxtGO2.GetComponent<RectTransform>();
+                btr2.anchorMin = Vector2.zero; btr2.anchorMax = Vector2.one;
+                btr2.offsetMin = Vector2.zero; btr2.offsetMax = Vector2.zero;
+                var btxt2 = badgeTxtGO2.GetComponent<TextMeshProUGUI>();
+                btxt2.font = _fontTitle; btxt2.text = doneM.ToString(); btxt2.fontSize = 14; btxt2.fontStyle = FontStyles.Bold; btxt2.color = Color.white; btxt2.alignment = TextAlignmentOptions.Center;
+            }
 
             var titleGO = new GameObject("Title");
             titleGO.transform.SetParent(header.transform, false);
