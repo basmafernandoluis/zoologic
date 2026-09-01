@@ -137,13 +137,27 @@ namespace Zoologic
             {
                 x2Btn.onClick.AddListener(() =>
                 {
-                    int r = DailyRewardManager.Claim();
-                    if (r > 0) CurrencyManager.AddCoins(r);
-                    SFXManager.Instance.PlayUnlock();
-                    Object.Destroy(_panelRoot);
-                    _panelRoot = null;
-                    var c = Object.FindFirstObjectByType<Canvas>();
-                    if (c != null) ShowCoinToast(c, $"+{r * 2} pièces (x2) !");
+                    var admob = AdMobManager.Instance;
+                    if (admob != null) admob.ShowRewarded(() =>
+                    {
+                        int r = DailyRewardManager.Claim();
+                        if (r > 0) CurrencyManager.AddCoins(r);
+                        SFXManager.Instance.PlayUnlock();
+                        Object.Destroy(_panelRoot);
+                        _panelRoot = null;
+                        var c = Object.FindFirstObjectByType<Canvas>();
+                        if (c != null) ShowCoinToast(c, $"+{r * 2} pièces (x2) !");
+                    });
+                    else
+                    {
+                        int r = DailyRewardManager.Claim();
+                        if (r > 0) CurrencyManager.AddCoins(r);
+                        SFXManager.Instance.PlayUnlock();
+                        Object.Destroy(_panelRoot);
+                        _panelRoot = null;
+                        var c = Object.FindFirstObjectByType<Canvas>();
+                        if (c != null) ShowCoinToast(c, $"+{r * 2} pièces (x2) !");
+                    }
                 });
             }
 

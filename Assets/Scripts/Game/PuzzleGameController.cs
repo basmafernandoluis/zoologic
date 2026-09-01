@@ -551,13 +551,19 @@ namespace Zoologic
         private void HandlePubVies()
         {
             if (_livesManager == null || _hud == null) return;
-            _livesManager.AjouterVies(LivesManager.MaxVies);
-            _hud.SetVies(_livesManager.Vies);
-            _hud.CacherDefaite();
-            _partieTerminee = false;
-            SFXManager.Instance.ResumeMusic();
-            _hud.BloquerInteractions(false);
-            SFXManager.Instance.PlayUnlock();
+            var admob = AdMobManager.Instance;
+            System.Action grant = () =>
+            {
+                _livesManager.AjouterVies(LivesManager.MaxVies);
+                _hud.SetVies(_livesManager.Vies);
+                _hud.CacherDefaite();
+                _partieTerminee = false;
+                SFXManager.Instance.ResumeMusic();
+                _hud.BloquerInteractions(false);
+                SFXManager.Instance.PlayUnlock();
+            };
+            if (admob != null) admob.ShowRewarded(grant);
+            else grant();
         }
 
         // ------------------------------------------------------------------
@@ -736,6 +742,8 @@ namespace Zoologic
                 CurrencyManager.AddCoins(coinReward);
                 _hud.RefreshCoins();
             }
+
+            if (!IsDailyPuzzle) AdMobManager.Instance?.ShowInterstitialIfNeeded();
 
             Canvas canvas = FindFirstObjectByType<Canvas>();
             if (canvas != null)

@@ -57,6 +57,8 @@ namespace Zoologic
                 canvasGO.AddComponent<StandaloneInputModule>();
             }
 
+            EnsureMainCamera();
+
             BuildBackground(canvasGO.transform);
             BuildAnimalDecorations(canvasGO.transform);
             BuildTitle(canvasGO.transform);
@@ -69,6 +71,24 @@ namespace Zoologic
 
             if (DailyRewardManager.CanClaimToday())
                 StartCoroutine(ShowDailyPopupDelayed());
+        }
+
+        private static void EnsureMainCamera()
+        {
+            Camera existing = FindFirstObjectByType<Camera>();
+            if (existing != null)
+            {
+                if (FindFirstObjectByType<AudioListener>() == null)
+                    existing.gameObject.AddComponent<AudioListener>();
+                return;
+            }
+
+            var cameraGO = new GameObject("Main Camera");
+            cameraGO.tag = "MainCamera";
+            var camera = cameraGO.AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = BackgroundHelper.BgBottom;
+            cameraGO.AddComponent<AudioListener>();
         }
 
         private void BuildBackground(Transform parent)

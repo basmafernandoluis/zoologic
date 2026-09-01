@@ -1227,11 +1227,17 @@ namespace Zoologic
             hlg.childForceExpandWidth = false;
             var pubBtn = CreateLivesButton(btnRow.transform, "Pub (+3 ♥)", new Color(0.22f, 0.65f, 0.30f), () =>
             {
-                var lm = new LivesManager();
-                lm.AjouterVies(3);
-                SFXManager.Instance.PlayUnlock();
-                Destroy(root);
-                if (_livesCountText != null) _livesCountText.text = LivesManager.GetStoredLives().ToString();
+                var admob2 = AdMobManager.Instance;
+                System.Action grant2 = () =>
+                {
+                    var lm = new LivesManager();
+                    lm.AjouterVies(3);
+                    SFXManager.Instance.PlayUnlock();
+                    Destroy(root);
+                    if (_livesCountText != null) _livesCountText.text = LivesManager.GetStoredLives().ToString();
+                };
+                if (admob2 != null) admob2.ShowRewarded(grant2);
+                else grant2();
             });
             var closeBtn = CreateLivesButton(btnRow.transform, "Fermer", new Color(0.75f, 0.75f, 0.78f), () => Destroy(root));
             root.AddComponent<PopupCloser>().Init(root);
