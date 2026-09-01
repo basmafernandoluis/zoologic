@@ -6,7 +6,6 @@
     "com.unity.mobile.android-logcat": "1.4.7",
     "com.unity.ugui": "2.0.0",
     "com.unity.inputsystem": "1.11.2",
-    "com.google.ads.mobile": "https://github.com/googleads/googleads-mobile-unity.git#v9.2.0",
     "com.unity.modules.accessibility": "1.0.0",
     "com.unity.modules.ai": "1.0.0",
     "com.unity.modules.androidjni": "1.0.0",
