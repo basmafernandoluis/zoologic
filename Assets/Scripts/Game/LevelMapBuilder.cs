@@ -743,6 +743,12 @@ namespace Zoologic
             {
                 btn.onClick.AddListener(() =>
                 {
+                    if (LivesManager.GetStoredLives() <= 0)
+                    {
+                        SFXManager.Instance.PlayMenuClose();
+                        ShowLivesPopup();
+                        return;
+                    }
                     SFXManager.Instance.PlayMenuOpen();
                     PuzzleGameController.IsDailyPuzzle = true;
                     SceneManager.LoadScene("TestGrid");
@@ -892,6 +898,12 @@ namespace Zoologic
                 int capturedLevel = level;
                 btn.onClick.AddListener(() =>
                 {
+                    if (LivesManager.GetStoredLives() <= 0)
+                    {
+                        SFXManager.Instance.PlayMenuClose();
+                        ShowLivesPopup();
+                        return;
+                    }
                     SFXManager.Instance.PlayMenuOpen();
                     PuzzleGameController.SelectedLevel = capturedLevel;
                     SceneManager.LoadScene("TestGrid");
@@ -1106,6 +1118,123 @@ namespace Zoologic
             var canvas = FindFirstObjectByType<Canvas>();
             if (canvas != null && DailyRewardManager.CanClaimToday())
                 DailyRewardUI.Show(canvas);
+        }
+
+        private void ShowLivesPopup()
+        {
+            var canvas = FindFirstObjectByType<Canvas>();
+            if (canvas == null) return;
+            var root = new GameObject("LivesPopup", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            root.transform.SetParent(canvas.transform, false);
+            var rRect = root.GetComponent<RectTransform>();
+            rRect.anchorMin = Vector2.zero;
+            rRect.anchorMax = Vector2.one;
+            rRect.offsetMin = Vector2.zero;
+            rRect.offsetMax = Vector2.zero;
+            var rImg = root.GetComponent<Image>();
+            rImg.color = new Color(0.15f, 0.12f, 0.10f, 0.55f);
+            rImg.raycastTarget = true;
+            var card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            card.transform.SetParent(root.transform, false);
+            var cRect = card.GetComponent<RectTransform>();
+            cRect.anchorMin = new Vector2(0.5f, 0.5f);
+            cRect.anchorMax = new Vector2(0.5f, 0.5f);
+            cRect.pivot = new Vector2(0.5f, 0.5f);
+            cRect.sizeDelta = new Vector2(560f, 320f);
+            cRect.anchoredPosition = Vector2.zero;
+            var cImg = card.GetComponent<Image>();
+            cImg.sprite = CreerSpriteArrondi(128, 0.22f);
+            cImg.type = Image.Type.Simple;
+            cImg.color = Color.white;
+            var vlg = card.AddComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(24, 24, 24, 24);
+            vlg.spacing = 16f;
+            vlg.childAlignment = TextAnchor.MiddleCenter;
+            vlg.childForceExpandWidth = true;
+            var titleGO = new GameObject("Title", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            titleGO.transform.SetParent(card.transform, false);
+            var title = titleGO.GetComponent<TextMeshProUGUI>();
+            title.font = _fontTitle;
+            title.text = "Plus de vies !";
+            title.fontSize = 32;
+            title.fontStyle = FontStyles.Bold;
+            title.color = new Color(0.29f, 0.18f, 0.10f);
+            title.alignment = TextAlignmentOptions.Center;
+            var titleLE = titleGO.AddComponent<LayoutElement>();
+            titleLE.preferredHeight = 40f;
+            var timerGO = new GameObject("Timer", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            timerGO.transform.SetParent(card.transform, false);
+            var timer = timerGO.GetComponent<TextMeshProUGUI>();
+            timer.font = _fontBody;
+            int secs = LivesManager.GetSecondsUntilNextLife();
+            timer.text = secs > 0 ? $"Prochaine vie dans {secs / 60:00}:{secs % 60:00}" : "Vies pleines !";
+            timer.fontSize = 20;
+            timer.color = new Color(0.60f, 0.48f, 0.35f);
+            timer.alignment = TextAlignmentOptions.Center;
+            var timerLE = timerGO.AddComponent<LayoutElement>();
+            timerLE.preferredHeight = 24f;
+            var btnRow = new GameObject("BtnRow", typeof(RectTransform));
+            btnRow.transform.SetParent(card.transform, false);
+            var rowLE = btnRow.AddComponent<LayoutElement>();
+            rowLE.preferredHeight = 60f;
+            var hlg = btnRow.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 12f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childForceExpandWidth = false;
+            var pubBtn = CreateLivesButton(btnRow.transform, "Pub (+3 ♥)", new Color(0.22f, 0.65f, 0.30f), () =>
+            {
+                var lm = new LivesManager();
+                lm.AjouterVies(3);
+                SFXManager.Instance.PlayUnlock();
+                Destroy(root);
+                if (_livesCountText != null) _livesCountText.text = LivesManager.GetStoredLives().ToString();
+            });
+            var closeBtn = CreateLivesButton(btnRow.transform, "Fermer", new Color(0.75f, 0.75f, 0.78f), () => Destroy(root));
+            root.AddComponent<PopupCloser>().Init(root);
+        }
+
+        private Button CreateLivesButton(Transform parent, string label, Color bg, System.Action onClick)
+        {
+            var go = new GameObject("Btn_" + label, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            go.transform.SetParent(parent, false);
+            var rect = go.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(220f, 52f);
+            var img = go.GetComponent<Image>();
+            img.sprite = CreerSpriteArrondi(128, 0.35f);
+            img.type = Image.Type.Simple;
+            img.color = bg;
+            var btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(() => onClick?.Invoke());
+            var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            txtGO.transform.SetParent(go.transform, false);
+            var txtRect = txtGO.GetComponent<RectTransform>();
+            txtRect.anchorMin = Vector2.zero;
+            txtRect.anchorMax = Vector2.one;
+            txtRect.offsetMin = Vector2.zero;
+            txtRect.offsetMax = Vector2.zero;
+            var txt = txtGO.GetComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.text = label;
+            txt.fontSize = 20;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = Color.white;
+            txt.alignment = TextAlignmentOptions.Center;
+            var le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = 220f;
+            le.preferredHeight = 52f;
+            return btn;
+        }
+
+        private class PopupCloser : MonoBehaviour, UnityEngine.EventSystems.IPointerDownHandler
+        {
+            private GameObject _root;
+            public void Init(GameObject root) => _root = root;
+            public void OnPointerDown(UnityEngine.EventSystems.PointerEventData eventData)
+            {
+                if (eventData.pointerCurrentRaycast.gameObject == _root)
+                    Destroy(_root);
+            }
         }
 
         // ------------------------------------------------------------------
