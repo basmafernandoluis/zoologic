@@ -335,7 +335,7 @@ namespace Zoologic
                 badgeRect.pivot = new Vector2(0.5f, 0.5f);
                 badgeRect.sizeDelta = new Vector2(28f, 28f);
                 badgeRect.anchoredPosition = new Vector2(10f, 10f);
-                var badgeImg = badgeGO.AddComponent<Image>();
+                var badgeImg = badgeGO.GetComponent<Image>();
                 badgeImg.sprite = CreerSpriteArrondi(64, 0.5f);
                 badgeImg.color = new Color(0.92f, 0.36f, 0.42f);
                 var badgeTxtGO = new GameObject("Count", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
