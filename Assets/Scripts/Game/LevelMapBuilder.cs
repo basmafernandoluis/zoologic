@@ -254,9 +254,9 @@ namespace Zoologic
             giftRect.sizeDelta = new Vector2(138f, 52f);
             giftRect.anchoredPosition = new Vector2(22f, 0f);
             var giftImg = giftGO.AddComponent<Image>();
-            giftImg.sprite = CreerSpriteArrondi(128, 0.5f);
+            giftImg.sprite = KenneyUI.Button(DailyRewardManager.CanClaimToday() ? "Yellow" : "Grey") ?? CreerSpriteArrondi(128, 0.5f);
             giftImg.type = Image.Type.Simple;
-            giftImg.color = DailyRewardManager.CanClaimToday() ? new Color(1f, 0.96f, 0.78f) : BubbleWhite;
+            giftImg.color = Color.white;
             var giftBtn = giftGO.AddComponent<Button>();
             giftBtn.targetGraphic = giftImg;
             giftBtn.onClick.AddListener(() =>
@@ -289,9 +289,9 @@ namespace Zoologic
             missionsRect.sizeDelta = new Vector2(130f, 52f);
             missionsRect.anchoredPosition = new Vector2(170f, 0f);
             var missionsImg = missionsGO.AddComponent<Image>();
-            missionsImg.sprite = CreerSpriteArrondi(128, 0.5f);
+            missionsImg.sprite = KenneyUI.Button("Blue") ?? CreerSpriteArrondi(128, 0.5f);
             missionsImg.type = Image.Type.Simple;
-            missionsImg.color = BubbleWhite;
+            missionsImg.color = Color.white;
             var missionsBtn = missionsGO.AddComponent<Button>();
             missionsBtn.targetGraphic = missionsImg;
             missionsBtn.onClick.AddListener(() => { SFXManager.Instance.PlayMenuOpen(); var c = FindFirstObjectByType<Canvas>(); if (c != null) MissionUI.Show(c); });
@@ -301,7 +301,7 @@ namespace Zoologic
             missionsTxtRect.anchorMin = Vector2.zero; missionsTxtRect.anchorMax = Vector2.one;
             missionsTxtRect.offsetMin = Vector2.zero; missionsTxtRect.offsetMax = Vector2.zero;
             var missionsTxt = missionsTxtGO.GetComponent<TextMeshProUGUI>();
-            missionsTxt.font = _fontTitle; missionsTxt.text = "Missions"; missionsTxt.fontSize = 18; missionsTxt.fontStyle = FontStyles.Bold; missionsTxt.color = TitleColor; missionsTxt.alignment = TextAlignmentOptions.Center;
+            missionsTxt.font = _fontTitle; missionsTxt.text = "Missions"; missionsTxt.fontSize = 18; missionsTxt.fontStyle = FontStyles.Bold; missionsTxt.color = Color.white; missionsTxt.alignment = TextAlignmentOptions.Center;
             int doneM = MissionManager.GetCompletedCount();
             if (doneM > 0)
             {
@@ -406,9 +406,9 @@ namespace Zoologic
             pillRect.anchoredPosition = new Vector2(-22f, 0f);
 
             var pillImg = pill.AddComponent<Image>();
-            pillImg.sprite = CreerSpriteArrondi(128, 0.5f);
+            pillImg.sprite = KenneyUI.FlatButton("Grey") ?? CreerSpriteArrondi(128, 0.5f);
             pillImg.type = Image.Type.Simple;
-            pillImg.color = BubbleWhite;
+            pillImg.color = Color.white;
             pillImg.raycastTarget = false;
 
             Sprite heart = Resources.Load<Sprite>("UI/heart");
@@ -466,12 +466,20 @@ namespace Zoologic
 
         private ScrollRect BuildScrollArea(Transform parent)
         {
+            var scrollGO = new GameObject("ScrollArea");
+            scrollGO.transform.SetParent(parent, false);
+            var scrollRectRT = scrollGO.AddComponent<RectTransform>();
+            scrollRectRT.anchorMin = Vector2.zero;
+            scrollRectRT.anchorMax = Vector2.one;
+            scrollRectRT.offsetMin = Vector2.zero;
+            scrollRectRT.offsetMax = new Vector2(0f, -_headerTotal);
+
             var viewportGO = new GameObject("Viewport");
-            viewportGO.transform.SetParent(parent, false);
+            viewportGO.transform.SetParent(scrollGO.transform, false);
             var viewportRect = viewportGO.AddComponent<RectTransform>();
             viewportRect.anchorMin = Vector2.zero;
             viewportRect.anchorMax = Vector2.one;
-            viewportRect.offsetMin = new Vector2(0f, _headerTotal);
+            viewportRect.offsetMin = Vector2.zero;
             viewportRect.offsetMax = Vector2.zero;
 
             var viewportImg = viewportGO.AddComponent<Image>();
@@ -500,24 +508,16 @@ namespace Zoologic
             var fitter = contentGO.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            var scrollGO = new GameObject("ScrollRect");
-            scrollGO.transform.SetParent(viewportGO.transform, false);
-            var scrollRectComp = scrollGO.AddComponent<RectTransform>();
-            scrollRectComp.anchorMin = Vector2.zero;
-            scrollRectComp.anchorMax = Vector2.one;
-            scrollRectComp.offsetMin = Vector2.zero;
-            scrollRectComp.offsetMax = Vector2.zero;
-
             var scrollRect = scrollGO.AddComponent<ScrollRect>();
-            scrollRect.movementType = ScrollRect.MovementType.Elastic;
-            scrollRect.elasticity = 0.1f;
-            scrollRect.scrollSensitivity = 40f;
             scrollRect.viewport = viewportRect;
             scrollRect.content = contentRect;
             scrollRect.horizontal = false;
             scrollRect.vertical = true;
-
-            scrollGO.AddComponent<DragScrollHandler>();
+            scrollRect.movementType = ScrollRect.MovementType.Elastic;
+            scrollRect.elasticity = 0.1f;
+            scrollRect.inertia = true;
+            scrollRect.decelerationRate = 0.135f;
+            scrollRect.scrollSensitivity = 35f;
 
             CreerFadesScroll(parent);
 
