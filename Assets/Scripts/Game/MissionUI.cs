@@ -128,9 +128,9 @@ namespace Zoologic
                 var btnRect = btnGO.GetComponent<RectTransform>();
                 btnRect.sizeDelta = new Vector2(160f, 52f);
                 var btnImg = btnGO.GetComponent<Image>();
+                bool canClaim = m.IsCompleted && !m.claimed;
                 btnImg.sprite = KenneyUI.Button(canClaim ? "Green" : "Grey") ?? CreateRounded(128, 0.35f);
                 btnImg.type = Image.Type.Simple;
-                bool canClaim = m.IsCompleted && !m.claimed;
                 btnImg.color = canClaim ? new Color(0.22f, 0.65f, 0.30f) : new Color(0.85f, 0.79f, 0.71f);
                 var btnShadow = btnGO.AddComponent<Shadow>();
                 btnShadow.effectColor = new Color(0.20f, 0.12f, 0.07f, 0.20f);
