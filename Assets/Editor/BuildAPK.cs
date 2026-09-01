@@ -46,23 +46,34 @@ namespace Zoologic.EditorTools
             Debug.Log("[Icon] Ic\u00f4ne appliqu\u00e9e \u00e0 Android (legacy + adaptive).");
         }
 
-        [MenuItem("Tools/Zoo Logic/Build Android APK")]
+        [MenuItem("Tools/Zoo Logic/Build Android APK (Test Ads)")]
         public static void BuildAndroid()
         {
+            SetAdMobTestDefines(true);
             PrepareAndroidBuild();
-
-            LogResult(BuildPipeline.BuildPlayer(ScenePaths, ApkPath, BuildTarget.Android, BuildOptions.None), "APK");
+            LogResult(BuildPipeline.BuildPlayer(ScenePaths, ApkPath, BuildTarget.Android, BuildOptions.None), "APK-TEST");
         }
 
-        [MenuItem("Tools/Zoo Logic/Build Android AAB")]
+        [MenuItem("Tools/Zoo Logic/Build Android AAB (Prod Ads)")]
         public static void BuildAndroidAAB()
         {
+            SetAdMobTestDefines(false);
             PrepareAndroidBuild();
-
             EditorUserBuildSettings.buildAppBundle = true;
-            LogResult(BuildPipeline.BuildPlayer(ScenePaths, AabPath, BuildTarget.Android, BuildOptions.None), "AAB");
+            LogResult(BuildPipeline.BuildPlayer(ScenePaths, AabPath, BuildTarget.Android, BuildOptions.None), "AAB-PROD");
             EditorUserBuildSettings.buildAppBundle = false;
         }
+
+        private static void SetAdMobTestDefines(bool test)
+        {
+            var target = UnityEditor.Build.NamedBuildTarget.Android;
+            string defines = PlayerSettings.GetScriptingDefineSymbols(target);
+            var list = new System.Collections.Generic.HashSet<string>(defines.Split(new[] { ';' }, System.StringSplitOptions.RemoveEmptyEntries));
+            if (test) list.Add("ADMOB_TEST");
+            else list.Remove("ADMOB_TEST");
+            PlayerSettings.SetScriptingDefineSymbols(target, string.Join(";", list));
+            Debug.Log($"[AdMob] Defines ADMOB_TEST={(test ? "ON (test IDs)" : "OFF (prod IDs: ca-app-pub-7435856398879419)")}");}
+
 
         private static void PrepareAndroidBuild()
         {
@@ -101,15 +112,14 @@ namespace Zoologic.EditorTools
                 Debug.Log("[Sign] Cl\u00e9 de signature : " + KeyAlias + " (" + KeystorePath + ")");
             }
 
-            // Active Input Handling = Old (Input Manager), sinon NRE sur Android.
             SerializedObject settings = new SerializedObject(
                 AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset")[0]);
             SerializedProperty inputHandler = settings.FindProperty("activeInputHandler");
-            if (inputHandler != null && inputHandler.intValue != 0)
+            if (inputHandler != null && inputHandler.intValue != 2)
             {
-                inputHandler.intValue = 0;
+                inputHandler.intValue = 2;
                 settings.ApplyModifiedPropertiesWithoutUndo();
-                Debug.Log("[Build] Set Active Input Handling to Old (Input Manager)");
+                Debug.Log("[Build] Set Active Input Handling to Both (Input Manager + Input System) for AdMob/InputSystemUI compat");
             }
 
             EditorBuildSettings.scenes = new[]

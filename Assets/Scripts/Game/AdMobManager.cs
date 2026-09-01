@@ -8,13 +8,54 @@ namespace Zoologic
     {
         public static AdMobManager Instance { get; private set; }
 
+        private const string ProdAppId = "ca-app-pub-7435856398879419~7807957345";
+        private const string ProdBannerId = "ca-app-pub-7435856398879419/6435927669";
+        private const string ProdInterstitialId = "ca-app-pub-7435856398879419/7300135970";
+        private const string ProdRewardedInterstitialId = "ca-app-pub-7435856398879419/2351061627";
+        private const string ProdAppOpenId = "ca-app-pub-7435856398879419/8827016238";
+        private const string ProdRewardedId = "ca-app-pub-7435856398879419/3360890967";
+
         private const string TestAppId = "ca-app-pub-3940256099942544~3347511713";
-        private const string RewardedId = "ca-app-pub-3940256099942544/5224354917";
-        private const string InterstitialId = "ca-app-pub-3940256099942544/1033173712";
-        private const string BannerId = "ca-app-pub-3940256099942544/6300978111";
+        private const string TestBannerId = "ca-app-pub-3940256099942544/6300978111";
+        private const string TestInterstitialId = "ca-app-pub-3940256099942544/1033173712";
+        private const string TestRewardedInterstitialId = "ca-app-pub-3940256099942544/5354046379";
+        private const string TestAppOpenId = "ca-app-pub-3940256099942544/3419835294";
+        private const string TestRewardedId = "ca-app-pub-3940256099942544/5224354917";
+
+        private static bool IsProduction
+        {
+            get
+            {
+#if ADMOB_TEST
+                return false;
+#elif UNITY_EDITOR
+                return false;
+#else
+                return !Debug.isDebugBuild;
+#endif
+            }
+        }
+
+        public static string AppId => IsProduction ? ProdAppId : TestAppId;
+        public static string BannerId => IsProduction ? ProdBannerId : TestBannerId;
+        public static string InterstitialId => IsProduction ? ProdInterstitialId : TestInterstitialId;
+        public static string RewardedInterstitialId => IsProduction ? ProdRewardedInterstitialId : TestRewardedInterstitialId;
+        public static string AppOpenId => IsProduction ? ProdAppOpenId : TestAppOpenId;
+        public static string RewardedId => IsProduction ? ProdRewardedId : TestRewardedId;
 
         private int _victoryCount;
         private GameObject _bannerGO;
+
+#if GOOGLE_MOBILE_ADS
+        private GoogleMobileAds.Api.RewardedAd _rewardedAd;
+        private GoogleMobileAds.Api.InterstitialAd _interstitialAd;
+        private GoogleMobileAds.Api.BannerView _bannerView;
+        private GoogleMobileAds.Api.AppOpenAd _appOpenAd;
+        private bool _rewardedLoading;
+        private bool _interstitialLoading;
+        private bool _appOpenLoading;
+        private DateTime _appOpenExpire;
+#endif
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Bootstrap()
@@ -30,27 +71,113 @@ namespace Zoologic
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            Debug.Log("[AdMob] Manager ready (stub, test IDs). AppId=" + TestAppId);
+            ConfigureAndInitialize();
+        }
+
+        private void ConfigureAndInitialize()
+        {
+            Debug.Log($"[AdMob] Configure IsProduction={IsProduction} AppId={AppId} Banner={BannerId} Rewarded={RewardedId}");
 #if GOOGLE_MOBILE_ADS
-            try { GoogleMobileAds.Api.MobileAds.Initialize(init => Debug.Log("[AdMob] Initialized: " + init)); }
-            catch (Exception e) { Debug.LogWarning("[AdMob] Init failed (stub fallback): " + e.Message); }
+            try
+            {
+                var config = new GoogleMobileAds.Api.RequestConfiguration.Builder()
+                    .SetTagForChildDirectedTreatment(GoogleMobileAds.Api.TagForChildDirectedTreatment.True)
+                    .SetTagForUnderAgeOfConsent(GoogleMobileAds.Api.TagForUnderAgeOfConsent.True)
+                    .SetMaxAdContentRating(GoogleMobileAds.Api.MaxAdContentRating.G)
+                    .build();
+                GoogleMobileAds.Api.MobileAds.SetRequestConfiguration(config);
+                Debug.Log("[AdMob] RequestConfiguration set: TFCD=True TFA=True MaxRating=G");
+            }
+            catch (Exception e) { Debug.LogWarning("[AdMob] RequestConfiguration failed: " + e.Message); }
+
+            try
+            {
+                GoogleMobileAds.Api.MobileAds.Initialize(initStatus =>
+                {
+                    Debug.Log("[AdMob] MobileAds Initialized: " + initStatus);
+                    LoadRewarded();
+                    LoadInterstitial();
+                    LoadAppOpen();
+                });
+            }
+            catch (Exception e) { Debug.LogWarning("[AdMob] Initialize failed: " + e.Message); }
+#else
+            Debug.Log("[AdMob] Stub mode - SDK not installed. RequestConfiguration would be: TFCD=True, TFA=True, MaxAdContentRating=G, npa=1");
 #endif
         }
 
+#if GOOGLE_MOBILE_ADS
+        private GoogleMobileAds.Api.AdRequest CreateNpaRequest()
+        {
+            var builder = new GoogleMobileAds.Api.AdRequest.Builder();
+            builder.AddExtra("npa", "1");
+            return builder.Build();
+        }
+
+        private void LoadRewarded()
+        {
+            if (_rewardedLoading) return;
+            _rewardedLoading = true;
+            var req = CreateNpaRequest();
+            GoogleMobileAds.Api.RewardedAd.Load(RewardedId, req, (ad, err) =>
+            {
+                _rewardedLoading = false;
+                if (err != null || ad == null) { Debug.LogWarning("[AdMob] Rewarded load failed: " + err); return; }
+                _rewardedAd = ad;
+                _rewardedAd.OnAdFullScreenContentFailed += (_, e) => { _rewardedAd = null; LoadRewarded(); };
+                _rewardedAd.OnAdFullScreenContentClosed += (_, _) => { _rewardedAd = null; LoadRewarded(); };
+                Debug.Log("[AdMob] Rewarded loaded: " + RewardedId);
+            });
+        }
+
+        private void LoadInterstitial()
+        {
+            if (_interstitialLoading) return;
+            _interstitialLoading = true;
+            var req = CreateNpaRequest();
+            GoogleMobileAds.Api.InterstitialAd.Load(InterstitialId, req, (ad, err) =>
+            {
+                _interstitialLoading = false;
+                if (err != null || ad == null) { Debug.LogWarning("[AdMob] Interstitial load failed: " + err); return; }
+                _interstitialAd = ad;
+                _interstitialAd.OnAdFullScreenContentFailed += (_, e) => { _interstitialAd = null; LoadInterstitial(); };
+                _interstitialAd.OnAdFullScreenContentClosed += (_, _) => { _interstitialAd = null; LoadInterstitial(); };
+                Debug.Log("[AdMob] Interstitial loaded: " + InterstitialId);
+            });
+        }
+
+        private void LoadAppOpen()
+        {
+            if (_appOpenLoading) return;
+            _appOpenLoading = true;
+            var req = CreateNpaRequest();
+            GoogleMobileAds.Api.AppOpenAd.Load(AppOpenId, req, (ad, err) =>
+            {
+                _appOpenLoading = false;
+                if (err != null || ad == null) { Debug.LogWarning("[AdMob] AppOpen load failed: " + err); return; }
+                _appOpenAd = ad;
+                _appOpenExpire = DateTime.Now.AddHours(4);
+                _appOpenAd.OnAdFullScreenContentFailed += (_, e) => { _appOpenAd = null; LoadAppOpen(); };
+                _appOpenAd.OnAdFullScreenContentClosed += (_, _) => { _appOpenAd = null; LoadAppOpen(); };
+                Debug.Log("[AdMob] AppOpen loaded: " + AppOpenId);
+            });
+        }
+#endif
+
         public void ShowRewarded(Action onRewarded)
         {
-            Debug.Log("[AdMob] ShowRewarded (stub) - granting reward");
+            Debug.Log($"[AdMob] ShowRewarded IsProduction={IsProduction} ID={RewardedId} NPA=1");
 #if GOOGLE_MOBILE_ADS
-            // Real implementation would load and show rewarded ad here.
-            // For now, fallback to stub if SDK not ready.
-            try
+            if (_rewardedAd != null && _rewardedAd.CanShowAd())
             {
-                // Attempt to show real ad if available, otherwise fallback
-                // This stub will be replaced when SDK is fully integrated
-                StartCoroutine(RewardedStubRoutine(onRewarded));
-                return;
+                Action rewarded = null;
+                _rewardedAd.OnUserEarnedReward += (_, r) => { rewarded = onRewarded; Debug.Log($"[AdMob] Reward earned {r}"); };
+                _rewardedAd.OnAdFullScreenContentClosed += (_, _) => { if (rewarded != null) rewarded.Invoke(); else onRewarded?.Invoke(); _rewardedAd = null; LoadRewarded(); };
+                _rewardedAd.OnAdFullScreenContentFailed += (_, e) => { Debug.LogWarning("[AdMob] Rewarded show failed: " + e); StartCoroutine(RewardedStubRoutine(onRewarded)); _rewardedAd = null; LoadRewarded(); };
+                try { _rewardedAd.Show(); return; } catch (Exception e) { Debug.LogWarning("[AdMob] Show exception: " + e.Message); }
             }
-            catch { }
+            Debug.Log("[AdMob] Rewarded not ready, fallback stub + reload");
+            LoadRewarded();
 #endif
             StartCoroutine(RewardedStubRoutine(onRewarded));
         }
@@ -65,45 +192,68 @@ namespace Zoologic
         {
             _victoryCount++;
             if (_victoryCount % 4 != 0) return;
-            Debug.Log("[AdMob] Interstitial check (stub) - would show on every 4th victory");
+            Debug.Log($"[AdMob] Interstitial trigger 4th victory IsProduction={IsProduction} ID={InterstitialId}");
 #if GOOGLE_MOBILE_ADS
-            // Real interstitial show logic here
+            if (_interstitialAd != null && _interstitialAd.CanShowAd())
+            {
+                _interstitialAd.OnAdFullScreenContentClosed += (_, _) => { _interstitialAd = null; LoadInterstitial(); };
+                _interstitialAd.OnAdFullScreenContentFailed += (_, e) => { _interstitialAd = null; LoadInterstitial(); };
+                try { _interstitialAd.Show(); return; } catch (Exception e) { Debug.LogWarning("[AdMob] Interstitial show failed: " + e.Message); }
+            }
+            LoadInterstitial();
 #endif
         }
 
         public void ShowBanner()
         {
+            Debug.Log($"[AdMob] ShowBanner IsProduction={IsProduction} ID={BannerId}");
+#if GOOGLE_MOBILE_ADS
+            try
+            {
+                if (_bannerView != null) return;
+                _bannerView = new GoogleMobileAds.Api.BannerView(BannerId, GoogleMobileAds.Api.AdSize.Banner, GoogleMobileAds.Api.AdPosition.Bottom);
+                var req = CreateNpaRequest();
+                _bannerView.LoadAd(req);
+                return;
+            }
+            catch (Exception e) { Debug.LogWarning("[AdMob] Banner failed: " + e.Message); }
+#endif
             if (_bannerGO != null) return;
             var canvas = FindFirstObjectByType<Canvas>();
             if (canvas == null) return;
             _bannerGO = new GameObject("AdBannerStub", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
             _bannerGO.transform.SetParent(canvas.transform, false);
             var rect = _bannerGO.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, 0f);
-            rect.anchorMax = new Vector2(1f, 0f);
-            rect.pivot = new Vector2(0.5f, 0f);
-            rect.sizeDelta = new Vector2(0f, 90f);
-            rect.anchoredPosition = Vector2.zero;
+            rect.anchorMin = new Vector2(0f, 0f); rect.anchorMax = new Vector2(1f, 0f); rect.pivot = new Vector2(0.5f, 0f);
+            rect.sizeDelta = new Vector2(0f, 90f); rect.anchoredPosition = Vector2.zero;
             var img = _bannerGO.GetComponent<UnityEngine.UI.Image>();
-            img.color = new Color(0.92f, 0.89f, 0.86f, 1f);
-            img.raycastTarget = false;
+            img.color = new Color(0.92f, 0.89f, 0.86f, 1f); img.raycastTarget = false;
             var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
             txtGO.transform.SetParent(_bannerGO.transform, false);
             var txtRect = txtGO.GetComponent<RectTransform>();
-            txtRect.anchorMin = Vector2.zero; txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = Vector2.zero; txtRect.offsetMax = Vector2.zero;
+            txtRect.anchorMin = Vector2.zero; txtRect.anchorMax = Vector2.one; txtRect.offsetMin = Vector2.zero; txtRect.offsetMax = Vector2.zero;
             var txt = txtGO.GetComponent<TMPro.TextMeshProUGUI>();
             txt.font = Resources.Load<TMPro.TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF");
-            txt.text = "Publicité — bannière (stub)";
-            txt.fontSize = 20;
-            txt.color = new Color(0.50f, 0.42f, 0.35f);
-            txt.alignment = TMPro.TextAlignmentOptions.Center;
+            txt.text = IsProduction ? "Publicité — bannière" : "Publicité — bannière (test)";
+            txt.fontSize = 20; txt.color = new Color(0.50f, 0.42f, 0.35f); txt.alignment = TMPro.TextAlignmentOptions.Center;
         }
 
         public void HideBanner()
         {
+#if GOOGLE_MOBILE_ADS
+            try { _bannerView?.Destroy(); } catch { }
+            _bannerView = null;
+#endif
             if (_bannerGO != null) Destroy(_bannerGO);
             _bannerGO = null;
+        }
+
+        public void ShowAppOpenIfNeeded()
+        {
+#if GOOGLE_MOBILE_ADS
+            if (_appOpenAd == null || !_appOpenAd.CanShowAd() || DateTime.Now > _appOpenExpire) { LoadAppOpen(); return; }
+            try { _appOpenAd.Show(); } catch (Exception e) { Debug.LogWarning("[AdMob] AppOpen show failed: " + e.Message); _appOpenAd = null; LoadAppOpen(); }
+#endif
         }
     }
 }
