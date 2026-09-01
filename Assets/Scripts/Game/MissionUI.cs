@@ -22,7 +22,7 @@ namespace Zoologic
             rr.anchorMin = Vector2.zero; rr.anchorMax = Vector2.one;
             rr.offsetMin = Vector2.zero; rr.offsetMax = Vector2.zero;
             var ri = _root.GetComponent<Image>();
-            ri.color = new Color(0.15f, 0.12f, 0.10f, 0.55f);
+            ri.color = new Color(0.24f, 0.16f, 0.10f, 0.62f);
             ri.raycastTarget = true;
 
             var card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -34,7 +34,10 @@ namespace Zoologic
             var ci = card.GetComponent<Image>();
             ci.sprite = CreateRounded(256, 0.18f);
             ci.type = Image.Type.Simple;
-            ci.color = Color.white;
+            ci.color = new Color(1f, 0.98f, 0.94f, 1f);
+            var cardShadow = card.AddComponent<Shadow>();
+            cardShadow.effectColor = new Color(0.18f, 0.11f, 0.06f, 0.30f);
+            cardShadow.effectDistance = new Vector2(0f, -10f);
 
             var vlg = card.AddComponent<VerticalLayoutGroup>();
             vlg.padding = new RectOffset(28, 28, 28, 28);
@@ -61,7 +64,7 @@ namespace Zoologic
                 var rowImg = row.GetComponent<Image>();
                 rowImg.sprite = CreateRounded(128, 0.22f);
                 rowImg.type = Image.Type.Simple;
-                rowImg.color = m.IsCompleted && !m.claimed ? new Color(1f, 0.96f, 0.78f) : new Color(1f, 0.98f, 0.96f);
+                rowImg.color = m.IsCompleted && !m.claimed ? new Color(1f, 0.91f, 0.62f) : new Color(1f, 0.96f, 0.88f);
                 if (m.IsCompleted && !m.claimed)
                 {
                     var ol = row.AddComponent<Outline>();
@@ -98,7 +101,7 @@ namespace Zoologic
                 var barBGImg = barBG.GetComponent<Image>();
                 barBGImg.sprite = CreateRounded(64, 0.35f);
                 barBGImg.type = Image.Type.Simple;
-                barBGImg.color = new Color(0.92f, 0.89f, 0.86f);
+                barBGImg.color = new Color(0.87f, 0.80f, 0.71f);
                 var fillGO = new GameObject("Fill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 fillGO.transform.SetParent(barBG.transform, false);
                 var fillRect = fillGO.GetComponent<RectTransform>();
@@ -110,7 +113,7 @@ namespace Zoologic
                 var fillImg = fillGO.GetComponent<Image>();
                 fillImg.sprite = CreateRounded(64, 0.35f);
                 fillImg.type = Image.Type.Simple;
-                fillImg.color = m.IsCompleted ? new Color(0.22f, 0.65f, 0.30f) : new Color(0.95f, 0.70f, 0.20f);
+                fillImg.color = m.IsCompleted ? new Color(0.22f, 0.65f, 0.30f) : new Color(0.95f, 0.63f, 0.16f);
 
                 var progGO = new GameObject("Prog", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
                 progGO.transform.SetParent(left.transform, false);
@@ -128,7 +131,10 @@ namespace Zoologic
                 btnImg.sprite = CreateRounded(128, 0.35f);
                 btnImg.type = Image.Type.Simple;
                 bool canClaim = m.IsCompleted && !m.claimed;
-                btnImg.color = canClaim ? new Color(0.22f, 0.65f, 0.30f) : new Color(0.92f, 0.89f, 0.86f);
+                btnImg.color = canClaim ? new Color(0.22f, 0.65f, 0.30f) : new Color(0.85f, 0.79f, 0.71f);
+                var btnShadow = btnGO.AddComponent<Shadow>();
+                btnShadow.effectColor = new Color(0.20f, 0.12f, 0.07f, 0.20f);
+                btnShadow.effectDistance = new Vector2(0f, -3f);
                 var btn = btnGO.GetComponent<Button>();
                 btn.targetGraphic = btnImg;
                 btn.interactable = canClaim;

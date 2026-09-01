@@ -33,7 +33,7 @@ namespace Zoologic
             rootRect.offsetMin = Vector2.zero;
             rootRect.offsetMax = Vector2.zero;
             var rootImg = _panelRoot.GetComponent<Image>();
-            rootImg.color = new Color(0f, 0f, 0f, 0.55f);
+            rootImg.color = new Color(0.24f, 0.16f, 0.10f, 0.62f);
             rootImg.raycastTarget = true;
 
             var card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -47,7 +47,10 @@ namespace Zoologic
             var cardImg = card.GetComponent<Image>();
             cardImg.sprite = CreateRoundedSprite(256, 0.18f);
             cardImg.type = Image.Type.Simple;
-            cardImg.color = Color.white;
+            cardImg.color = new Color(1f, 0.98f, 0.94f, 1f);
+            var cardShadow = card.AddComponent<Shadow>();
+            cardShadow.effectColor = new Color(0.18f, 0.11f, 0.06f, 0.30f);
+            cardShadow.effectDistance = new Vector2(0f, -10f);
 
             var vlg = card.AddComponent<VerticalLayoutGroup>();
             vlg.padding = new RectOffset(32, 32, 32, 32);
@@ -77,7 +80,7 @@ namespace Zoologic
             subGO.transform.SetParent(card.transform, false);
             var sub = subGO.GetComponent<TextMeshProUGUI>();
             sub.font = _fontBody;
-            sub.text = $"Jour {canClaimDay}/7  •  Série {streak} jours";
+            sub.text = $"Jour {canClaimDay}/7  -  Série {streak} jours";
             sub.fontSize = 24;
             sub.color = new Color(0.50f, 0.42f, 0.35f);
             sub.alignment = TextAlignmentOptions.Center;
@@ -207,7 +210,7 @@ namespace Zoologic
             img.type = Image.Type.Simple;
             if (today) img.color = new Color(1f, 0.96f, 0.78f);
             else if (claimed) img.color = new Color(0.88f, 0.94f, 0.88f);
-            else img.color = new Color(1f, 0.98f, 0.96f);
+            else img.color = new Color(1f, 0.96f, 0.88f);
             if (today)
             {
                 var outline = cell.AddComponent<Outline>();
@@ -274,7 +277,10 @@ namespace Zoologic
             rect.sizeDelta = new Vector2(240f, 62f);
             var img = go.GetComponent<Image>();
             img.sprite = CreateRoundedSprite(128, 0.35f);
-            img.color = enabled ? bg : new Color(0.75f, 0.75f, 0.78f);
+            img.color = enabled ? bg : new Color(0.78f, 0.74f, 0.69f);
+            var shadow = go.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0.20f, 0.12f, 0.07f, 0.22f);
+            shadow.effectDistance = new Vector2(0f, -4f);
             var btn = go.GetComponent<Button>();
             btn.targetGraphic = img;
             btn.interactable = enabled;

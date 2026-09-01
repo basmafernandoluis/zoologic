@@ -1192,6 +1192,9 @@ namespace Zoologic
             panelImg.sprite = GetCarteSprite();
             panelImg.type = Image.Type.Simple;
             panelImg.color = new Color(1f, 0.98f, 0.96f, 1f);
+            var panelShadow = _defaitePanel.AddComponent<Shadow>();
+            panelShadow.effectColor = new Color(0.18f, 0.11f, 0.06f, 0.32f);
+            panelShadow.effectDistance = new Vector2(0f, -10f);
 
             // Hibou mascotte — inclinaison triste à -12°
             Sprite owlSprite = Resources.Load<Sprite>("Art/Animals/owl");
@@ -1302,6 +1305,9 @@ namespace Zoologic
             btnImg.sprite = GetCarteSprite();
             btnImg.type = Image.Type.Simple;
             btnImg.color = RetryButtonColor;
+            var btnShadow = btnObj.AddComponent<Shadow>();
+            btnShadow.effectColor = new Color(0.18f, 0.11f, 0.06f, 0.25f);
+            btnShadow.effectDistance = new Vector2(0f, -4f);
 
             var btnComp = btnObj.AddComponent<Button>();
             btnComp.targetGraphic = btnImg;

@@ -1176,7 +1176,7 @@ namespace Zoologic
             rRect.offsetMin = Vector2.zero;
             rRect.offsetMax = Vector2.zero;
             var rImg = root.GetComponent<Image>();
-            rImg.color = new Color(0.15f, 0.12f, 0.10f, 0.55f);
+            rImg.color = new Color(0.24f, 0.16f, 0.10f, 0.62f);
             rImg.raycastTarget = true;
             var card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             card.transform.SetParent(root.transform, false);
@@ -1189,7 +1189,10 @@ namespace Zoologic
             var cImg = card.GetComponent<Image>();
             cImg.sprite = CreerSpriteArrondi(128, 0.22f);
             cImg.type = Image.Type.Simple;
-            cImg.color = Color.white;
+            cImg.color = new Color(1f, 0.98f, 0.94f, 1f);
+            var cardShadow = card.AddComponent<Shadow>();
+            cardShadow.effectColor = new Color(0.18f, 0.11f, 0.06f, 0.30f);
+            cardShadow.effectDistance = new Vector2(0f, -8f);
             var vlg = card.AddComponent<VerticalLayoutGroup>();
             vlg.padding = new RectOffset(24, 24, 24, 24);
             vlg.spacing = 16f;
@@ -1253,6 +1256,9 @@ namespace Zoologic
             img.sprite = CreerSpriteArrondi(128, 0.35f);
             img.type = Image.Type.Simple;
             img.color = bg;
+            var shadow = go.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0.20f, 0.12f, 0.07f, 0.22f);
+            shadow.effectDistance = new Vector2(0f, -3f);
             var btn = go.GetComponent<Button>();
             btn.targetGraphic = img;
             btn.onClick.AddListener(() => onClick?.Invoke());
