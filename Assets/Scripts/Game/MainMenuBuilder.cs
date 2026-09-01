@@ -113,21 +113,17 @@ namespace Zoologic
             groundImg.color = Color.white;
             groundImg.raycastTarget = false;
 
-            for (int i = 0; i < 2; i++)
-            {
-                var tuftGO = new GameObject("Tuft" + i);
-                tuftGO.transform.SetParent(groundGO.transform, false);
-                var tuftRect = tuftGO.AddComponent<RectTransform>();
-                tuftRect.anchorMin = new Vector2(i == 0 ? 0.12f : 0.88f, 1f);
-                tuftRect.anchorMax = new Vector2(i == 0 ? 0.12f : 0.88f, 1f);
-                tuftRect.pivot = new Vector2(0.5f, 0f);
-                tuftRect.sizeDelta = new Vector2(80f, 40f);
-                tuftRect.anchoredPosition = new Vector2(0f, -6f);
-                var tuftImg = tuftGO.AddComponent<Image>();
-                tuftImg.sprite = CreateTuftSprite();
-                tuftImg.color = new Color(0.62f, 0.78f, 0.55f, 0.85f);
-                tuftImg.raycastTarget = false;
-            }
+            var hillGO = new GameObject("Hill");
+            hillGO.transform.SetParent(groundGO.transform, false);
+            var hillRect = hillGO.AddComponent<RectTransform>();
+            hillRect.anchorMin = new Vector2(0.5f, 0f); hillRect.anchorMax = new Vector2(0.5f, 0f);
+            hillRect.pivot = new Vector2(0.5f, 0f);
+            hillRect.sizeDelta = new Vector2(700f, 90f);
+            hillRect.anchoredPosition = new Vector2(0f, 6f);
+            var hillImg = hillGO.AddComponent<Image>();
+            hillImg.sprite = CreateHillSprite();
+            hillImg.color = new Color(0.74f, 0.86f, 0.64f, 0.55f);
+            hillImg.raycastTarget = false;
         }
 
         private void BuildTitle(Transform parent)
@@ -173,7 +169,8 @@ namespace Zoologic
             var img = go.AddComponent<Image>();
             Sprite wood = Resources.Load<Sprite>("UI/Cozy/btn_wood_light");
             img.sprite = wood != null ? wood : CreerSpriteArrondi(128, 0.35f);
-            img.type = wood != null ? Image.Type.Sliced : Image.Type.Simple;
+            img.type = Image.Type.Simple;
+            img.preserveAspect = true;
             img.color = Color.white;
 
             var btn = go.AddComponent<Button>();
@@ -775,23 +772,20 @@ namespace Zoologic
             return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0f));
         }
 
-        private static Sprite CreateTuftSprite()
+        private static Sprite CreateHillSprite()
         {
-            int s = 64;
-            var tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            int w = 200; int h = 40;
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
             tex.wrapMode = TextureWrapMode.Clamp; tex.filterMode = FilterMode.Bilinear;
-            for (int y = 0; y < s; y++) for (int x = 0; x < s; x++) tex.SetPixel(x, y, new Color(0f, 0f, 0f, 0f));
-            Vector2 c = new Vector2(s * 0.5f, s * 0.35f);
-            for (int y = 0; y < s; y++) for (int x = 0; x < s; x++)
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) tex.SetPixel(x, y, new Color(0f, 0f, 0f, 0f));
+            Vector2 c = new Vector2(w * 0.5f, -10f);
+            float r = 110f;
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
             {
-                Vector2 p = new Vector2(x, y);
-                float d = (p - c).magnitude;
-                float angle = Mathf.Atan2(p.y - c.y, p.x - c.x);
-                float r = 22f + Mathf.Sin(angle * 3f) * 4f;
-                if (d <= r && p.y >= c.y - 4f) tex.SetPixel(x, y, Color.white);
+                if ((new Vector2(x, y) - c).magnitude <= r) tex.SetPixel(x, y, Color.white);
             }
             tex.Apply();
-            return Sprite.Create(tex, new Rect(0, 0, s, s), new Vector2(0.5f, 0f));
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0f));
         }
 
         private static Sprite CreateBranchSprite()
