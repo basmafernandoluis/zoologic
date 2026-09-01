@@ -99,38 +99,19 @@ namespace Zoologic
 
         private void BuildAnimalDecorations(Transform parent)
         {
-            string[] animals = { "lion", "penguin", "frog" };
-
-            Vector2[] positions = {
-                new Vector2(0.15f, 0.60f),
-                new Vector2(0.85f, 0.55f),
-                new Vector2(0.50f, 0.15f)
-            };
-
-            float[] sizes = { 130f, 110f, 100f };
-            float[] rotations = { -12f, 10f, -5f };
-
-            for (int i = 0; i < animals.Length; i++)
-            {
-                Sprite sprite = Resources.Load<Sprite>("Art/Animals/" + animals[i]);
-                if (sprite == null) continue;
-
-                var go = new GameObject("Animal_" + animals[i]);
-                go.transform.SetParent(parent, false);
-
-                var rect = go.AddComponent<RectTransform>();
-                rect.anchorMin = positions[i];
-                rect.anchorMax = positions[i];
-                rect.pivot = new Vector2(0.5f, 0.5f);
-                rect.sizeDelta = new Vector2(sizes[i], sizes[i]);
-                rect.anchoredPosition = Vector2.zero;
-                rect.localRotation = Quaternion.Euler(0f, 0f, rotations[i]);
-
-                var img = go.AddComponent<Image>();
-                img.sprite = sprite;
-                img.color = new Color(1f, 1f, 1f, 0.30f);
-                img.raycastTarget = false;
-            }
+            var decoGO = new GameObject("DecoGround");
+            decoGO.transform.SetParent(parent, false);
+            var decoRect = decoGO.AddComponent<RectTransform>();
+            decoRect.anchorMin = new Vector2(0f, 0f);
+            decoRect.anchorMax = new Vector2(1f, 0f);
+            decoRect.pivot = new Vector2(0.5f, 0f);
+            decoRect.sizeDelta = new Vector2(0f, 420f);
+            decoRect.anchoredPosition = Vector2.zero;
+            var decoImg = decoGO.AddComponent<Image>();
+            decoImg.sprite = CreateDecoGroundSprite();
+            decoImg.type = Image.Type.Simple;
+            decoImg.color = new Color(1f, 1f, 1f, 0.55f);
+            decoImg.raycastTarget = false;
         }
 
         private void BuildTitle(Transform parent)
@@ -138,28 +119,59 @@ namespace Zoologic
             var go = new GameObject("Title");
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.72f);
-            rect.anchorMax = new Vector2(0.5f, 0.72f);
+            rect.anchorMin = new Vector2(0.5f, 0.76f);
+            rect.anchorMax = new Vector2(0.5f, 0.76f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(800f, 140f);
+            rect.sizeDelta = new Vector2(860f, 170f);
             rect.anchoredPosition = Vector2.zero;
+
+            var pawGO = new GameObject("Paws");
+            pawGO.transform.SetParent(go.transform, false);
+            var pawRect = pawGO.AddComponent<RectTransform>();
+            pawRect.anchorMin = new Vector2(0.5f, 1f);
+            pawRect.anchorMax = new Vector2(0.5f, 1f);
+            pawRect.pivot = new Vector2(0.5f, 1f);
+            pawRect.sizeDelta = new Vector2(520f, 36f);
+            pawRect.anchoredPosition = new Vector2(0f, 18f);
+            for (int i = 0; i < 3; i++)
+            {
+                var paw = new GameObject("Paw" + i);
+                paw.transform.SetParent(pawGO.transform, false);
+                var pr = paw.AddComponent<RectTransform>();
+                pr.anchorMin = new Vector2(0f, 0.5f); pr.anchorMax = new Vector2(0f, 0.5f);
+                pr.pivot = new Vector2(0.5f, 0.5f);
+                pr.sizeDelta = new Vector2(28f, 28f);
+                pr.anchoredPosition = new Vector2(70f + i * 185f, 0f);
+                var pi = paw.AddComponent<Image>();
+                pi.sprite = CreatePawSprite();
+                pi.color = new Color(0.95f, 0.72f, 0.42f, 0.35f);
+                pi.raycastTarget = false;
+            }
 
             var txt = go.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = "ZOO LOGIC";
-            txt.fontSize = 80;
+            txt.fontSize = 84;
             txt.fontStyle = FontStyles.Bold;
             txt.color = TitleOrange;
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
+            txt.extraPadding = true;
+            txt.margin = new Vector4(8f, 8f, 8f, 8f);
 
             var shadow = go.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.35f);
-            shadow.effectDistance = new Vector2(4f, -4f);
+            shadow.effectColor = new Color(0.38f, 0.20f, 0.06f, 0.22f);
+            shadow.effectDistance = new Vector2(0f, -6f);
 
             var outline = go.AddComponent<Outline>();
-            outline.effectColor = new Color(TitleOutline.r, TitleOutline.g, TitleOutline.b, 0.50f);
-            outline.effectDistance = new Vector2(3f, -3f);
+            outline.effectColor = new Color(1f, 0.99f, 0.95f, 1f);
+            outline.effectDistance = new Vector2(4f, -4f);
+
+            var innerGO = new GameObject("InnerShadow");
+            innerGO.transform.SetParent(go.transform, false);
+            var ir = innerGO.AddComponent<RectTransform>();
+            ir.anchorMin = Vector2.zero; ir.anchorMax = Vector2.one;
+            ir.offsetMin = Vector2.zero; ir.offsetMax = Vector2.zero;
         }
 
         private void BuildPlayButton(Transform parent)
@@ -167,28 +179,31 @@ namespace Zoologic
             var go = new GameObject("PlayButton");
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.32f);
-            rect.anchorMax = new Vector2(0.5f, 0.32f);
+            rect.anchorMin = new Vector2(0.5f, 0.30f);
+            rect.anchorMax = new Vector2(0.5f, 0.30f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(440f, 100f);
+            rect.sizeDelta = new Vector2(460f, 110f);
             rect.anchoredPosition = Vector2.zero;
 
             var img = go.AddComponent<Image>();
-            img.sprite = CreerSpriteArrondi(128, 0.35f);
-            img.color = PlayGreen;
+            Sprite wood = Resources.Load<Sprite>("UI/Cozy/btn_wood");
+            img.sprite = wood != null ? wood : KenneyUI.Button("Green") ?? CreerSpriteArrondi(128, 0.35f);
+            img.type = Image.Type.Sliced;
+            img.color = Color.white;
 
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.transition = Selectable.Transition.ColorTint;
             var colors = btn.colors;
-            colors.normalColor = PlayGreen;
-            colors.highlightedColor = PlayGreenHighlight;
-            colors.pressedColor = PlayGreenPressed;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 0.96f, 0.88f);
+            colors.pressedColor = new Color(0.92f, 0.86f, 0.78f);
             btn.colors = colors;
 
             btn.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuOpen();
+                StartCoroutine(PlayButtonPunch(go.transform));
                 SceneManager.LoadScene("LevelMap");
             });
 
@@ -202,19 +217,32 @@ namespace Zoologic
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = "JOUER";
-            txt.fontSize = 52;
+            txt.fontSize = 54;
             txt.fontStyle = FontStyles.Bold;
-            txt.color = Color.white;
+            txt.color = new Color(0.32f, 0.20f, 0.12f);
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
+            txt.outlineWidth = 0.22f;
+            txt.outlineColor = new Color(1f, 1f, 1f, 0.85f);
 
             var shadow = go.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.30f);
-            shadow.effectDistance = new Vector2(0f, -5f);
+            shadow.effectColor = new Color(0.38f, 0.24f, 0.14f, 0.18f);
+            shadow.effectDistance = new Vector2(0f, -6f);
 
-            var outline = go.AddComponent<Outline>();
-            outline.effectColor = new Color(0.15f, 0.35f, 0.15f, 0.60f);
-            outline.effectDistance = new Vector2(2f, -2f);
+            go.AddComponent<PlayButtonFloat>();
+        }
+
+        private IEnumerator PlayButtonPunch(Transform t)
+        {
+            Vector3 baseScale = t.localScale;
+            float d = 0.12f; float e = 0f;
+            while (e < d) { e += Time.unscaledDeltaTime; float s = 1f + Mathf.Sin(e / d * Mathf.PI) * 0.06f; t.localScale = baseScale * s; yield return null; }
+            t.localScale = baseScale;
+        }
+
+        private class PlayButtonFloat : MonoBehaviour
+        {
+            private void Update() { float s = 1f + Mathf.Sin(Time.unscaledTime * 2f) * 0.015f; transform.localScale = new Vector3(s, s, s); }
         }
 
         private void BuildSettingsButton(Transform parent)
@@ -250,18 +278,49 @@ namespace Zoologic
 
         private void BuildDailyButton(Transform parent)
         {
+            bool canClaim = DailyRewardManager.CanClaimToday();
             var go = new GameObject("DailyButton");
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
-            rect.sizeDelta = new Vector2(190f, 62f);
-            rect.anchoredPosition = new Vector2(20f, -20f);
+            rect.sizeDelta = new Vector2(210f, 66f);
+            rect.anchoredPosition = new Vector2(18f, -18f);
 
             var img = go.AddComponent<Image>();
-            img.sprite = CreerSpriteArrondi(128, 0.35f);
-            img.color = DailyRewardManager.CanClaimToday() ? new Color(1f, 0.96f, 0.78f) : new Color(1f, 0.98f, 0.96f);
+            img.sprite = KenneyUI.Button(canClaim ? "Yellow" : "Grey") ?? CreerSpriteArrondi(128, 0.35f);
+            img.type = Image.Type.Simple;
+            img.color = Color.white;
+
+            var hlg = go.AddComponent<HorizontalLayoutGroup>();
+            hlg.padding = new RectOffset(14, 14, 0, 0);
+            hlg.spacing = 8f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childForceExpandWidth = false;
+            hlg.childControlWidth = false;
+
+            var iconGO = new GameObject("Icon");
+            iconGO.transform.SetParent(go.transform, false);
+            var iconRect = iconGO.AddComponent<RectTransform>();
+            iconRect.sizeDelta = new Vector2(28f, 28f);
+            var iconImg = iconGO.AddComponent<Image>();
+            iconImg.sprite = Resources.Load<Sprite>("UI/Icons/gift");
+            iconImg.preserveAspect = true;
+            iconImg.color = canClaim ? new Color(0.32f, 0.20f, 0.12f) : new Color(0.42f, 0.38f, 0.34f);
+            iconImg.raycastTarget = false;
+            var iconLE = iconGO.AddComponent<LayoutElement>(); iconLE.preferredWidth = 28f; iconLE.preferredHeight = 28f;
+
+            var txtGO = new GameObject("Text");
+            txtGO.transform.SetParent(go.transform, false);
+            var txt = txtGO.AddComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.text = "Cadeau";
+            txt.fontSize = 21;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = canClaim ? new Color(0.32f, 0.20f, 0.12f) : new Color(0.45f, 0.40f, 0.36f);
+            txt.alignment = TextAlignmentOptions.Center;
+            var txtLE = txtGO.AddComponent<LayoutElement>(); txtLE.flexibleWidth = 1f;
 
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
@@ -269,64 +328,82 @@ namespace Zoologic
             {
                 SFXManager.Instance.PlayMenuOpen();
                 var canvas = FindFirstObjectByType<Canvas>();
-                if (canvas != null) DailyRewardUI.Show(canvas);
+                if (canvas != null) StartCoroutine(OpenDailyWithPop(canvas));
             });
 
-            var txtGO = new GameObject("Text");
-            txtGO.transform.SetParent(go.transform, false);
-            var txtRect = txtGO.AddComponent<RectTransform>();
-            txtRect.anchorMin = Vector2.zero;
-            txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = Vector2.zero;
-            txtRect.offsetMax = Vector2.zero;
-            var txt = txtGO.AddComponent<TextMeshProUGUI>();
-            txt.font = _fontTitle;
-            txt.text = DailyRewardManager.CanClaimToday() ? "Cadeau" : "Cadeau";
-            txt.fontSize = 22;
-            txt.fontStyle = FontStyles.Bold;
-            txt.color = new Color(0.29f, 0.18f, 0.10f);
-            txt.alignment = TextAlignmentOptions.Center;
+            var sh = go.AddComponent<Shadow>();
+            sh.effectColor = new Color(0.38f, 0.24f, 0.14f, 0.14f);
+            sh.effectDistance = new Vector2(0f, -4f);
 
-            if (DailyRewardManager.CanClaimToday())
-            {
-                var pulse = go.AddComponent<DailyPulse>();
-            }
+            if (canClaim) go.AddComponent<DailyPulse>();
+        }
+
+        private IEnumerator OpenDailyWithPop(Canvas canvas)
+        {
+            var t = canvas.transform; float d = 0.12f; float e = 0f;
+            var cg = canvas.GetComponent<CanvasGroup>(); if (cg == null) cg = canvas.gameObject.AddComponent<CanvasGroup>();
+            while (e < d) { e += Time.unscaledDeltaTime; float s = 1f + Easing.EaseOutBack(Mathf.Clamp01(e / d)) * 0.02f; canvas.transform.localScale = new Vector3(s, s, s); yield return null; }
+            canvas.transform.localScale = Vector3.one;
+            DailyRewardUI.Show(canvas);
         }
 
         private void BuildMissionsButton(Transform parent)
         {
+            int done = MissionManager.GetCompletedCount();
+            bool hasClaim = done > 0;
             var go = new GameObject("MissionsButton");
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
-            rect.sizeDelta = new Vector2(190f, 62f);
-            rect.anchoredPosition = new Vector2(220f, -20f);
+            rect.sizeDelta = new Vector2(210f, 66f);
+            rect.anchoredPosition = new Vector2(236f, -18f);
             var img = go.AddComponent<Image>();
-            img.sprite = CreerSpriteArrondi(128, 0.35f);
-            img.color = new Color(0.92f, 0.89f, 0.86f);
+            img.sprite = KenneyUI.Button(hasClaim ? "Yellow" : "Blue") ?? CreerSpriteArrondi(128, 0.35f);
+            img.type = Image.Type.Simple;
+            img.color = Color.white;
+
+            var hlg = go.AddComponent<HorizontalLayoutGroup>();
+            hlg.padding = new RectOffset(14, 14, 0, 0);
+            hlg.spacing = 8f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+
+            var iconGO = new GameObject("Icon");
+            iconGO.transform.SetParent(go.transform, false);
+            var iconRect = iconGO.AddComponent<RectTransform>();
+            iconRect.sizeDelta = new Vector2(28f, 28f);
+            var iconImg = iconGO.AddComponent<Image>();
+            iconImg.sprite = Resources.Load<Sprite>("UI/Icons/trophy");
+            iconImg.preserveAspect = true;
+            iconImg.color = hasClaim ? new Color(0.32f, 0.20f, 0.12f) : Color.white;
+            iconImg.raycastTarget = false;
+            var iconLE = iconGO.AddComponent<LayoutElement>(); iconLE.preferredWidth = 28f; iconLE.preferredHeight = 28f;
+
+            var txtGO = new GameObject("Text");
+            txtGO.transform.SetParent(go.transform, false);
+            var txt = txtGO.AddComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.text = "Missions";
+            txt.fontSize = 20;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = hasClaim ? new Color(0.32f, 0.20f, 0.12f) : Color.white;
+            txt.alignment = TextAlignmentOptions.Center;
+            var txtLE = txtGO.AddComponent<LayoutElement>(); txtLE.flexibleWidth = 1f;
+
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuOpen();
                 var canvas = FindFirstObjectByType<Canvas>();
-                if (canvas != null) MissionUI.Show(canvas);
+                if (canvas != null) StartCoroutine(OpenMissionsWithPop(canvas));
             });
-            var txtGO = new GameObject("Text");
-            txtGO.transform.SetParent(go.transform, false);
-            var txtRect = txtGO.AddComponent<RectTransform>();
-            txtRect.anchorMin = Vector2.zero; txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = Vector2.zero; txtRect.offsetMax = Vector2.zero;
-            var txt = txtGO.AddComponent<TextMeshProUGUI>();
-            txt.font = _fontTitle;
-            txt.text = "Missions";
-            txt.fontSize = 20;
-            txt.fontStyle = FontStyles.Bold;
-            txt.color = new Color(0.29f, 0.18f, 0.10f);
-            txt.alignment = TextAlignmentOptions.Center;
-            int done = MissionManager.GetCompletedCount();
+
+            var sh = go.AddComponent<Shadow>();
+            sh.effectColor = new Color(0.38f, 0.24f, 0.14f, 0.14f);
+            sh.effectDistance = new Vector2(0f, -4f);
+
             if (done > 0)
             {
                 var badgeGO = new GameObject("Badge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -347,7 +424,21 @@ namespace Zoologic
                 var btxt = badgeTxtGO.GetComponent<TextMeshProUGUI>();
                 btxt.font = _fontTitle; btxt.text = done.ToString(); btxt.fontSize = 18;
                 btxt.fontStyle = FontStyles.Bold; btxt.color = Color.white; btxt.alignment = TextAlignmentOptions.Center;
+                badgeGO.AddComponent<BadgePulse>();
             }
+        }
+
+        private IEnumerator OpenMissionsWithPop(Canvas canvas)
+        {
+            float d = 0.12f; float e = 0f;
+            while (e < d) { e += Time.unscaledDeltaTime; float s = 1f + Easing.EaseOutBack(Mathf.Clamp01(e / d)) * 0.02f; canvas.transform.localScale = new Vector3(s, s, s); yield return null; }
+            canvas.transform.localScale = Vector3.one;
+            MissionUI.Show(canvas);
+        }
+
+        private class BadgePulse : MonoBehaviour
+        {
+            private void Update() { float s = 1f + Mathf.Sin(Time.unscaledTime * 3f) * 0.08f; transform.localScale = new Vector3(s, s, s); }
         }
 
         private IEnumerator ShowDailyPopupDelayed()
@@ -376,15 +467,45 @@ namespace Zoologic
             Sprite owlSprite = Resources.Load<Sprite>("Art/Animals/owl");
             if (owlSprite == null) return;
 
+            var podiumGO = new GameObject("Podium");
+            podiumGO.transform.SetParent(parent, false);
+            var podiumRect = podiumGO.AddComponent<RectTransform>();
+            podiumRect.anchorMin = new Vector2(0.5f, 0.48f);
+            podiumRect.anchorMax = new Vector2(0.5f, 0.48f);
+            podiumRect.pivot = new Vector2(0.5f, 0.5f);
+            podiumRect.sizeDelta = new Vector2(420f, 140f);
+            podiumRect.anchoredPosition = new Vector2(0f, -30f);
+            var podiumImg = podiumGO.AddComponent<Image>();
+            Sprite wood = Resources.Load<Sprite>("UI/Cozy/wood_podium");
+            podiumImg.sprite = wood ?? CreerSpriteArrondi(128, 0.22f);
+            podiumImg.type = wood != null ? Image.Type.Sliced : Image.Type.Simple;
+            podiumImg.color = Color.white;
+            podiumImg.raycastTarget = false;
+            var podiumSh = podiumGO.AddComponent<Shadow>();
+            podiumSh.effectColor = new Color(0f, 0f, 0f, 0.14f);
+            podiumSh.effectDistance = new Vector2(0f, -8f);
+
+            var shadowGO = new GameObject("OwlShadow");
+            shadowGO.transform.SetParent(podiumGO.transform, false);
+            var shadowRect = shadowGO.AddComponent<RectTransform>();
+            shadowRect.anchorMin = new Vector2(0.5f, 1f); shadowRect.anchorMax = new Vector2(0.5f, 1f);
+            shadowRect.pivot = new Vector2(0.5f, 0.5f);
+            shadowRect.sizeDelta = new Vector2(160f, 26f);
+            shadowRect.anchoredPosition = new Vector2(0f, 12f);
+            var shadowImg = shadowGO.AddComponent<Image>();
+            shadowImg.sprite = CreerSpriteArrondi(128, 0.5f);
+            shadowImg.color = new Color(0f, 0f, 0f, 0.13f);
+            shadowImg.raycastTarget = false;
+
             var go = new GameObject("OwlMascot");
-            go.transform.SetParent(parent, false);
+            go.transform.SetParent(podiumGO.transform, false);
 
             var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.52f);
-            rect.anchorMax = new Vector2(0.5f, 0.52f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 0f);
             rect.sizeDelta = new Vector2(280f, 280f);
-            rect.anchoredPosition = Vector2.zero;
+            rect.anchoredPosition = new Vector2(0f, 18f);
 
             _owlImage = go.AddComponent<Image>();
             _owlImage.sprite = owlSprite;
@@ -447,16 +568,53 @@ namespace Zoologic
             rect.anchorMin = new Vector2(0.5f, 0f);
             rect.anchorMax = new Vector2(0.5f, 0f);
             rect.pivot = new Vector2(0.5f, 0f);
-            rect.sizeDelta = new Vector2(200f, 40f);
-            rect.anchoredPosition = new Vector2(0f, 20f);
+            rect.sizeDelta = new Vector2(300f, 40f);
+            rect.anchoredPosition = new Vector2(0f, 18f);
 
             var txt = go.AddComponent<TextMeshProUGUI>();
             txt.font = _fontBody;
-            txt.text = "v0.1";
-            txt.fontSize = 20;
-            txt.color = new Color(0.40f, 0.45f, 0.48f, 0.70f);
+            txt.text = "v" + Application.version;
+            txt.fontSize = 18;
+            txt.color = new Color(0.55f, 0.48f, 0.42f, 0.85f);
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
+        }
+
+        private static Sprite CreateDecoGroundSprite()
+        {
+            int w = 256; int h = 64;
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp; tex.filterMode = FilterMode.Bilinear;
+            Color c1 = new Color(0.96f, 0.88f, 0.78f, 0.45f);
+            Color c2 = new Color(0.92f, 0.82f, 0.70f, 0.0f);
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+            {
+                float t = (float)y / h;
+                float a = Mathf.Lerp(0.45f, 0f, t);
+                float wave = Mathf.Sin((float)x / w * Mathf.PI * 4f) * 0.06f;
+                Color c = Color.Lerp(c1, c2, t + wave);
+                c.a = a; tex.SetPixel(x, y, c);
+            }
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0f));
+        }
+
+        private static Sprite CreatePawSprite()
+        {
+            int s = 48;
+            var tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp; tex.filterMode = FilterMode.Bilinear;
+            for (int y = 0; y < s; y++) for (int x = 0; x < s; x++) tex.SetPixel(x, y, new Color(0f, 0f, 0f, 0f));
+            Vector2 c = new Vector2(s * 0.5f, s * 0.45f);
+            float[] rx = { 9f, 5f, 5f, 5f };
+            Vector2[] pos = { new Vector2(0f, -6f), new Vector2(-8f, 6f), new Vector2(0f, 8f), new Vector2(8f, 6f) };
+            for (int y = 0; y < s; y++) for (int x = 0; x < s; x++)
+            {
+                Vector2 p = new Vector2(x, y);
+                for (int i = 0; i < 4; i++) if ((p - (c + pos[i])).magnitude <= rx[i]) tex.SetPixel(x, y, Color.white);
+            }
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f));
         }
 
         private void Update()
