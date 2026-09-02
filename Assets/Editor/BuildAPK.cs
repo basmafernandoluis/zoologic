@@ -22,6 +22,7 @@ namespace Zoologic.EditorTools
         private static readonly string[] ScenePaths =
         {
             "Assets/Scenes/MainMenu.unity",
+            "Assets/Scenes/Tutorial.unity",
             "Assets/Scenes/LevelMap.unity",
             "Assets/Scenes/TestGrid.unity"
         };
@@ -134,17 +135,10 @@ namespace Zoologic.EditorTools
 
         private static void ApplyAndroidSplash()
         {
-            Sprite splash = AssetDatabase.LoadAssetAtPath<Sprite>(SplashPath);
-            if (splash == null)
-            {
-                Debug.LogWarning("[Splash] Sprite non trouv\u00e9 : " + SplashPath);
-                return;
-            }
-            PlayerSettings.SplashScreen.show = true;
-            PlayerSettings.SplashScreen.background = splash;
-            PlayerSettings.SplashScreen.backgroundPortrait = splash;
-            PlayerSettings.SplashScreen.backgroundColor = new Color(246f / 255f, 196f / 255f, 106f / 255f, 1f);
-            Debug.Log("[Splash] Splash Android appliqu\u00e9 : " + SplashPath);
+            PlayerSettings.SplashScreen.show = false;
+            PlayerSettings.SplashScreen.showUnityLogo = false;
+            try { PlayerSettings.SplashScreen.unityLogoStyle = PlayerSettings.SplashScreen.UnityLogoStyle.LightOnDark; } catch {}
+            Debug.Log("[Splash] Splash désactivé - Made by Unity retiré, démarrage direct MainMenu");
         }
 
         private static void LogResult(BuildReport report, string kind)
