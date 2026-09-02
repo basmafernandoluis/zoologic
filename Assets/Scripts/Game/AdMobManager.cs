@@ -78,11 +78,12 @@ namespace Zoologic
             Debug.Log($"[AdMob] Configure IsProduction={IsProduction} AppId={AppId} Banner={BannerId} Rewarded={RewardedId}");
             try
             {
-                var config = new RequestConfiguration.Builder()
-                    .SetTagForChildDirectedTreatment(TagForChildDirectedTreatment.True)
-                    .SetTagForUnderAgeOfConsent(TagForUnderAgeOfConsent.True)
-                    .SetMaxAdContentRating(MaxAdContentRating.G)
-                    .build();
+                var config = new RequestConfiguration
+                {
+                    TagForChildDirectedTreatment = TagForChildDirectedTreatment.True,
+                    TagForUnderAgeOfConsent = TagForUnderAgeOfConsent.True,
+                    MaxAdContentRating = MaxAdContentRating.G
+                };
                 MobileAds.SetRequestConfiguration(config);
                 Debug.Log("[AdMob] RequestConfiguration set: TFCD=True TFA=True MaxRating=G BEFORE Initialize (privacy enfants)");
             }
@@ -103,9 +104,9 @@ namespace Zoologic
 
         private AdRequest CreateNpaRequest()
         {
-            var builder = new AdRequest.Builder();
-            builder.AddExtra("npa", "1");
-            return builder.Build();
+            var req = new AdRequest();
+            try { req.Extras.Add("npa", "1"); } catch { }
+            return req;
         }
 
         private void LoadRewarded()
@@ -118,8 +119,8 @@ namespace Zoologic
                 _rewardedLoading = false;
                 if (err != null || ad == null) { Debug.LogWarning("[AdMob] Rewarded load failed: " + err); return; }
                 _rewardedAd = ad;
-                _rewardedAd.OnAdFullScreenContentFailed += (_, e) => { _rewardedAd = null; LoadRewarded(); };
-                _rewardedAd.OnAdFullScreenContentClosed += (_, _) => { _rewardedAd = null; LoadRewarded(); };
+                _rewardedAd.OnAdFullScreenContentFailed += (AdError e) => { _rewardedAd = null; LoadRewarded(); };
+                _rewardedAd.OnAdFullScreenContentClosed += () => { _rewardedAd = null; LoadRewarded(); };
                 Debug.Log("[AdMob] Rewarded loaded: " + RewardedId + " NPA=1");
             });
         }
@@ -134,8 +135,8 @@ namespace Zoologic
                 _interstitialLoading = false;
                 if (err != null || ad == null) { Debug.LogWarning("[AdMob] Interstitial load failed: " + err); return; }
                 _interstitialAd = ad;
-                _interstitialAd.OnAdFullScreenContentFailed += (_, e) => { _interstitialAd = null; LoadInterstitial(); };
-                _interstitialAd.OnAdFullScreenContentClosed += (_, _) => { _interstitialAd = null; LoadInterstitial(); };
+                _interstitialAd.OnAdFullScreenContentFailed += (AdError e) => { _interstitialAd = null; LoadInterstitial(); };
+                _interstitialAd.OnAdFullScreenContentClosed += () => { _interstitialAd = null; LoadInterstitial(); };
                 Debug.Log("[AdMob] Interstitial loaded: " + InterstitialId + " NPA=1");
             });
         }
@@ -151,8 +152,8 @@ namespace Zoologic
                 if (err != null || ad == null) { Debug.LogWarning("[AdMob] AppOpen load failed: " + err); return; }
                 _appOpenAd = ad;
                 _appOpenExpire = DateTime.Now.AddHours(4);
-                _appOpenAd.OnAdFullScreenContentFailed += (_, e) => { _appOpenAd = null; LoadAppOpen(); };
-                _appOpenAd.OnAdFullScreenContentClosed += (_, _) => { _appOpenAd = null; LoadAppOpen(); };
+                _appOpenAd.OnAdFullScreenContentFailed += (AdError e) => { _appOpenAd = null; LoadAppOpen(); };
+                _appOpenAd.OnAdFullScreenContentClosed += () => { _appOpenAd = null; LoadAppOpen(); };
                 Debug.Log("[AdMob] AppOpen loaded: " + AppOpenId + " NPA=1");
             });
         }
@@ -162,14 +163,12 @@ namespace Zoologic
             Debug.Log($"[AdMob] ShowRewarded IsProduction={IsProduction} ID={RewardedId} NPA=1");
             if (_rewardedAd != null && _rewardedAd.CanShowAd())
             {
-                Action rewarded = null;
-                _rewardedAd.OnAdPaid += (_, v) => Debug.Log($"[AdMob] OnAdPaid {v}");
-                _rewardedAd.OnUserEarnedReward += (_, r) => { rewarded = onRewarded; Debug.Log($"[AdMob] Reward earned {r}"); };
-                _rewardedAd.OnAdFullScreenContentClosed += (_, _) => { if (rewarded != null) rewarded.Invoke(); else onRewarded?.Invoke(); _rewardedAd = null; LoadRewarded(); };
-                _rewardedAd.OnAdFullScreenContentFailed += (_, e) => { Debug.LogWarning("[AdMob] Rewarded show failed: " + e); StartCoroutine(RewardedStubRoutine(onRewarded)); _rewardedAd = null; LoadRewarded(); };
-                try { _rewardedAd.Show(); return; } catch (Exception e) { Debug.LogWarning("[AdMob] Show exception: " + e.Message); }
+                _rewardedAd.OnAdPaid += (AdValue v) => Debug.Log($"[AdMob] OnAdPaid {v.Value} {v.CurrencyCode}");
+                _rewardedAd.OnAdFullScreenContentClosed += () => { onRewarded?.Invoke(); _rewardedAd = null; LoadRewarded(); };
+                _rewardedAd.OnAdFullScreenContentFailed += (AdError e) => { Debug.LogWarning("[AdMob] Rewarded show failed: " + e); StartCoroutine(RewardedStubRoutine(onRewarded)); _rewardedAd = null; LoadRewarded(); };
+                try { _rewardedAd.Show((Reward r) => { Debug.Log($"[AdMob] Reward earned {r.Amount} {r.Type}"); }); return; } catch (Exception e) { Debug.LogWarning("[AdMob] Show exception: " + e.Message); }
             }
-            Debug.LogWarning("[AdMob] Rewarded not ready (encore en chargement) -> fallback simulé, mais vraie test ad sera prête après 2-3s. Vérifie logcat: adb logcat -s Unity");
+            Debug.LogWarning("[AdMob] Rewarded not ready (encore en chargement) -> fallback simulé 1s, vraie test ad prête après 2-3s");
             LoadRewarded();
             StartCoroutine(RewardedStubRoutine(onRewarded));
         }
@@ -221,8 +220,8 @@ namespace Zoologic
             Debug.Log($"[AdMob] Interstitial trigger 4th victory IsProduction={IsProduction} ID={InterstitialId} NPA=1");
             if (_interstitialAd != null && _interstitialAd.CanShowAd())
             {
-                _interstitialAd.OnAdFullScreenContentClosed += (_, _) => { _interstitialAd = null; LoadInterstitial(); };
-                _interstitialAd.OnAdFullScreenContentFailed += (_, e) => { _interstitialAd = null; LoadInterstitial(); };
+                _interstitialAd.OnAdFullScreenContentClosed += () => { _interstitialAd = null; LoadInterstitial(); };
+                _interstitialAd.OnAdFullScreenContentFailed += (AdError e) => { _interstitialAd = null; LoadInterstitial(); };
                 try { _interstitialAd.Show(); return; } catch (Exception e) { Debug.LogWarning("[AdMob] Interstitial show failed: " + e.Message); }
             }
             LoadInterstitial();
