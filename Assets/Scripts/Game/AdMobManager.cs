@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using GoogleMobileAds.Api;
 
 namespace Zoologic
 {
@@ -46,16 +47,14 @@ namespace Zoologic
         private int _victoryCount;
         private GameObject _bannerGO;
 
-#if GOOGLE_MOBILE_ADS
-        private GoogleMobileAds.Api.RewardedAd _rewardedAd;
-        private GoogleMobileAds.Api.InterstitialAd _interstitialAd;
-        private GoogleMobileAds.Api.BannerView _bannerView;
-        private GoogleMobileAds.Api.AppOpenAd _appOpenAd;
+        private RewardedAd _rewardedAd;
+        private InterstitialAd _interstitialAd;
+        private BannerView _bannerView;
+        private AppOpenAd _appOpenAd;
         private bool _rewardedLoading;
         private bool _interstitialLoading;
         private bool _appOpenLoading;
         private DateTime _appOpenExpire;
-#endif
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Bootstrap()
@@ -77,22 +76,21 @@ namespace Zoologic
         private void ConfigureAndInitialize()
         {
             Debug.Log($"[AdMob] Configure IsProduction={IsProduction} AppId={AppId} Banner={BannerId} Rewarded={RewardedId}");
-#if GOOGLE_MOBILE_ADS
             try
             {
-                var config = new GoogleMobileAds.Api.RequestConfiguration.Builder()
-                    .SetTagForChildDirectedTreatment(GoogleMobileAds.Api.TagForChildDirectedTreatment.True)
-                    .SetTagForUnderAgeOfConsent(GoogleMobileAds.Api.TagForUnderAgeOfConsent.True)
-                    .SetMaxAdContentRating(GoogleMobileAds.Api.MaxAdContentRating.G)
+                var config = new RequestConfiguration.Builder()
+                    .SetTagForChildDirectedTreatment(TagForChildDirectedTreatment.True)
+                    .SetTagForUnderAgeOfConsent(TagForUnderAgeOfConsent.True)
+                    .SetMaxAdContentRating(MaxAdContentRating.G)
                     .build();
-                GoogleMobileAds.Api.MobileAds.SetRequestConfiguration(config);
-                Debug.Log("[AdMob] RequestConfiguration set: TFCD=True TFA=True MaxRating=G");
+                MobileAds.SetRequestConfiguration(config);
+                Debug.Log("[AdMob] RequestConfiguration set: TFCD=True TFA=True MaxRating=G BEFORE Initialize (privacy enfants)");
             }
             catch (Exception e) { Debug.LogWarning("[AdMob] RequestConfiguration failed: " + e.Message); }
 
             try
             {
-                GoogleMobileAds.Api.MobileAds.Initialize(initStatus =>
+                MobileAds.Initialize(initStatus =>
                 {
                     Debug.Log("[AdMob] MobileAds Initialized: " + initStatus);
                     LoadRewarded();
@@ -101,15 +99,11 @@ namespace Zoologic
                 });
             }
             catch (Exception e) { Debug.LogWarning("[AdMob] Initialize failed: " + e.Message); }
-#else
-            Debug.Log("[AdMob] Stub mode - SDK not installed. RequestConfiguration would be: TFCD=True, TFA=True, MaxAdContentRating=G, npa=1");
-#endif
         }
 
-#if GOOGLE_MOBILE_ADS
-        private GoogleMobileAds.Api.AdRequest CreateNpaRequest()
+        private AdRequest CreateNpaRequest()
         {
-            var builder = new GoogleMobileAds.Api.AdRequest.Builder();
+            var builder = new AdRequest.Builder();
             builder.AddExtra("npa", "1");
             return builder.Build();
         }
@@ -119,14 +113,14 @@ namespace Zoologic
             if (_rewardedLoading) return;
             _rewardedLoading = true;
             var req = CreateNpaRequest();
-            GoogleMobileAds.Api.RewardedAd.Load(RewardedId, req, (ad, err) =>
+            RewardedAd.Load(RewardedId, req, (ad, err) =>
             {
                 _rewardedLoading = false;
                 if (err != null || ad == null) { Debug.LogWarning("[AdMob] Rewarded load failed: " + err); return; }
                 _rewardedAd = ad;
                 _rewardedAd.OnAdFullScreenContentFailed += (_, e) => { _rewardedAd = null; LoadRewarded(); };
                 _rewardedAd.OnAdFullScreenContentClosed += (_, _) => { _rewardedAd = null; LoadRewarded(); };
-                Debug.Log("[AdMob] Rewarded loaded: " + RewardedId);
+                Debug.Log("[AdMob] Rewarded loaded: " + RewardedId + " NPA=1");
             });
         }
 
@@ -135,14 +129,14 @@ namespace Zoologic
             if (_interstitialLoading) return;
             _interstitialLoading = true;
             var req = CreateNpaRequest();
-            GoogleMobileAds.Api.InterstitialAd.Load(InterstitialId, req, (ad, err) =>
+            InterstitialAd.Load(InterstitialId, req, (ad, err) =>
             {
                 _interstitialLoading = false;
                 if (err != null || ad == null) { Debug.LogWarning("[AdMob] Interstitial load failed: " + err); return; }
                 _interstitialAd = ad;
                 _interstitialAd.OnAdFullScreenContentFailed += (_, e) => { _interstitialAd = null; LoadInterstitial(); };
                 _interstitialAd.OnAdFullScreenContentClosed += (_, _) => { _interstitialAd = null; LoadInterstitial(); };
-                Debug.Log("[AdMob] Interstitial loaded: " + InterstitialId);
+                Debug.Log("[AdMob] Interstitial loaded: " + InterstitialId + " NPA=1");
             });
         }
 
@@ -151,7 +145,7 @@ namespace Zoologic
             if (_appOpenLoading) return;
             _appOpenLoading = true;
             var req = CreateNpaRequest();
-            GoogleMobileAds.Api.AppOpenAd.Load(AppOpenId, req, (ad, err) =>
+            AppOpenAd.Load(AppOpenId, req, (ad, err) =>
             {
                 _appOpenLoading = false;
                 if (err != null || ad == null) { Debug.LogWarning("[AdMob] AppOpen load failed: " + err); return; }
@@ -159,26 +153,24 @@ namespace Zoologic
                 _appOpenExpire = DateTime.Now.AddHours(4);
                 _appOpenAd.OnAdFullScreenContentFailed += (_, e) => { _appOpenAd = null; LoadAppOpen(); };
                 _appOpenAd.OnAdFullScreenContentClosed += (_, _) => { _appOpenAd = null; LoadAppOpen(); };
-                Debug.Log("[AdMob] AppOpen loaded: " + AppOpenId);
+                Debug.Log("[AdMob] AppOpen loaded: " + AppOpenId + " NPA=1");
             });
         }
-#endif
 
         public void ShowRewarded(Action onRewarded)
         {
             Debug.Log($"[AdMob] ShowRewarded IsProduction={IsProduction} ID={RewardedId} NPA=1");
-#if GOOGLE_MOBILE_ADS
             if (_rewardedAd != null && _rewardedAd.CanShowAd())
             {
                 Action rewarded = null;
+                _rewardedAd.OnAdPaid += (_, v) => Debug.Log($"[AdMob] OnAdPaid {v}");
                 _rewardedAd.OnUserEarnedReward += (_, r) => { rewarded = onRewarded; Debug.Log($"[AdMob] Reward earned {r}"); };
                 _rewardedAd.OnAdFullScreenContentClosed += (_, _) => { if (rewarded != null) rewarded.Invoke(); else onRewarded?.Invoke(); _rewardedAd = null; LoadRewarded(); };
                 _rewardedAd.OnAdFullScreenContentFailed += (_, e) => { Debug.LogWarning("[AdMob] Rewarded show failed: " + e); StartCoroutine(RewardedStubRoutine(onRewarded)); _rewardedAd = null; LoadRewarded(); };
                 try { _rewardedAd.Show(); return; } catch (Exception e) { Debug.LogWarning("[AdMob] Show exception: " + e.Message); }
             }
-            Debug.Log("[AdMob] Rewarded not ready, fallback stub + reload");
+            Debug.LogWarning("[AdMob] Rewarded not ready (encore en chargement) -> fallback simulé, mais vraie test ad sera prête après 2-3s. Vérifie logcat: adb logcat -s Unity");
             LoadRewarded();
-#endif
             StartCoroutine(RewardedStubRoutine(onRewarded));
         }
 
@@ -226,8 +218,7 @@ namespace Zoologic
         {
             _victoryCount++;
             if (_victoryCount % 4 != 0) return;
-            Debug.Log($"[AdMob] Interstitial trigger 4th victory IsProduction={IsProduction} ID={InterstitialId}");
-#if GOOGLE_MOBILE_ADS
+            Debug.Log($"[AdMob] Interstitial trigger 4th victory IsProduction={IsProduction} ID={InterstitialId} NPA=1");
             if (_interstitialAd != null && _interstitialAd.CanShowAd())
             {
                 _interstitialAd.OnAdFullScreenContentClosed += (_, _) => { _interstitialAd = null; LoadInterstitial(); };
@@ -235,23 +226,21 @@ namespace Zoologic
                 try { _interstitialAd.Show(); return; } catch (Exception e) { Debug.LogWarning("[AdMob] Interstitial show failed: " + e.Message); }
             }
             LoadInterstitial();
-#endif
         }
 
         public void ShowBanner()
         {
-            Debug.Log($"[AdMob] ShowBanner IsProduction={IsProduction} ID={BannerId}");
-#if GOOGLE_MOBILE_ADS
+            Debug.Log($"[AdMob] ShowBanner IsProduction={IsProduction} ID={BannerId} NPA=1");
             try
             {
                 if (_bannerView != null) return;
-                _bannerView = new GoogleMobileAds.Api.BannerView(BannerId, GoogleMobileAds.Api.AdSize.Banner, GoogleMobileAds.Api.AdPosition.Bottom);
+                _bannerView = new BannerView(BannerId, AdSize.Banner, AdPosition.Bottom);
                 var req = CreateNpaRequest();
                 _bannerView.LoadAd(req);
+                Debug.Log($"[AdMob] Banner load NPA ID={BannerId}");
                 return;
             }
             catch (Exception e) { Debug.LogWarning("[AdMob] Banner failed: " + e.Message); }
-#endif
             if (_bannerGO != null) return;
             var canvas = FindFirstObjectByType<Canvas>();
             if (canvas == null) return;
@@ -274,20 +263,16 @@ namespace Zoologic
 
         public void HideBanner()
         {
-#if GOOGLE_MOBILE_ADS
             try { _bannerView?.Destroy(); } catch { }
             _bannerView = null;
-#endif
             if (_bannerGO != null) Destroy(_bannerGO);
             _bannerGO = null;
         }
 
         public void ShowAppOpenIfNeeded()
         {
-#if GOOGLE_MOBILE_ADS
             if (_appOpenAd == null || !_appOpenAd.CanShowAd() || DateTime.Now > _appOpenExpire) { LoadAppOpen(); return; }
-            try { _appOpenAd.Show(); } catch (Exception e) { Debug.LogWarning("[AdMob] AppOpen show failed: " + e.Message); _appOpenAd = null; LoadAppOpen(); }
-#endif
+            try { _appOpenAd.Show(); Debug.Log("[AdMob] AppOpen shown NPA"); } catch (Exception e) { Debug.LogWarning("[AdMob] AppOpen show failed: " + e.Message); _appOpenAd = null; LoadAppOpen(); }
         }
     }
 }
