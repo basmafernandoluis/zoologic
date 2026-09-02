@@ -213,17 +213,17 @@ namespace Zoologic
 
         private bool HasX(int r, int c)
         {
-            var cell = GetCell(r,c);
-            if (cell == null) return false;
-            var t = cell.transform.Find("X");
+            var rt = GetCellRect(r,c);
+            if (rt == null) return false;
+            var t = rt.transform.Find("X");
             return t != null && t.gameObject.activeSelf;
         }
 
         private bool TryPlaceWithValidation(int r,int c)
         {
             if (_grid.HasPion(r,c)) return false;
-            var cell = GetCell(r,c);
-            if (cell == null) return false;
+            var rt = GetCellRect(r,c);
+            if (rt == null) return false;
             PlacePiece(r,c);
             return true;
         }
