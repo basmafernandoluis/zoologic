@@ -184,7 +184,41 @@ namespace Zoologic
 
         private IEnumerator RewardedStubRoutine(Action onRewarded)
         {
-            yield return new WaitForSecondsRealtime(0.4f);
+            var canvas = FindFirstObjectByType<Canvas>();
+            if (canvas != null)
+            {
+                var overlay = new GameObject("TestAdOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
+                overlay.transform.SetParent(canvas.transform, false);
+                var rt = overlay.GetComponent<RectTransform>();
+                rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+                var img = overlay.GetComponent<UnityEngine.UI.Image>();
+                img.color = new Color(0f, 0f, 0f, 0.85f); img.raycastTarget = true;
+                var card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
+                card.transform.SetParent(overlay.transform, false);
+                var cr = card.GetComponent<RectTransform>();
+                cr.anchorMin = new Vector2(0.5f, 0.5f); cr.anchorMax = new Vector2(0.5f, 0.5f); cr.pivot = new Vector2(0.5f, 0.5f);
+                cr.sizeDelta = new Vector2(560f, 360f); cr.anchoredPosition = Vector2.zero;
+                var ci = card.GetComponent<UnityEngine.UI.Image>();
+                ci.sprite = null; ci.color = Color.white;
+                var vlg = card.AddComponent<UnityEngine.UI.VerticalLayoutGroup>();
+                vlg.padding = new UnityEngine.RectOffset(24, 24, 24, 24); vlg.spacing = 18f; vlg.childAlignment = TextAnchor.MiddleCenter;
+                var titleGO = new GameObject("Title", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+                titleGO.transform.SetParent(card.transform, false);
+                var title = titleGO.GetComponent<TMPro.TextMeshProUGUI>();
+                title.font = Resources.Load<TMPro.TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
+                title.text = IsProduction ? "Publicité" : "Publicité test (simulée)";
+                title.fontSize = 30; title.fontStyle = TMPro.FontStyles.Bold; title.color = new Color(0.20f, 0.13f, 0.08f);
+                title.alignment = TMPro.TextAlignmentOptions.Center;
+                var subGO = new GameObject("Sub", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+                subGO.transform.SetParent(card.transform, false);
+                var sub = subGO.GetComponent<TMPro.TextMeshProUGUI>();
+                sub.font = Resources.Load<TMPro.TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF");
+                sub.text = "Récompense sera accordée dans 1s…";
+                sub.fontSize = 20; sub.color = new Color(0.45f, 0.38f, 0.32f); sub.alignment = TMPro.TextAlignmentOptions.Center;
+                yield return new WaitForSecondsRealtime(1f);
+                if (overlay != null) Destroy(overlay);
+            }
+            else yield return new WaitForSecondsRealtime(0.4f);
             onRewarded?.Invoke();
         }
 
