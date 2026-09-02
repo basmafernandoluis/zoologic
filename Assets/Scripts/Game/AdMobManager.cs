@@ -78,6 +78,7 @@ namespace Zoologic
             Debug.Log($"[AdMob] Configure IsProduction={IsProduction} AppId={AppId} Banner={BannerId} Rewarded={RewardedId}");
             try
             {
+#pragma warning disable CS0618
                 var config = new RequestConfiguration
                 {
                     TagForChildDirectedTreatment = TagForChildDirectedTreatment.True,
@@ -85,6 +86,7 @@ namespace Zoologic
                     MaxAdContentRating = MaxAdContentRating.G
                 };
                 MobileAds.SetRequestConfiguration(config);
+#pragma warning restore CS0618
                 Debug.Log("[AdMob] RequestConfiguration set: TFCD=True TFA=True MaxRating=G BEFORE Initialize (privacy enfants)");
             }
             catch (Exception e) { Debug.LogWarning("[AdMob] RequestConfiguration failed: " + e.Message); }

@@ -13,9 +13,10 @@ namespace Zoologic
     {
         public const string HasCompletedKey = "HasCompletedTutorial";
         public static bool HasCompleted => PlayerPrefs.GetInt(HasCompletedKey, 0) == 1;
-        public static void MarkCompleted() => PlayerPrefs.SetInt(HasCompletedKey, 1);
-        public static void ResetTutorial() => PlayerPrefs.DeleteKey(HasCompletedKey);
+        public static void MarkCompleted() { PlayerPrefs.SetInt(HasCompletedKey, 1); PlayerPrefs.Save(); ForceShow = false; }
+        public static void ResetTutorial() { PlayerPrefs.DeleteKey(HasCompletedKey); ForceShow = false; }
         public static bool ShouldShow => !HasCompleted;
+        public static bool ForceShow = false;
 
         private static readonly int[,] TutorialRegions =
         {
@@ -44,7 +45,7 @@ namespace Zoologic
         private static readonly Color HighlightColor = new Color(1f, 0.83f, 0.30f, 0f);
         private const float HighlightAlphaMin = 0.45f;
         private const float HighlightAlphaMax = 0.95f;
-        private const float HighlightScaleAmp = 0.05f;
+        private const float HighlightScaleAmp = 0.08f;
         private const float HighlightSpeed = 4.5f;
 
         private GridView _gridView;
@@ -58,10 +59,11 @@ namespace Zoologic
 
         private readonly List<(Image image, RectTransform rect)> _highlightOverlays = new List<(Image, RectTransform)>();
         private readonly HashSet<(int row, int col)> _interactive = new HashSet<(int row, int col)>();
-        private readonly Queue<(int row, int col)> _tapQueue = new Queue<(int row, int col)>();
+        private readonly Queue<(int row, int col, float time)> _tapQueue = new Queue<(int row, int col, float time)>();
         private (int row, int col) _lastTap;
         private bool _acceptTaps;
         private bool _victory;
+        private const float DoubleTapWindow = 0.35f;
 
         private GameObject _overlayRoot;
         private Image _overlayTop; private Image _overlayBottom; private Image _overlayLeft; private Image _overlayRight;
@@ -76,17 +78,22 @@ namespace Zoologic
         {
             _gridView = GetComponent<GridView>();
             if (_gridView == null) _gridView = gameObject.AddComponent<GridView>();
+            EnsureEventSystem();
         }
 
         private void Start()
         {
-            if (HasCompleted)
+            bool isTutorialScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Tutorial";
+            if (HasCompleted && !isTutorialScene)
             {
                 UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
                 return;
             }
+            if (HasCompleted && isTutorialScene && !ForceShow)
+            {
+                Debug.Log("[Tutorial] Relecture manuelle autorisée même si déjà complété (HasCompleted=1).");
+            }
             Canvas canvas = EnsureCanvas();
-            EnsureEventSystem();
             CreateBackground(canvas);
             _canvasRect = (RectTransform)canvas.transform;
             _fontTitle = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
@@ -97,6 +104,7 @@ namespace Zoologic
             CreateBubble(canvas);
             _hand = UIHandPointer.Create(canvas);
 
+            Canvas.ForceUpdateCanvases();
             _grid = new PuzzleGrid(TutorialRegions);
             _gridView.OnCellTapped = HandleCellTapped;
             _gridView.Build(_grid, _canvasRect);
@@ -111,92 +119,100 @@ namespace Zoologic
             yield return StartCoroutine(Step3_Adjacency());
             yield return StartCoroutine(Step4_XElimination());
             SetAccept(false); ClearHighlights(); HideOverlay(); _hand.Hide();
-            yield return ShowBubble("Bravo, le tutoriel est terminé ! Tu es prêt pour les vrais niveaux.", true);
+            ConfettiHelper.Burst(this, _canvasRect.GetComponent<Canvas>(), 40);
+            SFXManager.Instance.PlaySuccess();
+            Haptics.VibrateStrong();
+            yield return ShowBubble("Bravo ! Prêt !", true);
             MarkCompleted();
             yield return new WaitForSecondsRealtime(1f);
             SetBubbleVisible(false);
+            UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
         }
 
         private IEnumerator Step1_RowCol()
         {
             RebuildGrid(Grid3_RowCol);
-            yield return ShowBubble("Bienvenue dans Zoo Logic ! Découvrons les règles.", true);
-            yield return ShowBubble("Règle 1 : Chaque ligne et colonne ne peut contenir qu'un seul animal.", true);
+            yield return ShowBubble("Bienvenue ! Découvrons.", true);
+            yield return ShowBubble("Un par ligne !", true);
             var target = (0, 0);
             HighlightSingle(target.Item1, target.Item2);
             ShowOverlay(target.Item1, target.Item2);
             _hand.PointTo(GetCellRect(target.Item1, target.Item2));
-            yield return ShowBubble("Touche la case surlignée pour placer un animal.", false);
+            yield return ShowBubble("Double tape !", false);
             SetInteractive(target); SetAccept(true);
-            yield return WaitTap(); _hand.PlayTap(); SetAccept(false);
-            PlacePiece(target.Item1, target.Item2); ClearHighlights(); HideOverlay(); _hand.Hide();
-            yield return new WaitForSecondsRealtime(0.6f);
+            yield return WaitDoubleTap(); _hand.PlayTap(); SetAccept(false);
+            PlacePiece(target.Item1, target.Item2); PunchAndConfetti(target.Item1,target.Item2); ClearHighlights(); HideOverlay(); _hand.Hide();
+            yield return new WaitForSecondsRealtime(0.4f);
             var forbid = new (int,int)[] { (0,1),(0,2),(1,0),(2,0) };
-            SetHighlights(forbid); ShowMultiOverlay(forbid); yield return ShowBubble("Sa ligne et sa colonne sont maintenant bloquées. Essaie de placer un second pion sur la même ligne : touche (0,1).", false);
-            SetInteractive((0,1)); SetAccept(true); _hand.PointTo(GetCellRect(0,1));
-            yield return WaitTap(); SetAccept(false); _hand.Hide();
-            PlacePiece(0,1); FlashAllConflicts(); yield return ShowBubble("Conflit ! Même ligne = interdit.", true);
-            SetInteractive((0,1)); SetAccept(true); yield return ShowBubble("Retire-le : retouche la case (0,1).", false); _hand.PointTo(GetCellRect(0,1));
-            yield return WaitTap(); SetAccept(false); RemovePiece(0,1); ClearHighlights(); HideOverlay(); _hand.Hide();
-            yield return ShowBubble("Parfait : une seule fois par ligne et par colonne.", true);
+            SetHighlights(forbid); ShowMultiOverlay(forbid); yield return ShowBubble("Ligne bloquée !", true);
+            yield return ShowBubble("Double tape ici !", false);
+            HighlightSingle(0,1); ShowOverlay(0,1); _hand.PointTo(GetCellRect(0,1)); _hand.Show();
+            SetInteractive((0,1)); SetAccept(true);
+            yield return WaitDoubleTap(); _hand.PlayTap(); SetAccept(false); _hand.Hide(); ClearHighlights(); HideOverlay();
+            PlacePiece(0,1); FlashAllConflicts(); yield return ShowBubble("Même ligne ! Interdit.", true);
+            SetInteractive((0,1)); SetAccept(true); yield return ShowBubble("Double tape retire !", false); _hand.PointTo(GetCellRect(0,1)); _hand.Show();
+            yield return WaitDoubleTap(); SetAccept(false); RemovePiece(0,1); ClearHighlights(); HideOverlay(); _hand.Hide();
+            yield return ShowBubble("Parfait ! Retenu.", true);
             RemovePiece(0,0);
         }
 
         private IEnumerator Step2_Zone()
         {
             RebuildGrid(Grid3_Zone);
-            yield return ShowBubble("Règle 2 : Un seul animal par zone de couleur.", true);
+            yield return ShowBubble("Un par couleur !", true);
             SetHighlights(new (int,int)[] { (0,0),(0,1),(1,0),(1,1) }); ShowMultiOverlay(new (int,int)[] { (0,0),(0,1),(1,0),(1,1) });
-            yield return ShowBubble("Cette zone menthe contient 4 cases, mais une seule peut accueillir un animal.", true);
+            yield return ShowBubble("Zone pleine !", true);
             ClearHighlights(); HideOverlay();
-            PlacePiece(0,0); yield return new WaitForSecondsRealtime(0.6f);
-            yield return ShowBubble("Zone occupée. La bonne cible est dans l'autre zone : touche (2,2).", false);
-            HighlightSingle(2,2); ShowOverlay(2,2); _hand.PointTo(GetCellRect(2,2));
+            PlacePiece(0,0); PunchAndConfetti(0,0); yield return new WaitForSecondsRealtime(0.4f);
+            yield return ShowBubble("Double tape ici !", false);
+            HighlightSingle(2,2); ShowOverlay(2,2); _hand.PointTo(GetCellRect(2,2)); _hand.Show();
             SetInteractive((2,2)); SetAccept(true);
-            yield return WaitTap(); SetAccept(false); _hand.Hide(); ClearHighlights(); HideOverlay();
-            PlacePiece(2,2); yield return ShowBubble("Exact ! Chaque couleur n'accueille qu'un pion.", true);
+            yield return WaitDoubleTap(); SetAccept(false); _hand.Hide(); ClearHighlights(); HideOverlay();
+            PlacePiece(2,2); PunchAndConfetti(2,2); yield return ShowBubble("Exact ! Bravo.", true);
             RemovePiece(0,0); RemovePiece(2,2);
         }
 
         private IEnumerator Step3_Adjacency()
         {
             RebuildGrid(TutorialRegions);
-            yield return ShowBubble("Règle 3 : Les animaux ne peuvent pas se toucher, même en diagonale.", true);
-            PlacePiece(1,1);
+            yield return ShowBubble("Pas de contact !", true);
+            PlacePiece(1,1); PunchAndConfetti(1,1);
             var forbid = new (int,int)[] { (0,0),(0,1),(0,2),(1,0),(1,2),(2,0),(2,1),(2,2) };
             SetHighlights(forbid); ShowMultiOverlay(forbid);
-            yield return ShowBubble("Un pion au centre bloque ses 8 voisines. Les cases rouges sont interdites.", true);
+            yield return ShowBubble("8 cases bloquées.", true);
             ClearHighlights(); HideOverlay();
-            yield return ShowBubble("Marque une case interdite avec une croix. Touche (0,0) pour mettre un X.", false);
-            HighlightSingle(0,0); ShowOverlay(0,0); _hand.PointTo(GetCellRect(0,0));
+            yield return ShowBubble("Un tap = X !", true);
+            yield return ShowBubble("Touche ici !", false);
+            HighlightSingle(0,0); ShowOverlay(0,0); _hand.PointTo(GetCellRect(0,0)); _hand.Show();
             SetInteractive((0,0)); SetAccept(true);
-            yield return WaitTap(); SetAccept(false);
-            if (_lastTap == (0,0)) { _gridView.SetX(0,0,true); _hand.PlayTap(); }
+            yield return WaitSingleTap(); SetAccept(false);
+            if (_lastTap == (0,0)) { _gridView.SetX(0,0,true); _hand.PlayTap(); Haptics.VibrateLight(); }
             ClearHighlights(); HideOverlay(); _hand.Hide();
-            yield return new WaitForSecondsRealtime(0.5f);
-            yield return ShowBubble("Bien ! Ensuite place un animal valide loin du centre : touche (3,3).", false);
-            HighlightSingle(3,3); ShowOverlay(3,3); _hand.PointTo(GetCellRect(3,3));
+            yield return new WaitForSecondsRealtime(0.4f);
+            yield return ShowBubble("Double tap = animal !", true);
+            yield return ShowBubble("Place ici !", false);
+            HighlightSingle(3,3); ShowOverlay(3,3); _hand.PointTo(GetCellRect(3,3)); _hand.Show();
             SetInteractive((3,3)); SetAccept(true);
-            yield return WaitTap(); SetAccept(false); _hand.Hide(); ClearHighlights(); HideOverlay();
-            PlacePiece(3,3); yield return ShowBubble("Parfait, aucun contact même en diagonale.", true);
+            yield return WaitDoubleTap(); SetAccept(false); _hand.Hide(); ClearHighlights(); HideOverlay();
+            PlacePiece(3,3); PunchAndConfetti(3,3); yield return ShowBubble("Parfait ! Validé.", true);
             RemovePiece(1,1); RemovePiece(3,3); _gridView.SetX(0,0,false);
         }
 
         private IEnumerator Step4_XElimination()
         {
             RebuildGrid(TutorialRegions);
-            foreach (var p in Step4Setup) PlacePiece(p.row, p.col);
+            foreach (var p in Step4Setup) { PlacePiece(p.row, p.col); PunchAndConfetti(p.row,p.col); }
             _gridView.SetX(1,1,true); _gridView.SetX(2,2,true);
-            yield return ShowBubble("Dernière astuce : la croix élimine l'impossible pour déduire le reste.", true);
-            yield return ShowBubble("Deux X bloquent déjà des cases. Marque encore (1,0) en X.", false);
-            HighlightSingle(1,0); ShowOverlay(1,0); _hand.PointTo(GetCellRect(1,0));
+            yield return ShowBubble("X élimine !", true);
+            yield return ShowBubble("Encore X ici !", false);
+            HighlightSingle(1,0); ShowOverlay(1,0); _hand.PointTo(GetCellRect(1,0)); _hand.Show();
             SetInteractive((1,0)); SetAccept(true);
-            yield return WaitTap(); SetAccept(false);
-            if (_lastTap == (1,0)) _gridView.SetX(1,0,true);
+            yield return WaitSingleTap(); SetAccept(false);
+            if (_lastTap == (1,0)) { _gridView.SetX(1,0,true); _hand.PlayTap(); }
             ClearHighlights(); HideOverlay(); _hand.Hide();
-            yield return ShowBubble("Plus que une case valide dans la zone lavande. Déduis-la !", false);
+            yield return ShowBubble("Trouve la dernière !", false);
             SetInteractiveAll(); SetAccept(true);
-            _hand.PointTo(GetCellRect(2,0));
+            _hand.PointTo(GetCellRect(2,0)); _hand.Show();
             while (!_victory)
             {
                 yield return WaitTap();
@@ -231,6 +247,7 @@ namespace Zoologic
         private void RebuildGrid(int[,] regions)
         {
             ClearHighlights(); HideOverlay();
+            if (_canvasRect != null) Canvas.ForceUpdateCanvases();
             _grid = new PuzzleGrid(regions);
             _gridView.Build(_grid, _canvasRect);
             LocateCells();
@@ -241,14 +258,59 @@ namespace Zoologic
         {
             if (!_acceptTaps) return;
             if (!_interactive.Contains((row,col))) { Haptics.VibrateLight(); return; }
-            _tapQueue.Enqueue((row,col));
+            _tapQueue.Enqueue((row,col,Time.unscaledTime));
         }
 
         private IEnumerator WaitTap()
         {
             _tapQueue.Clear();
             while (_tapQueue.Count == 0) yield return null;
-            _lastTap = _tapQueue.Dequeue();
+            var t = _tapQueue.Dequeue();
+            _lastTap = (t.row, t.col);
+        }
+
+        private IEnumerator WaitSingleTap()
+        {
+            _tapQueue.Clear();
+            while (_tapQueue.Count == 0) yield return null;
+            var t = _tapQueue.Dequeue();
+            _lastTap = (t.row, t.col);
+            yield return new WaitForSecondsRealtime(0.05f);
+        }
+
+        private IEnumerator WaitDoubleTap()
+        {
+            while (true)
+            {
+                _tapQueue.Clear();
+                while (_tapQueue.Count == 0) yield return null;
+                var first = _tapQueue.Dequeue();
+                float t0 = first.time;
+                bool gotSecond = false;
+                while (Time.unscaledTime - t0 < DoubleTapWindow)
+                {
+                    if (_tapQueue.Count > 0)
+                    {
+                        var second = _tapQueue.Peek();
+                        if (second.row == first.row && second.col == first.col)
+                        {
+                            _tapQueue.Dequeue();
+                            _lastTap = (second.row, second.col);
+                            gotSecond = true;
+                            break;
+                        }
+                        else
+                        {
+                            _tapQueue.Clear();
+                            break;
+                        }
+                    }
+                    yield return null;
+                }
+                if (gotSecond) yield break;
+                yield return ShowBubble("Double tape !", false);
+                Haptics.VibrateLight();
+            }
         }
 
         private void SetAccept(bool a) { _acceptTaps = a; _tapQueue.Clear(); }
@@ -256,6 +318,7 @@ namespace Zoologic
         private void SetInteractiveAll() { _interactive.Clear(); for(int r=0;r<_grid.Size;r++) for(int c=0;c<_grid.Size;c++) _interactive.Add((r,c)); }
 
         private void PlacePiece(int r,int c){ _grid.PlacePion(r,c); _gridView.SetPion(r,c,true); }
+        private void PunchAndConfetti(int r,int c){ _gridView.PunchBoard(1.04f,0.15f); SFXManager.Instance.PlayConfirm(); Haptics.VibrateLight(); try{ ConfettiHelper.Burst(this, _canvasRect.GetComponent<Canvas>(), 18); }catch{} }
         private void RemovePiece(int r,int c){ _grid.RemovePion(r,c); _gridView.SetPion(r,c,false); }
         private void FlashAllConflicts(){ bool any=false; foreach(var p in _grid.Pions) if(RuleValidator.GetConflicts(_grid,p.row,p.col).Count>0){ _gridView.FlashConflict(p.row,p.col); any=true; } if(any) Haptics.VibrateLight(); }
         private void PlayVictory(){ _gridView.PlayVictoryZoom(); Haptics.VibrateStrong(); }
@@ -283,10 +346,18 @@ namespace Zoologic
 
         private void LocateCells()
         {
-            Transform board=_canvasRect.Find("Board");
+            RectTransform board = _gridView.BoardContainer;
+            if(board==null) board = (RectTransform)_canvasRect.Find("Board");
             if(board==null) throw new InvalidOperationException("[Zoologic] TutorialManager : Board introuvable.");
             CellView[] views=board.GetComponentsInChildren<CellView>(true);
-            int n=_grid.Size; if(views.Length!=n*n) throw new InvalidOperationException("[Zoologic] TutorialManager : attendu "+(n*n)+" cases, obtenu "+views.Length+".");
+            int n=_grid.Size;
+            if(views.Length!=n*n)
+            {
+                var filtered=new List<CellView>();
+                foreach(var v in views) if(v.transform.parent!=board) filtered.Add(v); else filtered.Add(v);
+                views=filtered.ToArray();
+            }
+            if(views.Length!=n*n) throw new InvalidOperationException("[Zoologic] TutorialManager : attendu "+(n*n)+" cases, obtenu "+views.Length+".");
             _cells=new CellView[n,n]; for(int i=0;i<views.Length;i++) _cells[i/n,i%n]=views[i];
         }
 
@@ -391,19 +462,19 @@ namespace Zoologic
             _bubbleRoot.transform.SetParent(canvas.transform,false);
             var rt=(RectTransform)_bubbleRoot.transform;
             rt.anchorMin=new Vector2(0.5f,0f); rt.anchorMax=new Vector2(0.5f,0f); rt.pivot=new Vector2(0.5f,0f);
-            rt.sizeDelta=new Vector2(860f,190f); rt.anchoredPosition=new Vector2(0f,36f);
-            var img=_bubbleRoot.GetComponent<Image>(); img.sprite=_roundedSprite; img.type=Image.Type.Simple; img.color=new Color(0.10f,0.12f,0.16f,0.92f); img.raycastTarget=false;
-            var vlg=_bubbleRoot.AddComponent<VerticalLayoutGroup>(); vlg.padding=new RectOffset(22,22,18,14); vlg.spacing=10f; vlg.childAlignment=TextAnchor.MiddleCenter;
+            rt.sizeDelta=new Vector2(880f,220f); rt.anchoredPosition=new Vector2(0f,42f);
+            var img=_bubbleRoot.GetComponent<Image>(); img.sprite=_roundedSprite; img.type=Image.Type.Simple; img.color=new Color(0.10f,0.12f,0.16f,0.96f); img.raycastTarget=false;
+            var vlg=_bubbleRoot.AddComponent<VerticalLayoutGroup>(); vlg.padding=new RectOffset(22,22,22,16); vlg.spacing=12f; vlg.childAlignment=TextAnchor.MiddleCenter;
             var txtGO=new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             txtGO.transform.SetParent(_bubbleRoot.transform,false);
             _bubbleText=txtGO.GetComponent<TextMeshProUGUI>();
             _bubbleText.font=_fontBody!=null?_fontBody:Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF");
-            _bubbleText.fontSize=26; _bubbleText.color=Color.white; _bubbleText.alignment=TextAlignmentOptions.Center;
-            _bubbleText.enableWordWrapping=true; _bubbleText.raycastTarget=false;
-            var txtLE=txtGO.AddComponent<LayoutElement>(); txtLE.preferredHeight=90f;
+            _bubbleText.fontSize=28; _bubbleText.color=Color.white; _bubbleText.alignment=TextAlignmentOptions.Center;
+            _bubbleText.textWrappingMode=TextWrappingModes.Normal; _bubbleText.raycastTarget=false;
+            var txtLE=txtGO.AddComponent<LayoutElement>(); txtLE.preferredHeight=96f;
             var btnGO=new GameObject("Suivant", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             btnGO.transform.SetParent(_bubbleRoot.transform,false);
-            var btnRect=(RectTransform)btnGO.transform; btnRect.sizeDelta=new Vector2(240f,52f);
+            var btnRect=(RectTransform)btnGO.transform; btnRect.sizeDelta=new Vector2(300f,62f);
             var btnImg=btnGO.GetComponent<Image>(); btnImg.sprite=KenneyUI.Button("Green")??CreateRoundedRectSprite(); btnImg.type=Image.Type.Simple; btnImg.color=Color.white;
             _bubbleNext=btnGO.GetComponent<Button>(); _bubbleNext.targetGraphic=btnImg;
             _bubbleNext.onClick.AddListener(()=>{ _nextClicked=true; SFXManager.Instance.PlayMenuClose(); });
@@ -416,7 +487,39 @@ namespace Zoologic
             _bubbleRoot.SetActive(false);
         }
 
-        private void SetBubbleVisible(bool v){ if(_bubbleRoot!=null) _bubbleRoot.SetActive(v); }
+        private Coroutine _bubblePopRoutine;
+        private void SetBubbleVisible(bool v)
+        {
+            if(_bubbleRoot==null) return;
+            if(v)
+            {
+                _bubbleRoot.SetActive(true);
+                _bubbleRoot.transform.SetAsLastSibling();
+                _bubbleRoot.transform.localScale = Vector3.zero;
+                if(_bubblePopRoutine!=null) StopCoroutine(_bubblePopRoutine);
+                _bubblePopRoutine = StartCoroutine(BubblePopRoutine());
+            }
+            else
+            {
+                if(_bubblePopRoutine!=null) { StopCoroutine(_bubblePopRoutine); _bubblePopRoutine=null; }
+                _bubbleRoot.SetActive(false);
+            }
+        }
+
+        private IEnumerator BubblePopRoutine()
+        {
+            var t = _bubbleRoot.transform;
+            float d = 0.32f; float e = 0f;
+            while(e < d)
+            {
+                e += Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(e / d);
+                float s = Easing.EaseOutBack(k);
+                t.localScale = new Vector3(s, s, s);
+                yield return null;
+            }
+            t.localScale = Vector3.one;
+        }
 
         private IEnumerator ShowBubble(string text, bool showNext)
         {
@@ -424,7 +527,7 @@ namespace Zoologic
             _bubbleText.text=text;
             if(_bubbleNext!=null) _bubbleNext.gameObject.SetActive(showNext);
             SetBubbleVisible(true);
-            if(!showNext){ yield return new WaitForSecondsRealtime(1.8f); yield break; }
+            if(!showNext){ yield return new WaitForSecondsRealtime(1.4f); yield break; }
             _nextClicked=false;
             yield return new WaitUntil(()=>_nextClicked);
             SetBubbleVisible(false);
@@ -443,11 +546,10 @@ namespace Zoologic
 
         private static void EnsureEventSystem()
         {
+            foreach(var m in UnityEngine.Object.FindObjectsByType<StandaloneInputModule>(FindObjectsSortMode.None)) UnityEngine.Object.DestroyImmediate(m);
             if(EventSystem.current!=null)
             {
                 var cur=EventSystem.current;
-                var legacy=cur.GetComponent<StandaloneInputModule>();
-                if(legacy!=null) UnityEngine.Object.Destroy(legacy);
                 if(cur.GetComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>()==null) cur.gameObject.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
                 return;
             }

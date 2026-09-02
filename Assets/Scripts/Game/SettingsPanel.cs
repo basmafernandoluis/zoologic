@@ -294,6 +294,7 @@ namespace Zoologic
             btn.onClick.AddListener(() =>
             {
                 TutorialManager.ResetTutorial();
+                TutorialManager.ForceShow = true;
                 SFXManager.Instance.PlayMenuClose();
                 Close();
                 UnityEngine.SceneManagement.SceneManager.LoadScene("Tutorial");

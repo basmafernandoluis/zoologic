@@ -99,10 +99,16 @@ namespace Zoologic
             if (parent == null)
                 throw new ArgumentNullException(nameof(parent));
 
+            StopAllCoroutines();
             if (_boardContainer != null)
-                Destroy(_boardContainer.gameObject);
+            {
+                DestroyImmediate(_boardContainer.gameObject);
+                _boardContainer = null;
+            }
 
             StopHighlight();
+            if (_victoryZoomRoutine != null) { StopCoroutine(_victoryZoomRoutine); _victoryZoomRoutine = null; }
+            if (_highlightRoutine != null) { StopCoroutine(_highlightRoutine); _highlightRoutine = null; }
 
             _grid = grid;
             int n = grid.Size;
@@ -226,19 +232,23 @@ namespace Zoologic
             if (delay > 0f)
                 yield return new WaitForSecondsRealtime(delay);
 
-            Transform t = cell.transform;
+            if (cell == null) yield break;
+            Transform t = null;
+            try { t = cell.transform; } catch { yield break; }
+            if (t == null) yield break;
             float elapsed = 0f;
 
             while (elapsed < EntranceDuration)
             {
+                if (cell == null || t == null) yield break;
                 float p = Mathf.Clamp01(elapsed / EntranceDuration);
                 float s = Mathf.Max(0f, Easing.EaseOutBack(p));
-                t.localScale = new Vector3(s, s, s);
+                try { t.localScale = new Vector3(s, s, s); } catch { yield break; }
                 elapsed += Time.unscaledDeltaTime;
                 yield return null;
             }
 
-            t.localScale = Vector3.one;
+            try { if (t != null) t.localScale = Vector3.one; } catch { }
         }
 
         /// <summary>Affiche ou masque le pion de la case (row, col).</summary>

@@ -10,6 +10,23 @@
       },
       "hash": "4dadd9bc105cc5448c8f09952ab9cfe0d42ce37e"
     },
+    "com.google.ads.mobile": {
+      "version": "https://github.com/googleads/googleads-mobile-unity.git?path=packages/com.google.ads.mobile",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.google.external-dependency-manager": "1.2.187",
+        "com.unity.modules.androidjni": "1.0.0"
+      },
+      "hash": "e7c3df18c194372d0b4f5e0864fea4ed4ac44368"
+    },
+    "com.google.external-dependency-manager": {
+      "version": "https://github.com/googlesamples/unity-jar-resolver.git?path=upm",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "b38da4950d8439d50e15c71168d70e16fea731b0"
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,

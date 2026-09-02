@@ -93,6 +93,7 @@ namespace Zoologic
             _gridView = GetComponent<GridView>();
             if (_gridView == null)
                 _gridView = gameObject.AddComponent<GridView>();
+            EnsureEventSystem();
         }
 
         private void Start()
@@ -987,11 +988,10 @@ namespace Zoologic
 
         private static void EnsureEventSystem()
         {
+            foreach (var m in UnityEngine.Object.FindObjectsByType<StandaloneInputModule>(FindObjectsSortMode.None)) DestroyImmediate(m);
             if (EventSystem.current != null)
             {
                 var cur = EventSystem.current;
-                var legacy = cur.GetComponent<StandaloneInputModule>();
-                if (legacy != null) Destroy(legacy);
                 if (cur.GetComponent<InputSystemUIInputModule>() == null)
                     cur.gameObject.AddComponent<InputSystemUIInputModule>();
                 return;
