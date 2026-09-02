@@ -154,6 +154,7 @@ namespace Zoologic
             CreerToggle(panel.transform, "Vibrations", Haptics.IsEnabled,
                 val => { Haptics.IsEnabled = val; });
             CreerBoutonResetProgression(panel.transform);
+            CreerBoutonResetTuto(panel.transform);
             CreerVersion(panel.transform);
 
             CreerBoutonFermer(panel.transform);
@@ -284,6 +285,18 @@ namespace Zoologic
             {
                 SFXManager.Instance.PlayMenuClose();
                 ShowResetConfirmation();
+            });
+        }
+
+        private static void CreerBoutonResetTuto(Transform parent)
+        {
+            var btn = CreerBouton(parent, "Revoir le tutoriel", AccentOrange, 30f);
+            btn.onClick.AddListener(() =>
+            {
+                TutorialManager.ResetTutorial();
+                SFXManager.Instance.PlayMenuClose();
+                Close();
+                UnityEngine.SceneManagement.SceneManager.LoadScene("Tutorial");
             });
         }
 

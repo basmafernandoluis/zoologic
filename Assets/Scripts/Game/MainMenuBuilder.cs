@@ -37,6 +37,11 @@ namespace Zoologic
 
         private void Start()
         {
+            if (TutorialManager.ShouldShow)
+            {
+                UnityEngine.SceneManagement.SceneManager.LoadScene("Tutorial");
+                return;
+            }
             _fontTitle = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
             _fontBody = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF");
 
