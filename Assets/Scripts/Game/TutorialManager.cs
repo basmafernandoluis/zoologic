@@ -537,7 +537,7 @@ namespace Zoologic
             {
                 var cur = EventSystem.current;
                 var legacy = cur.GetComponent<StandaloneInputModule>();
-                if (legacy != null) Object.Destroy(legacy);
+                if (legacy != null) UnityEngine.Object.Destroy(legacy);
                 if (cur.GetComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>() == null)
                     cur.gameObject.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
                 return;
