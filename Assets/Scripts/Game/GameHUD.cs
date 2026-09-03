@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using TMPro;
 using UnityEngine;
@@ -7,28 +7,28 @@ using UnityEngine.UI;
 namespace Zoologic
 {
     /// <summary>
-    /// Interface permanente (HUD) affichée pendant le jeu :
-    ///  - en-tête (bouton retour, numéro de niveau, bouton réglages) ;
-    ///  - barre de règles (3 cartes horizontales) ;
-    ///  - cœurs / vies (3 images heart.png) ;
-    ///  - score (en haut à gauche) ;
-    ///  - compteur d'indices (en bas, icône potion.png) ;
-    ///  - panneau de défaite (fond sombre + « Réessayer »).
+    /// Interface permanente (HUD) affich�e pendant le jeu :
+    ///  - en-t�te (bouton retour, num�ro de niveau, bouton r�glages) ;
+    ///  - barre de r�gles (3 cartes horizontales) ;
+    ///  - c�urs / vies (3 images heart.png) ;
+    ///  - score (en haut � gauche) ;
+    ///  - compteur d'indices (en bas, ic�ne potion.png) ;
+    ///  - panneau de d�faite (fond sombre + � R�essayer �).
     ///
-    /// Tout est construit procéduralement (aucun prefab). Les sprites
-    /// (formes arrondies) sont générés par texture à la demande.
+    /// Tout est construit proc�duralement (aucun prefab). Les sprites
+    /// (formes arrondies) sont g�n�r�s par texture � la demande.
     /// </summary>
     public sealed class GameHUD : MonoBehaviour
     {
         // ------------------------------------------------------------------
-        // Constantes de layout (référence 1080x1920).
+        // Constantes de layout (r�f�rence 1080x1920).
         // ------------------------------------------------------------------
 
         private const float HeaderPadding = 22f;
         private const float RuleBarHeight = 92f;
 
-        // Encoche simulée (px réf 1080x1920) utilisée quand la safe area réelle
-        // est nulle (éditeur, desktop) afin de prévisualiser l'espacement.
+        // Encoche simul�e (px r�f 1080x1920) utilis�e quand la safe area r�elle
+        // est nulle (�diteur, desktop) afin de pr�visualiser l'espacement.
         private const float SimulatedTopNotch = 70f;
 
         // ------------------------------------------------------------------
@@ -48,7 +48,7 @@ namespace Zoologic
         private static readonly Color IconTextColor = new Color(0.42f, 0.47f, 0.52f, 1f);
         private static readonly Color CardShadowColor = new Color(0f, 0f, 0f, 0.16f);
 
-        // Cartes de règles : une teinte pastel distincte par règle (fini, plus "greybox").
+        // Cartes de r�gles : une teinte pastel distincte par r�gle (fini, plus "greybox").
         private static readonly Color RuleCardBgColor1 = new Color(1.00f, 0.97f, 0.91f, 1f);
         private static readonly Color RuleCardBgColor2 = new Color(0.93f, 0.97f, 1.00f, 1f);
         private static readonly Color RuleCardBgColor3 = new Color(1.00f, 0.93f, 0.97f, 1f);
@@ -72,13 +72,13 @@ namespace Zoologic
         private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.28f);
 
         // ------------------------------------------------------------------
-        // Champs privés.
+        // Champs priv�s.
         // ------------------------------------------------------------------
 
         private TMP_FontAsset _fontTitle;
         private TMP_FontAsset _fontBody;
 
-        // Score (interne, non affiché en pill jeu — gardé pour logique)
+        // Score (interne, non affich� en pill jeu � gard� pour logique)
         private TextMeshProUGUI _scoreValueText;
         private int _score;
         private Image _scorePillBg;
@@ -87,19 +87,19 @@ namespace Zoologic
         private Coroutine _scorePunchRoutine;
         private static readonly Color ScorePunchBgColor = new Color(0.95f, 0.55f, 0.45f, 1f);
 
-        // Progression jeu : 🦊 X/Y chats/animaux placés
+        // Progression jeu : ?? X/Y chats/animaux plac�s
         private Image _progressionIconImage;
         private TextMeshProUGUI _progressionText;
         private int _progressionTotal = 5;
 
-        // Cœurs (images, pas de texte)
+        // C�urs (images, pas de texte)
         private readonly Image[] _heartImages = new Image[LivesManager.ViesDepart];
         private readonly GameObject[] _heartRoots = new GameObject[LivesManager.ViesDepart];
         private Coroutine[] _heartAnimRoutines = new Coroutine[LivesManager.ViesDepart];
         private TextMeshProUGUI _livesTimerText;
         private Coroutine _livesTimerRoutine;
 
-        // Panneau défaite
+        // Panneau d�faite
         private GameObject _defaitePanel;
         private GameObject _gameOverRoot;
         private GameObject _overlay;
@@ -111,19 +111,19 @@ namespace Zoologic
         private Image _indiceIconImage;
         private Coroutine _indiceBounceRoutine;
 
-        // Pièces : solde affiché + indicateur d'achat d'indice.
+        // Pi�ces : solde affich� + indicateur d'achat d'indice.
         private TextMeshProUGUI _coinsValueText;
         private Image _coinsIconImage;
         private Image _indiceCoinIconImage;
         private Sprite _coinSprite;
         private Coroutine _toastRoutine;
 
-        // Power-up « gomme » : bouton flottant en bas d'écran.
+        // Power-up � gomme � : bouton flottant en bas d'�cran.
         private Button _gommeButton;
         private Image _gommeButtonBg;
         private Coroutine _gommeRechargeRoutine;
 
-        // Interactions bloquées
+        // Interactions bloqu�es
         private bool _interactionsBloquees;
 
         // Indice button components for graying out
@@ -131,18 +131,18 @@ namespace Zoologic
         private Image _indiceButtonBg;
         private static readonly Color IndiceDisabledColor = new Color(0.75f, 0.75f, 0.78f, 0.5f);
 
-        // Distance (px réf) entre le haut de l'écran et le bas du header.
+        // Distance (px r�f) entre le haut de l'�cran et le bas du header.
         private float _headerBottom;
 
-        /// <summary>Score actuel affiché.</summary>
+        /// <summary>Score actuel affich�.</summary>
         public int Score => _score;
 
         /// <summary>Nombre d'indices restants.</summary>
         public int IndiceCount => _indiceCount;
 
         /// <summary>
-        /// Encoche haute en unités de canvas (réf 1080x1920). Sur mobile réel on lit
-        /// la safe area ; sinon (éditeur/desktop) on applique une encoche simulée.
+        /// Encoche haute en unit�s de canvas (r�f 1080x1920). Sur mobile r�el on lit
+        /// la safe area ; sinon (�diteur/desktop) on applique une encoche simul�e.
         /// </summary>
         public float TopInset
         {
@@ -153,7 +153,7 @@ namespace Zoologic
                 float safeTop = safe.yMax;
                 float screenHeight = Mathf.Max(Screen.height, 1);
                 float insetPx = screenHeight - safeTop;
-                // La safe area n'est égale à l'écran que si pas d'encoche.
+                // La safe area n'est �gale � l'�cran que si pas d'encoche.
                 bool hasNotch = insetPx > 1f;
                 if (hasNotch)
                     return insetPx * (canvasRefHeight / screenHeight);
@@ -161,27 +161,27 @@ namespace Zoologic
             }
         }
 
-        /// <summary>Board offset Y pour centrer la grille dans l'espace HUD en haut et le bas de l'écran.</summary>
+        /// <summary>Board offset Y pour centrer la grille dans l'espace HUD en haut et le bas de l'�cran.</summary>
         public float BoardYOffset
         {
             get
             {
-                // Zone haute : header (encoche comprise) + barre de règles.
+                // Zone haute : header (encoche comprise) + barre de r�gles.
                 float topOccupied = _headerBottom + RuleBarHeight;
                 float bottomReserved = 35f;
-                // Référence : on travaille dans l'espace du canvas (hauteur 1920 en compte moyen).
+                // R�f�rence : on travaille dans l'espace du canvas (hauteur 1920 en compte moyen).
                 float canvasHeight = 1920f;
                 float availableCenter = (topOccupied + (canvasHeight - bottomReserved)) * 0.5f;
-                // Décalage par rapport au centre du canvas (960 = moitié de la hauteur de référence).
+                // D�calage par rapport au centre du canvas (960 = moiti� de la hauteur de r�f�rence).
                 return -(availableCenter - canvasHeight * 0.5f);
             }
         }
 
         /// <summary>
-        /// Construit le HUD complet sous le canvas donné.
+        /// Construit le HUD complet sous le canvas donn�.
         /// </summary>
         /// <param name="canvas">Canvas parent (ScreenSpaceOverlay).</param>
-        /// <param name="numeroNiveau">Numéro du niveau à afficher.</param>
+        /// <param name="numeroNiveau">Num�ro du niveau � afficher.</param>
         public void Build(Canvas canvas, int numeroNiveau)
         {
             _fontTitle = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
@@ -196,15 +196,15 @@ namespace Zoologic
         }
 
         // ------------------------------------------------------------------
-        // 1) EN-TÊTE : ← retour | pilule « Niveau X » | ⚙ réglages
+        // 1) EN-T�TE : ? retour | pilule � Niveau X � | ? r�glages
         // ------------------------------------------------------------------
 
         private void BuildHeader(Canvas canvas, int numeroNiveau)
         {
             float inset = TopInset;
 
-            // Distances (px réf) depuis le haut de l'écran : row1 = pilule niveau,
-            // row2 = stats. Les deux sont placées sous l'encoche (inset).
+            // Distances (px r�f) depuis le haut de l'�cran : row1 = pilule niveau,
+            // row2 = stats. Les deux sont plac�es sous l'encoche (inset).
             float dRow1 = inset + 28f;
             float dRow2 = inset + 108f;
             // Hauteur du header = bas du contenu (row2 + 28 pilule + marge).
@@ -220,7 +220,7 @@ namespace Zoologic
             image.color = HeaderBgColor;
             image.raycastTarget = false;
 
-            // Row 1: ← back | Niveau X pill | ⚙ settings
+            // Row 1: ? back | Niveau X pill | ? settings
             float row1Y = H * 0.5f - dRow1;
 
             var btnRetour = CreerBoutonTuileImage(header.transform, GetBackSprite(), 34f,
@@ -243,7 +243,7 @@ namespace Zoologic
                 SettingsPanel.Open();
             });
 
-            // Row 2: [⭐ 100] [♥♥♥] [🧪×3] — stats row
+            // Row 2: [? 100] [???] [??�3] � stats row
             float row2Y = H * 0.5f - dRow2;
             BuildStatsRow(header.transform, row2Y);
         }
@@ -256,7 +256,7 @@ namespace Zoologic
         {
             float pillH = 56f;
 
-            // --- Progression pill (left) : 🦊 1/5 — remplace le score technique par un feedback jeu ---
+            // --- Progression pill (left) : ?? 1/5 � remplace le score technique par un feedback jeu ---
             float progW = 150f;
             float progX = HeaderPadding;
 
@@ -319,7 +319,7 @@ namespace Zoologic
             float heartsPillW = totalHeartsW + pillPadX * 2f;
             float heartsPillH = 56f;
 
-            // Conteneur pilule cohérent avec score (gauche) et indice (droite).
+            // Conteneur pilule coh�rent avec score (gauche) et indice (droite).
             var heartsPill = CreerObjetUI("HeartsPill", header);
             var hpPillRect = heartsPill.GetComponent<RectTransform>();
             hpPillRect.anchorMin = new Vector2(0f, 0.5f);
@@ -356,7 +356,7 @@ namespace Zoologic
                 _heartRoots[i] = heartObj;
             }
 
-            // --- Pilule économie combinée (pièces | indice) : une seule pilule à droite ---
+            // --- Pilule �conomie combin�e (pi�ces | indice) : une seule pilule � droite ---
             _coinSprite = Resources.Load<Sprite>("UI/coin");
             float economyW = 202f;
             float economyX = -HeaderPadding;
@@ -494,7 +494,7 @@ namespace Zoologic
 
             var text = texte.AddComponent<TextMeshProUGUI>();
             text.font = _fontTitle;
-            text.text = PuzzleGameController.IsDailyPuzzle ? "Défi du jour" : $"Niveau {numero}";
+            text.text = PuzzleGameController.IsDailyPuzzle ? "D�fi du jour" : $"Niveau {numero}";
             text.fontSize = 48;
             text.alignment = TextAlignmentOptions.Center;
             text.color = TitleBrown;
@@ -505,7 +505,7 @@ namespace Zoologic
         }
 
         // ------------------------------------------------------------------
-        // 2) BARRE DE RÈGLES : 3 cartes horizontales
+        // 2) BARRE DE R�GLES : 3 cartes horizontales
         // ------------------------------------------------------------------
 
         private void BuildBarreRegle(Canvas canvas)
@@ -543,10 +543,12 @@ namespace Zoologic
             barShImg.color = new Color(0f, 0f, 0f, 0.10f);
             barShImg.raycastTarget = false;
             barShadow.transform.SetAsFirstSibling();
+            var barIgnore = barBg.AddComponent<LayoutElement>();
+            barIgnore.ignoreLayout = true;
 
             var hlg = container.AddComponent<HorizontalLayoutGroup>();
-            hlg.padding = new RectOffset(14, 14, 12, 12);
-            hlg.spacing = 12f;
+            hlg.padding = new RectOffset(8, 8, 8, 8);
+            hlg.spacing = 6f;
             hlg.childAlignment = TextAnchor.MiddleCenter;
             hlg.childControlWidth = true;
             hlg.childControlHeight = true;
@@ -560,20 +562,13 @@ namespace Zoologic
 
         private void CreerCarteRegle(Transform parent, string icone, string label, int index)
         {
-            float cardWidth = CalcCardWidth(parent);
-            float cardHeight = RuleBarHeight - 20f;
-            float spacing = 20f;
-            float totalWidth = 3f * cardWidth + 2f * spacing;
-            float startX = -totalWidth * 0.5f + cardWidth * 0.5f;
-            float x = startX + index * (cardWidth + spacing);
-
             var carte = CreerObjetUI($"Carte{index}", parent);
+            var carteLE = carte.AddComponent<LayoutElement>();
+            carteLE.flexibleWidth = 1f;
+            carteLE.preferredWidth = 220f;
+            carteLE.minWidth = 150f;
             var carteRect = carte.GetComponent<RectTransform>();
-            carteRect.anchorMin = new Vector2(0.5f, 0.5f);
-            carteRect.anchorMax = new Vector2(0.5f, 0.5f);
-            carteRect.pivot = new Vector2(0.5f, 0.5f);
-            carteRect.sizeDelta = new Vector2(cardWidth, cardHeight);
-            carteRect.anchoredPosition = new Vector2(x, 0f);
+            carteRect.sizeDelta = new Vector2(0f, RuleBarHeight - 20f);
 
             var carteImg = carte.AddComponent<Image>();
             carteImg.sprite = GetCarteSprite();
@@ -581,7 +576,7 @@ namespace Zoologic
             carteImg.color = GetRuleCardBg(index);
             carteImg.raycastTarget = false;
 
-            // Liseré d'accent en haut de carte (finition, distingue chaque règle).
+            // Liser� d'accent en haut de carte (finition, distingue chaque r�gle).
             var accent = CreerObjetUI("Accent", carte.transform);
             var accentRect = accent.GetComponent<RectTransform>();
             accentRect.anchorMin = new Vector2(0f, 1f);
@@ -607,7 +602,7 @@ namespace Zoologic
             ombreImg.raycastTarget = false;
             ombre.transform.SetAsFirstSibling();
 
-            // Icône
+            // Ic�ne
             var iconObj = CreerObjetUI("Icone", carte.transform);
             var iconRect = iconObj.GetComponent<RectTransform>();
             iconRect.anchorMin = new Vector2(0f, 0f);
@@ -643,7 +638,7 @@ namespace Zoologic
             labelText.color = ScoreValueColor;
             labelText.fontStyle = FontStyles.Bold;
             labelText.lineSpacing = 2f;
-            labelText.enableWordWrapping = true;
+            labelText.textWrappingMode = TextWrappingModes.Normal;
             labelText.overflowMode = TextOverflowModes.Ellipsis;
             labelText.raycastTarget = false;
 
@@ -654,7 +649,7 @@ namespace Zoologic
         }
 
         // ------------------------------------------------------------------
-        // 3bis) POWER-UP « GOMME » : bouton flottant, coin bas-droit.
+        // 3bis) POWER-UP � GOMME � : bouton flottant, coin bas-droit.
         // ------------------------------------------------------------------
 
         private float BottomInset
@@ -670,9 +665,9 @@ namespace Zoologic
 
         private void BuildGommeBouton(Canvas canvas)
         {
-            float bottomMargin = 22f + BottomInset;
-            float rightMargin = 22f;
-            float size = 84f;
+            float bottomMargin = 26f + BottomInset + 148f;
+            float rightMargin = 16f;
+            float size = 76f;
 
             var btnObj = CreerObjetUI("GommeBouton", canvas.transform);
             var btnRect = btnObj.GetComponent<RectTransform>();
@@ -697,7 +692,7 @@ namespace Zoologic
             _gommeButton.colors = colors;
             _gommeButton.onClick.AddListener(() => OnGommeDemande?.Invoke());
 
-            // Icône gemme rouge (gomme corrective).
+            // Ic�ne gemme rouge (gomme corrective).
             Sprite gemSprite = Resources.Load<Sprite>("UI/gemRed");
             if (gemSprite != null)
             {
@@ -770,7 +765,7 @@ namespace Zoologic
             img.color = new Color(0.63f, 0.85f, 0.94f, 1f);
             img.raycastTarget = false;
 
-            // CatSilhouette supprimé - re-ancrage évite icône flottante au bord du banner (task 3)
+            // CatSilhouette supprim� - re-ancrage �vite ic�ne flottante au bord du banner (task 3)
 
             var labelGO = CreerObjetUI("FooterLabel", footer.transform);
             var labelRect = labelGO.GetComponent<RectTransform>();
@@ -792,7 +787,7 @@ namespace Zoologic
         }
 
         // ------------------------------------------------------------------
-        // 4) CŒURS : animations.
+        // 4) C�URS : animations.
         // ------------------------------------------------------------------
 
         public void SetScore(int score)
@@ -862,14 +857,14 @@ namespace Zoologic
 
                 if (i < vies)
                 {
-                    // Cœur vivant : blanc (couleur d'origine du sprite).
+                    // C�ur vivant : blanc (couleur d'origine du sprite).
                     StopHeartAnim(i);
                     _heartImages[i].color = HeartFullColor;
                     _heartRoots[i].transform.localScale = Vector3.one;
                 }
                 else
                 {
-                    // Cœur perdu : animation de disparition (scale down + fade out).
+                    // C�ur perdu : animation de disparition (scale down + fade out).
                     if (_heartAnimRoutines[i] == null && Application.isPlaying
                         && _heartRoots[i].activeSelf)
                     {
@@ -911,7 +906,7 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Décrémente le compteur d'indices de 1. Retourne true si un indice était disponible.
+        /// D�cr�mente le compteur d'indices de 1. Retourne true si un indice �tait disponible.
         /// </summary>
         public bool DecrementIndice()
         {
@@ -963,10 +958,10 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Met à jour l'état visuel du bouton indice. Avec indices gratuits restants
-        /// il libelle le nombre restant ; à 0 il passe en « achat » : libellé du coût
-        /// en pièces + piécette d'achat. Le bouton reste cliquable tant que les
-        /// interactions ne sont pas bloquées.
+        /// Met � jour l'�tat visuel du bouton indice. Avec indices gratuits restants
+        /// il libelle le nombre restant ; � 0 il passe en � achat � : libell� du co�t
+        /// en pi�ces + pi�cette d'achat. Le bouton reste cliquable tant que les
+        /// interactions ne sont pas bloqu�es.
         /// </summary>
         private void UpdateIndiceButtonState()
         {
@@ -994,7 +989,7 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Rafraîchit l'affichage du solde de pièces (appelé après gain ou dépense).
+        /// Rafra�chit l'affichage du solde de pi�ces (appel� apr�s gain ou d�pense).
         /// </summary>
         public void RefreshCoins()
         {
@@ -1003,10 +998,10 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Court retour visuel quand le joueur n'a pas assez de pièces pour acheter un indice.
-        /// La pilule indice rougit brièvement et un petit toast affiche le manque.
+        /// Court retour visuel quand le joueur n'a pas assez de pi�ces pour acheter un indice.
+        /// La pilule indice rougit bri�vement et un petit toast affiche le manque.
         /// </summary>
-        public void NotifierPiècesInsuffisantes(int cout)
+        public void NotifierPi�cesInsuffisantes(int cout)
         {
             if (_indiceButtonBg != null)
             {
@@ -1018,17 +1013,17 @@ namespace Zoologic
             if (_coinsIconImage != null)
                 Punch.FlashAlpha(this, _coinsIconImage, 0.3f, 0.4f);
 
-            ShowCoinToast($"Pas assez de pièces ({cout})");
+            ShowCoinToast($"Pas assez de pi�ces ({cout})");
             Haptics.VibrateLight();
         }
 
         /// <summary>
-        /// Événement : la gomme a été demandée alors qu'aucun pion n'est en conflit
-        /// (pas de cible). Simple retour informatif, sans coût.
+        /// �v�nement : la gomme a �t� demand�e alors qu'aucun pion n'est en conflit
+        /// (pas de cible). Simple retour informatif, sans co�t.
         /// </summary>
         public void NotifierAucuneCible()
         {
-            ShowCoinToast("Aucun conflit à retirer");
+            ShowCoinToast("Aucun conflit � retirer");
             Haptics.VibrateLight();
         }
 
@@ -1039,8 +1034,8 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Désactive brièvement le bouton gomme après usage (évite les doubles-clics
-        /// qui paieraient deux fois), puis le réarme.
+        /// D�sactive bri�vement le bouton gomme apr�s usage (�vite les doubles-clics
+        /// qui paieraient deux fois), puis le r�arme.
         /// </summary>
         public void BloquerPowerUpTemporairement(float duree)
         {
@@ -1085,7 +1080,7 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Affiche un toast temporaire centré (fond sombre arrondi + texte), puis le retire.
+        /// Affiche un toast temporaire centr� (fond sombre arrondi + texte), puis le retire.
         /// </summary>
         private void ShowCoinToast(string message)
         {
@@ -1155,7 +1150,7 @@ namespace Zoologic
         }
 
         // ------------------------------------------------------------------
-        // 6) PANNEAU DE DÉFAITE (superposé, caché par défaut)
+        // 6) PANNEAU DE D�FAITE (superpos�, cach� par d�faut)
         // ------------------------------------------------------------------
 
         private void BuildDefaitePanel(Canvas canvas)
@@ -1206,7 +1201,7 @@ namespace Zoologic
             var fitter = _defaitePanel.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            // Hibou mascotte — layout-driven, -12°
+            // Hibou mascotte � layout-driven, -12�
             Sprite owlSprite = Resources.Load<Sprite>("Art/Animals/owl");
             if (owlSprite != null)
             {
@@ -1225,14 +1220,14 @@ namespace Zoologic
                 _defeatOwl.raycastTarget = false;
             }
 
-            // Titre « Niveau échoué » - jelly style, layout-driven
+            // Titre � Niveau �chou� � - jelly style, layout-driven
             var titreObj = CreerObjetUI("Titre", _defaitePanel.transform);
             var titreLE = titreObj.AddComponent<LayoutElement>();
             titreLE.preferredHeight = 62f;
             titreLE.flexibleWidth = 1f;
             var titreText = titreObj.AddComponent<TextMeshProUGUI>();
             titreText.font = _fontTitle;
-            titreText.text = "Niveau échoué";
+            titreText.text = "Niveau �chou�";
             titreText.fontSize = 54;
             titreText.alignment = TextAlignmentOptions.Center;
             titreText.color = new Color(0.18f, 0.12f, 0.08f, 1f);
@@ -1243,7 +1238,7 @@ namespace Zoologic
             titreSh.effectColor = new Color(1f, 0.92f, 0.75f, 0.55f);
             titreSh.effectDistance = new Vector2(0f, -3f);
 
-            // Sous-titre « Plus de vies ! »
+            // Sous-titre � Plus de vies ! �
             var sousObj = CreerObjetUI("SousTitre", _defaitePanel.transform);
             var sousLE = sousObj.AddComponent<LayoutElement>();
             sousLE.preferredHeight = 42f;
@@ -1294,7 +1289,7 @@ namespace Zoologic
             pubTxtRect.offsetMax = new Vector2(-12f, -6f);
             var pubTxt = pubTxtGO.AddComponent<TextMeshProUGUI>();
             pubTxt.font = _fontTitle;
-            pubTxt.text = "Regarder une pub (+3 ♥)";
+            pubTxt.text = "Regarder une pub (+3 ?)";
             pubTxt.fontSize = 22;
             pubTxt.alignment = TextAlignmentOptions.Center;
             pubTxt.color = new Color(0.20f, 0.12f, 0.06f, 1f);
@@ -1329,7 +1324,7 @@ namespace Zoologic
 
             var btnText = btnTextObj.AddComponent<TextMeshProUGUI>();
             btnText.font = _fontTitle;
-            btnText.text = "Réessayer";
+            btnText.text = "R�essayer";
             btnText.fontSize = 30;
             btnText.alignment = TextAlignmentOptions.Center;
             btnText.color = Color.white;
@@ -1341,7 +1336,7 @@ namespace Zoologic
 
             var menuGO = CreerObjetUI("BtnMenu", _defaitePanel.transform);
             var menuLE = menuGO.AddComponent<LayoutElement>();
-            menuLE.preferredHeight = 56f;
+            menuLE.preferredHeight = 58f;
             menuLE.flexibleWidth = 1f;
             var menuImg = menuGO.AddComponent<Image>();
             menuImg.sprite = JellyUI.SmallGrey ?? GetPiluleSprite();
@@ -1350,35 +1345,41 @@ namespace Zoologic
             menuImg.color = Color.white;
             menuImg.raycastTarget = true;
             var menuBtn = menuGO.AddComponent<Button>();
-            var homeIcon = Resources.Load<Sprite>("UI/Icons/back") ?? Resources.Load<Sprite>("UI/home");
+            var homeIcon = Resources.Load<Sprite>("UI/Icons/home_pixi") ?? Resources.Load<Sprite>("UI/Icons/back");
             if (homeIcon == null) homeIcon = JellyUI.SmallGrey;
             JellyUI.ApplyJellyButton(menuBtn, menuImg, JellyUI.SmallGrey ?? GetPiluleSprite(), JellyUI.SmallYellow ?? GetPiluleSprite(), JellyUI.SmallRed ?? GetPiluleSprite(), JellyUI.SmallGrey ?? GetPiluleSprite());
-            var menuIconGO = CreerObjetUI("Icon", menuGO.transform);
+            var menuContentGO = CreerObjetUI("Content", menuGO.transform);
+            var menuContentRect = menuContentGO.GetComponent<RectTransform>();
+            menuContentRect.anchorMin = Vector2.zero;
+            menuContentRect.anchorMax = Vector2.one;
+            menuContentRect.offsetMin = new Vector2(14f, 6f);
+            menuContentRect.offsetMax = new Vector2(-14f, -6f);
+            var menuHLG = menuContentGO.AddComponent<HorizontalLayoutGroup>();
+            menuHLG.spacing = 10f;
+            menuHLG.childAlignment = TextAnchor.MiddleCenter;
+            menuHLG.childForceExpandWidth = false;
+            menuHLG.childControlWidth = false;
+            var menuIconGO = CreerObjetUI("Icon", menuContentGO.transform);
             var menuIconRect = menuIconGO.GetComponent<RectTransform>();
-            menuIconRect.anchorMin = new Vector2(0.5f, 0.5f);
-            menuIconRect.anchorMax = new Vector2(0.5f, 0.5f);
-            menuIconRect.pivot = new Vector2(0.5f, 0.5f);
-            menuIconRect.sizeDelta = new Vector2(28f, 28f);
-            menuIconRect.anchoredPosition = new Vector2(-42f, 2f);
+            menuIconRect.sizeDelta = new Vector2(26f, 26f);
+            var menuIconLE = menuIconGO.AddComponent<LayoutElement>();
+            menuIconLE.preferredWidth = 26f;
+            menuIconLE.preferredHeight = 26f;
             var menuIconImg = menuIconGO.AddComponent<Image>();
             menuIconImg.sprite = homeIcon;
             menuIconImg.preserveAspect = true;
-            menuIconImg.color = new Color(0.35f, 0.32f, 0.30f, 1f);
+            menuIconImg.color = new Color(0.22f, 0.15f, 0.10f, 1f);
             menuIconImg.raycastTarget = false;
-            var menuTxtGO = CreerObjetUI("Text", menuGO.transform);
-            var menuTxtRect = menuTxtGO.GetComponent<RectTransform>();
-            menuTxtRect.anchorMin = new Vector2(0f, 0f);
-            menuTxtRect.anchorMax = new Vector2(1f, 1f);
-            menuTxtRect.offsetMin = new Vector2(36f, 0f);
-            menuTxtRect.offsetMax = new Vector2(-12f, 0f);
+            var menuTxtGO = CreerObjetUI("Text", menuContentGO.transform);
             var menuTxt = menuTxtGO.AddComponent<TextMeshProUGUI>();
-            menuTxt.font = _fontBody;
+            menuTxt.font = _fontTitle;
             menuTxt.text = "Retour menu";
-            menuTxt.fontSize = 18;
-            menuTxt.alignment = TextAlignmentOptions.Center;
-            menuTxt.color = new Color(0.35f, 0.32f, 0.30f, 1f);
+            menuTxt.fontSize = 20;
+            menuTxt.alignment = TextAlignmentOptions.MidlineLeft;
+            menuTxt.color = new Color(0.22f, 0.15f, 0.10f, 1f);
             menuTxt.fontStyle = FontStyles.Bold;
             menuTxt.raycastTarget = false;
+            menuTxt.enableAutoSizing = false;
             menuBtn.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
@@ -1390,19 +1391,19 @@ namespace Zoologic
             _defaitePanel.SetActive(false);
         }
 
-        /// <summary>Événement invoqué quand le bouton « Réessayer » est pressé.</summary>
+        /// <summary>�v�nement invoqu� quand le bouton � R�essayer � est press�.</summary>
         public Action OnReessayer;
 
-        /// <summary>Événement invoqué quand le bouton indice est pressé.</summary>
+        /// <summary>�v�nement invoqu� quand le bouton indice est press�.</summary>
         public Action OnIndiceDemande;
 
-        /// <summary>Événement invoqué quand le bouton gomme est pressé.</summary>
+        /// <summary>�v�nement invoqu� quand le bouton gomme est press�.</summary>
         public Action OnGommeDemande;
 
         public Action OnPubViesDemande;
 
         /// <summary>
-        /// Construit le panneau de défaite. À appeler APRÈS que la grille a été
+        /// Construit le panneau de d�faite. � appeler APR�S que la grille a �t�
         /// construite, pour qu'il soit le dernier enfant du canvas (rendu au premier plan).
         /// </summary>
         public void CreerPanneauDefaite(Canvas canvas)
@@ -1505,7 +1506,7 @@ namespace Zoologic
         public bool InteractionsBloquees => _interactionsBloquees;
 
         // ------------------------------------------------------------------
-        // Réinitialisation complète du HUD (appelé par le contrôleur).
+        // R�initialisation compl�te du HUD (appel� par le contr�leur).
         // ------------------------------------------------------------------
 
         public void Reinitialiser(int score, int vies, int indices)
@@ -1527,7 +1528,7 @@ namespace Zoologic
         }
 
         // ------------------------------------------------------------------
-        // Utilitaires UI : création d'objets, sprites procéduraux.
+        // Utilitaires UI : cr�ation d'objets, sprites proc�duraux.
         // ------------------------------------------------------------------
 
         private static GameObject CreerObjetUI(string nom, Transform parent)
@@ -1538,8 +1539,8 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Ajoute une ombre portée douce sous un élément (pilule...). L'ombre est
-        /// insérée comme frère juste derrière l'élément, calquée sur sa position.
+        /// Ajoute une ombre port�e douce sous un �l�ment (pilule...). L'ombre est
+        /// ins�r�e comme fr�re juste derri�re l'�l�ment, calqu�e sur sa position.
         /// </summary>
         private void AjouterOmbre(RectTransform target, Transform holder, float offX, float offY)
         {
@@ -1615,8 +1616,8 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Comme CreerBouton mais avec une icône Image au lieu d'un texte.
-        /// Utilisé pour le bouton réglages (engrenage) dont le caractère Unicode
+        /// Comme CreerBouton mais avec une ic�ne Image au lieu d'un texte.
+        /// Utilis� pour le bouton r�glages (engrenage) dont le caract�re Unicode
         /// n'est pas rendu correctement par la police.
         /// </summary>
         private Button CreerBoutonImage(Transform parent, Sprite iconSprite, float iconSize,
@@ -1655,8 +1656,8 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Bouton d'en-tête carré/arrondi avec fond (tuile pastel) + icône image.
-        /// Symétrie visuelle avec le retour (contrairement à une icône flottante nue).
+        /// Bouton d'en-t�te carr�/arrondi avec fond (tuile pastel) + ic�ne image.
+        /// Sym�trie visuelle avec le retour (contrairement � une ic�ne flottante nue).
         /// </summary>
         private Button CreerBoutonTuileImage(Transform parent, Sprite iconSprite, float iconSize,
             Vector2 anchoredPos, Vector2 anchor, Vector2 pivot, Color? tint = null)
@@ -1701,8 +1702,8 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Variante texte du bouton tuile (utilisée pour la flèche de retour ←).
-        /// Même tuile pastel que CreerBoutonTuileImage pour garder la symétrie.
+        /// Variante texte du bouton tuile (utilis�e pour la fl�che de retour ?).
+        /// M�me tuile pastel que CreerBoutonTuileImage pour garder la sym�trie.
         /// </summary>
         private Button CreerBoutonTuileTexte(Transform parent, string glyph, float fontSize,
             Vector2 anchoredPos, Vector2 anchor, Vector2 pivot)
@@ -1747,16 +1748,16 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Variante de CreerCarteRegle avec un sprite procédural au lieu d'un
-        /// caractère texte pour l'icône. Utilisé pour la carte "diagonale" dont
-        /// le caractère ↘ n'est pas rendu correctement par la police.
+        /// Variante de CreerCarteRegle avec un sprite proc�dural au lieu d'un
+        /// caract�re texte pour l'ic�ne. Utilis� pour la carte "diagonale" dont
+        /// le caract�re ? n'est pas rendu correctement par la police.
         /// </summary>
-        /// <summary>Largeur d'une carte de règle, proportionnelle à la largeur du conteneur (robuste aux ratios).</summary>
+        /// <summary>Largeur d'une carte de r�gle, proportionnelle � la largeur du conteneur (robuste aux ratios).</summary>
         private static float CalcCardWidth(Transform parent)
         {
             if (parent is RectTransform prt && prt.rect.width > 0f)
             {
-                // 3 cartes + 2 espaces de 20px, avec une marge de 20px de chaque côté.
+                // 3 cartes + 2 espaces de 20px, avec une marge de 20px de chaque c�t�.
                 float usable = prt.rect.width - 2f * 20f - 2f * 20f;
                 return Mathf.Clamp(usable / 3f, 220f, 360f);
             }
@@ -1765,20 +1766,14 @@ namespace Zoologic
 
         private void CreerCarteRegleIcone(Transform parent, Sprite iconSprite, string label, int index)
         {
-            float cardWidth = CalcCardWidth(parent);
             float cardHeight = RuleBarHeight - 20f;
-            float spacing = 20f;
-            float totalWidth = 3f * cardWidth + 2f * spacing;
-            float startX = -totalWidth * 0.5f + cardWidth * 0.5f;
-            float x = startX + index * (cardWidth + spacing);
-
             var carte = CreerObjetUI($"Carte{index}", parent);
+            var carteLE = carte.AddComponent<LayoutElement>();
+            carteLE.flexibleWidth = 1f;
+            carteLE.preferredWidth = 220f;
+            carteLE.minWidth = 150f;
             var carteRect = carte.GetComponent<RectTransform>();
-            carteRect.anchorMin = new Vector2(0.5f, 0.5f);
-            carteRect.anchorMax = new Vector2(0.5f, 0.5f);
-            carteRect.pivot = new Vector2(0.5f, 0.5f);
-            carteRect.sizeDelta = new Vector2(cardWidth, cardHeight);
-            carteRect.anchoredPosition = new Vector2(x, 0f);
+            carteRect.sizeDelta = new Vector2(0f, cardHeight);
 
             var carteImg = carte.AddComponent<Image>();
             carteImg.sprite = GetCarteSprite();
@@ -1786,7 +1781,7 @@ namespace Zoologic
             carteImg.color = GetRuleCardBg(index);
             carteImg.raycastTarget = false;
 
-            // Liseré d'accent en haut de carte (finition, distingue chaque règle).
+            // Liser� d'accent en haut de carte (finition, distingue chaque r�gle).
             var accent = CreerObjetUI("Accent", carte.transform);
             var accentRect = accent.GetComponent<RectTransform>();
             accentRect.anchorMin = new Vector2(0f, 1f);
@@ -1812,7 +1807,7 @@ namespace Zoologic
             ombreImg.raycastTarget = false;
             ombre.transform.SetAsFirstSibling();
 
-            // Icône sprite (au lieu de texte)
+            // Ic�ne sprite (au lieu de texte)
             var iconObj = CreerObjetUI("Icone", carte.transform);
             var iconRect = iconObj.GetComponent<RectTransform>();
             iconRect.anchorMin = new Vector2(0f, 0f);
@@ -1846,7 +1841,7 @@ namespace Zoologic
             labelText.color = ScoreValueColor;
             labelText.fontStyle = FontStyles.Bold;
             labelText.lineSpacing = 2f;
-            labelText.enableWordWrapping = true;
+            labelText.textWrappingMode = TextWrappingModes.Normal;
             labelText.overflowMode = TextOverflowModes.Ellipsis;
             labelText.raycastTarget = false;
 
@@ -1857,7 +1852,7 @@ namespace Zoologic
         }
 
         // ------------------------------------------------------------------
-        // Sprites procéduraux (coins arrondis).
+        // Sprites proc�duraux (coins arrondis).
         // ------------------------------------------------------------------
 
         private static Sprite _piluleSprite;
@@ -1955,8 +1950,8 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Engrenage simplifié : cercle central + 8 dents rectangulaires
-        /// réparties autour, pour représenter un bouton "réglages".
+        /// Engrenage simplifi� : cercle central + 8 dents rectangulaires
+        /// r�parties autour, pour repr�senter un bouton "r�glages".
         /// </summary>
         private static Sprite CreerSpriteEngrenage(int resolution)
         {
@@ -2018,13 +2013,13 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Flèche diagonale vers le bas-droite : ligne diagonale + pointe.
-        /// Pour la règle "ne peut pas se toucher" (diagonale adjacente).
+        /// Fl�che diagonale vers le bas-droite : ligne diagonale + pointe.
+        /// Pour la r�gle "ne peut pas se toucher" (diagonale adjacente).
         /// </summary>
         /// <summary>
         /// Pictogramme "ne peut pas se toucher en diagonale" : mini-grille 2x2
-        /// (4 cases) dont la paire diagonale est reliée puis barrée par un trait
-        /// de prohibition. Beaucoup plus lisible qu'une simple flèche diagonale.
+        /// (4 cases) dont la paire diagonale est reli�e puis barr�e par un trait
+        /// de prohibition. Beaucoup plus lisible qu'une simple fl�che diagonale.
         /// </summary>
         private static Sprite CreerSpriteDiagonaleInterdite(int resolution)
         {
@@ -2035,13 +2030,13 @@ namespace Zoologic
             float n = resolution - 1f;
             float gap = resolution * 0.06f;       // espace entre cases
             float cell = (n / 2f) - gap * 0.5f;   // taille d'une case
-            float stroke = resolution * 0.06f;    // épaisseur des traits
+            float stroke = resolution * 0.06f;    // �paisseur des traits
 
-            // Centres des 4 cases (coin supérieur gauche de chaque case).
+            // Centres des 4 cases (coin sup�rieur gauche de chaque case).
             float[] cellX = new float[] { gap, gap + cell + gap, gap, gap + cell + gap };
             float[] cellY = new float[] { gap, gap, gap + cell + gap, gap + cell + gap };
 
-            // Paire diagonale à souligner : haut-gauche (0) et bas-droite (3).
+            // Paire diagonale � souligner : haut-gauche (0) et bas-droite (3).
             float d0x = gap + cell * 0.5f;
             float d0y = gap + cell * 0.5f;
             float d1x = gap + cell + gap + cell * 0.5f;
@@ -2066,7 +2061,7 @@ namespace Zoologic
                             inside = true;
                     }
 
-                    // 2) Paire diagonale reliée (haut-gauche -> bas-droite).
+                    // 2) Paire diagonale reli�e (haut-gauche -> bas-droite).
                     float dx = d1x - d0x;
                     float dy = d1y - d0y;
                     float len = Mathf.Sqrt(dx * dx + dy * dy);
