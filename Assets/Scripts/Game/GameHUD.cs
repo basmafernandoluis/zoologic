@@ -641,15 +641,10 @@ namespace Zoologic
             labelText.textWrappingMode = TextWrappingModes.Normal;
             labelText.overflowMode = TextOverflowModes.Ellipsis;
             labelText.raycastTarget = false;
-
-            var cardLE = carte.AddComponent<LayoutElement>();
-            cardLE.flexibleWidth = 1f;
-            cardLE.preferredHeight = cardHeight;
-            cardLE.minWidth = 180f;
         }
 
         // ------------------------------------------------------------------
-        // 3bis) POWER-UP � GOMME � : bouton flottant, coin bas-droit.
+        // 3bis) POWER-UP - GOMME : bouton flottant, coin bas-droit.
         // ------------------------------------------------------------------
 
         private float BottomInset
