@@ -458,32 +458,27 @@ namespace Zoologic
 
         private void CreateBubble(Canvas canvas)
         {
-            _bubbleRoot=new GameObject("Bubble", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            _bubbleRoot=new GameObject("Bubble", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             _bubbleRoot.transform.SetParent(canvas.transform,false);
             var rt=(RectTransform)_bubbleRoot.transform;
             rt.anchorMin=new Vector2(0.5f,0f); rt.anchorMax=new Vector2(0.5f,0f); rt.pivot=new Vector2(0.5f,0f);
-            rt.sizeDelta=new Vector2(880f,220f); rt.anchoredPosition=new Vector2(0f,42f);
-            var img=_bubbleRoot.GetComponent<Image>(); img.sprite=_roundedSprite; img.type=Image.Type.Simple; img.color=new Color(0.10f,0.12f,0.16f,0.96f); img.raycastTarget=false;
-            var vlg=_bubbleRoot.AddComponent<VerticalLayoutGroup>(); vlg.padding=new RectOffset(22,22,22,16); vlg.spacing=12f; vlg.childAlignment=TextAnchor.MiddleCenter;
+            rt.sizeDelta=new Vector2(880f,160f); rt.anchoredPosition=new Vector2(0f,42f);
+            var img=_bubbleRoot.GetComponent<Image>();
+            var jellyGreen=JellyUI.ButtonGreen ?? _roundedSprite;
+            img.sprite=jellyGreen; img.type=Image.Type.Sliced; img.pixelsPerUnitMultiplier=1f; img.color=Color.white; img.raycastTarget=true;
+            _bubbleNext=_bubbleRoot.GetComponent<Button>();
+            JellyUI.ApplyJellyButton(_bubbleNext, img, JellyUI.ButtonGreen, JellyUI.ButtonYellow, JellyUI.ButtonRed, JellyUI.ButtonGrey);
+            _bubbleNext.onClick.AddListener(()=>{ _nextClicked=true; SFXManager.Instance.PlayMenuClose(); });
             var txtGO=new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             txtGO.transform.SetParent(_bubbleRoot.transform,false);
+            var txtRect=(RectTransform)txtGO.transform;
+            txtRect.anchorMin=Vector2.zero; txtRect.anchorMax=Vector2.one; txtRect.offsetMin=new Vector2(24f,12f); txtRect.offsetMax=new Vector2(-24f,-12f);
             _bubbleText=txtGO.GetComponent<TextMeshProUGUI>();
             _bubbleText.font=_fontBody!=null?_fontBody:Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF");
-            _bubbleText.fontSize=28; _bubbleText.color=Color.white; _bubbleText.alignment=TextAlignmentOptions.Center;
+            _bubbleText.fontSize=30; _bubbleText.fontStyle=FontStyles.Bold; _bubbleText.color=new Color(1f,1f,1f,1f); _bubbleText.alignment=TextAlignmentOptions.Center;
             _bubbleText.textWrappingMode=TextWrappingModes.Normal; _bubbleText.raycastTarget=false;
-            var txtLE=txtGO.AddComponent<LayoutElement>(); txtLE.preferredHeight=96f;
-            var btnGO=new GameObject("Suivant", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
-            btnGO.transform.SetParent(_bubbleRoot.transform,false);
-            var btnRect=(RectTransform)btnGO.transform; btnRect.sizeDelta=new Vector2(300f,62f);
-            var btnImg=btnGO.GetComponent<Image>(); btnImg.sprite=KenneyUI.Button("Green")??CreateRoundedRectSprite(); btnImg.type=Image.Type.Simple; btnImg.color=Color.white;
-            _bubbleNext=btnGO.GetComponent<Button>(); _bubbleNext.targetGraphic=btnImg;
-            _bubbleNext.onClick.AddListener(()=>{ _nextClicked=true; SFXManager.Instance.PlayMenuClose(); });
-            var btnTxtGO=new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            btnTxtGO.transform.SetParent(btnGO.transform,false);
-            var btnTxtRect=(RectTransform)btnTxtGO.transform; btnTxtRect.anchorMin=Vector2.zero; btnTxtRect.anchorMax=Vector2.one; btnTxtRect.offsetMin=Vector2.zero; btnTxtRect.offsetMax=Vector2.zero;
-            var btnTxt=btnTxtGO.GetComponent<TextMeshProUGUI>(); btnTxt.font=_fontTitle!=null?_fontTitle:Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
-            btnTxt.text="Suivant"; btnTxt.fontSize=24; btnTxt.fontStyle=FontStyles.Bold; btnTxt.color=Color.white; btnTxt.alignment=TextAlignmentOptions.Center;
-            var btnLE=btnGO.AddComponent<LayoutElement>(); btnLE.preferredHeight=52f;
+            var sh=txtGO.AddComponent<Shadow>();
+            sh.effectColor=new Color(0f,0f,0f,0.35f); sh.effectDistance=new Vector2(0f,-3f);
             _bubbleRoot.SetActive(false);
         }
 
@@ -525,9 +520,9 @@ namespace Zoologic
         {
             if(_bubbleText==null) { yield return new WaitForSecondsRealtime(1.2f); yield break; }
             _bubbleText.text=text;
-            if(_bubbleNext!=null) _bubbleNext.gameObject.SetActive(showNext);
+            if(_bubbleNext!=null) _bubbleNext.interactable=showNext;
             SetBubbleVisible(true);
-            if(!showNext){ yield return new WaitForSecondsRealtime(1.4f); yield break; }
+            if(!showNext){ yield return new WaitForSecondsRealtime(1.4f); SetBubbleVisible(false); yield break; }
             _nextClicked=false;
             yield return new WaitUntil(()=>_nextClicked);
             SetBubbleVisible(false);

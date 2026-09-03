@@ -1655,34 +1655,35 @@ namespace Zoologic
             btnRect.anchorMin = anchor;
             btnRect.anchorMax = anchor;
             btnRect.pivot = pivot;
-            btnRect.sizeDelta = new Vector2(64f, 64f);
+            btnRect.sizeDelta = new Vector2(68f, 68f);
             btnRect.anchoredPosition = anchoredPos;
 
             var btnImg = btnObj.AddComponent<Image>();
-            btnImg.sprite = GetPiluleSprite();
-            btnImg.type = Image.Type.Simple;
-            btnImg.color = HeaderTileBg;
+            var jellyNormal = JellyUI.SmallGreen ?? GetPiluleSprite();
+            var jellyHover = JellyUI.SmallYellow ?? jellyNormal;
+            var jellyPressed = JellyUI.SmallRed ?? jellyNormal;
+            var jellyDisabled = JellyUI.SmallGrey ?? jellyNormal;
+            btnImg.sprite = jellyNormal;
+            btnImg.type = Image.Type.Sliced;
+            btnImg.pixelsPerUnitMultiplier = 1f;
             btnImg.raycastTarget = true;
-            AjouterOmbre(btnRect, parent, 2f, -3f);
 
             var btn = btnObj.AddComponent<Button>();
-            btn.targetGraphic = btnImg;
-            var colors = btn.colors;
-            colors.pressedColor = new Color(0.80f, 0.86f, 0.92f, 1f);
-            btn.colors = colors;
+            JellyUI.ApplyJellyButton(btn, btnImg, jellyNormal, jellyHover, jellyPressed, jellyDisabled);
 
             var iconObj = CreerObjetUI("Icone", btnObj.transform);
             var iconRect = iconObj.GetComponent<RectTransform>();
-            iconRect.anchorMin = Vector2.zero;
-            iconRect.anchorMax = Vector2.one;
-            iconRect.offsetMin = Vector2.zero;
-            iconRect.offsetMax = Vector2.zero;
+            iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+            iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+            iconRect.pivot = new Vector2(0.5f, 0.5f);
+            iconRect.sizeDelta = new Vector2(iconSize, iconSize);
+            iconRect.anchoredPosition = new Vector2(0f, 3f);
 
             var iconImage = iconObj.AddComponent<Image>();
             iconImage.sprite = iconSprite;
             iconImage.type = Image.Type.Simple;
             iconImage.preserveAspect = true;
-            iconImage.color = tint ?? HeaderTileIcon;
+            iconImage.color = tint ?? Color.white;
             iconImage.raycastTarget = false;
 
             return btn;
