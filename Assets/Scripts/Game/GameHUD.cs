@@ -1227,26 +1227,30 @@ namespace Zoologic
             var titreText = titreObj.AddComponent<TextMeshProUGUI>();
             titreText.font = _fontTitle;
             titreText.text = "Niveau échoué";
-            titreText.fontSize = 42;
+            titreText.fontSize = 54;
             titreText.alignment = TextAlignmentOptions.Center;
-            titreText.color = new Color(0.15f, 0.15f, 0.18f, 1f);
+            titreText.color = new Color(0.18f, 0.12f, 0.08f, 1f);
             titreText.fontStyle = FontStyles.Bold;
             titreText.raycastTarget = false;
+            var titreSh = titreObj.AddComponent<Shadow>();
+            titreSh.effectColor = new Color(1f, 0.92f, 0.75f, 0.55f);
+            titreSh.effectDistance = new Vector2(0f, -3f);
 
             // Sous-titre « Plus de vies ! »
             var sousObj = CreerObjetUI("SousTitre", _defaitePanel.transform);
             var sousRect = sousObj.GetComponent<RectTransform>();
-            sousRect.anchorMin = new Vector2(0f, 0.50f);
-            sousRect.anchorMax = new Vector2(1f, 0.62f);
+            sousRect.anchorMin = new Vector2(0f, 0.48f);
+            sousRect.anchorMax = new Vector2(1f, 0.60f);
             sousRect.offsetMin = Vector2.zero;
             sousRect.offsetMax = Vector2.zero;
 
             var sousText = sousObj.AddComponent<TextMeshProUGUI>();
-            sousText.font = _fontBody;
+            sousText.font = _fontTitle;
             sousText.text = "Plus de vies !";
-            sousText.fontSize = 26;
+            sousText.fontSize = 32;
+            sousText.fontStyle = FontStyles.Bold;
             sousText.alignment = TextAlignmentOptions.Center;
-            sousText.color = ScoreLabelColor;
+            sousText.color = new Color(0.62f, 0.32f, 0.22f, 1f);
             sousText.raycastTarget = false;
 
             var timerGO = CreerObjetUI("TimerVies", _defaitePanel.transform);
@@ -1254,14 +1258,15 @@ namespace Zoologic
             timerRect.anchorMin = new Vector2(0.5f, 0.38f);
             timerRect.anchorMax = new Vector2(0.5f, 0.38f);
             timerRect.pivot = new Vector2(0.5f, 0.5f);
-            timerRect.sizeDelta = new Vector2(400f, 26f);
+            timerRect.sizeDelta = new Vector2(460f, 30f);
             timerRect.anchoredPosition = Vector2.zero;
             _livesTimerText = timerGO.AddComponent<TextMeshProUGUI>();
-            _livesTimerText.font = _fontBody;
+            _livesTimerText.font = _fontTitle;
             _livesTimerText.text = "";
-            _livesTimerText.fontSize = 18;
+            _livesTimerText.fontSize = 22;
+            _livesTimerText.fontStyle = FontStyles.Bold;
             _livesTimerText.alignment = TextAlignmentOptions.Center;
-            _livesTimerText.color = new Color(0.55f, 0.48f, 0.40f, 1f);
+            _livesTimerText.color = new Color(0.55f, 0.38f, 0.18f, 1f);
             _livesTimerText.raycastTarget = false;
 
             var pubGO = CreerObjetUI("BtnPubVies", _defaitePanel.transform);

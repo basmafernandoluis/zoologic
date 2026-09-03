@@ -456,33 +456,48 @@ namespace Zoologic
 
         private void HideOverlay(){ if(_overlayRoot!=null) _overlayRoot.SetActive(false); }
 
+        private GameObject _actionRoot; private TextMeshProUGUI _actionText;
         private void CreateBubble(Canvas canvas)
         {
-            _bubbleRoot=new GameObject("Bubble", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            _bubbleRoot=new GameObject("InstructionBubble", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             _bubbleRoot.transform.SetParent(canvas.transform,false);
             var rt=(RectTransform)_bubbleRoot.transform;
-            rt.anchorMin=new Vector2(0.5f,0f); rt.anchorMax=new Vector2(0.5f,0f); rt.pivot=new Vector2(0.5f,0f);
-            rt.sizeDelta=new Vector2(880f,160f); rt.anchoredPosition=new Vector2(0f,42f);
-            var img=_bubbleRoot.GetComponent<Image>();
-            var jellyGreen=JellyUI.ButtonGreen ?? _roundedSprite;
-            img.sprite=jellyGreen; img.type=Image.Type.Sliced; img.pixelsPerUnitMultiplier=1f; img.color=Color.white; img.raycastTarget=true;
-            _bubbleNext=_bubbleRoot.GetComponent<Button>();
-            JellyUI.ApplyJellyButton(_bubbleNext, img, JellyUI.ButtonGreen, JellyUI.ButtonYellow, JellyUI.ButtonRed, JellyUI.ButtonGrey);
-            _bubbleNext.onClick.AddListener(()=>{ _nextClicked=true; SFXManager.Instance.PlayMenuClose(); });
+            rt.anchorMin=new Vector2(0.5f,1f); rt.anchorMax=new Vector2(0.5f,1f); rt.pivot=new Vector2(0.5f,1f);
+            rt.sizeDelta=new Vector2(860f,150f); rt.anchoredPosition=new Vector2(0f,-110f);
+            var img=_bubbleRoot.GetComponent<Image>(); img.sprite=_roundedSprite; img.type=Image.Type.Simple; img.color=new Color(0.10f,0.12f,0.16f,0.96f); img.raycastTarget=false;
             var txtGO=new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             txtGO.transform.SetParent(_bubbleRoot.transform,false);
             var txtRect=(RectTransform)txtGO.transform;
-            txtRect.anchorMin=Vector2.zero; txtRect.anchorMax=Vector2.one; txtRect.offsetMin=new Vector2(24f,12f); txtRect.offsetMax=new Vector2(-24f,-12f);
+            txtRect.anchorMin=Vector2.zero; txtRect.anchorMax=Vector2.one; txtRect.offsetMin=new Vector2(18f,12f); txtRect.offsetMax=new Vector2(-18f,-12f);
             _bubbleText=txtGO.GetComponent<TextMeshProUGUI>();
-            _bubbleText.font=_fontBody!=null?_fontBody:Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF");
-            _bubbleText.fontSize=30; _bubbleText.fontStyle=FontStyles.Bold; _bubbleText.color=new Color(1f,1f,1f,1f); _bubbleText.alignment=TextAlignmentOptions.Center;
+            _bubbleText.font=_fontTitle!=null?_fontTitle:Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
+            _bubbleText.fontSize=32; _bubbleText.fontStyle=FontStyles.Bold; _bubbleText.color=Color.white; _bubbleText.alignment=TextAlignmentOptions.Center;
             _bubbleText.textWrappingMode=TextWrappingModes.Normal; _bubbleText.raycastTarget=false;
-            var sh=txtGO.AddComponent<Shadow>();
-            sh.effectColor=new Color(0f,0f,0f,0.35f); sh.effectDistance=new Vector2(0f,-3f);
+            var sh=txtGO.AddComponent<Shadow>(); sh.effectColor=new Color(0f,0f,0f,0.35f); sh.effectDistance=new Vector2(0f,-3f);
             _bubbleRoot.SetActive(false);
+
+            _actionRoot=new GameObject("ActionBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            _actionRoot.transform.SetParent(canvas.transform,false);
+            var art=(RectTransform)_actionRoot.transform;
+            art.anchorMin=new Vector2(0.5f,0f); art.anchorMax=new Vector2(0.5f,0f); art.pivot=new Vector2(0.5f,0f);
+            art.sizeDelta=new Vector2(420f,88f); art.anchoredPosition=new Vector2(0f,42f);
+            var aImg=_actionRoot.GetComponent<Image>();
+            var jellyGreen=JellyUI.ButtonGreen ?? _roundedSprite;
+            aImg.sprite=jellyGreen; aImg.type=Image.Type.Sliced; aImg.pixelsPerUnitMultiplier=1f; aImg.color=Color.white; aImg.raycastTarget=true;
+            _bubbleNext=_actionRoot.GetComponent<Button>();
+            JellyUI.ApplyJellyButton(_bubbleNext, aImg, JellyUI.ButtonGreen, JellyUI.ButtonYellow, JellyUI.ButtonRed, JellyUI.ButtonGrey);
+            _bubbleNext.onClick.AddListener(()=>{ _nextClicked=true; SFXManager.Instance.PlayMenuClose(); });
+            var atxtGO=new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            atxtGO.transform.SetParent(_actionRoot.transform,false);
+            var atxtRect=(RectTransform)atxtGO.transform; atxtRect.anchorMin=Vector2.zero; atxtRect.anchorMax=Vector2.one; atxtRect.offsetMin=new Vector2(18f,6f); atxtRect.offsetMax=new Vector2(-18f,-6f);
+            _actionText=atxtGO.GetComponent<TextMeshProUGUI>();
+            _actionText.font=_fontTitle!=null?_fontTitle:Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
+            _actionText.text="Suivant"; _actionText.fontSize=30; _actionText.fontStyle=FontStyles.Bold; _actionText.color=Color.white; _actionText.alignment=TextAlignmentOptions.Center;
+            var ash=atxtGO.AddComponent<Shadow>(); ash.effectColor=new Color(0f,0f,0f,0.35f); ash.effectDistance=new Vector2(0f,-3f);
+            _actionRoot.SetActive(false);
         }
 
-        private Coroutine _bubblePopRoutine;
+        private Coroutine _bubblePopRoutine; private Coroutine _actionPopRoutine;
         private void SetBubbleVisible(bool v)
         {
             if(_bubbleRoot==null) return;
@@ -492,7 +507,7 @@ namespace Zoologic
                 _bubbleRoot.transform.SetAsLastSibling();
                 _bubbleRoot.transform.localScale = Vector3.zero;
                 if(_bubblePopRoutine!=null) StopCoroutine(_bubblePopRoutine);
-                _bubblePopRoutine = StartCoroutine(BubblePopRoutine());
+                _bubblePopRoutine = StartCoroutine(BubblePopRoutine(_bubbleRoot.transform));
             }
             else
             {
@@ -500,10 +515,28 @@ namespace Zoologic
                 _bubbleRoot.SetActive(false);
             }
         }
-
-        private IEnumerator BubblePopRoutine()
+        private void SetActionVisible(bool v, string label="Suivant")
         {
-            var t = _bubbleRoot.transform;
+            if(_actionRoot==null) return;
+            if(v)
+            {
+                if(_actionText!=null) _actionText.text=label;
+                _actionRoot.SetActive(true);
+                _actionRoot.transform.SetAsLastSibling();
+                _actionRoot.transform.localScale = Vector3.zero;
+                if(_actionPopRoutine!=null) StopCoroutine(_actionPopRoutine);
+                _actionPopRoutine = StartCoroutine(BubblePopRoutine(_actionRoot.transform));
+                if(_hand!=null) _hand.transform.SetAsLastSibling();
+            }
+            else
+            {
+                if(_actionPopRoutine!=null) { StopCoroutine(_actionPopRoutine); _actionPopRoutine=null; }
+                _actionRoot.SetActive(false);
+            }
+        }
+
+        private IEnumerator BubblePopRoutine(Transform t)
+        {
             float d = 0.32f; float e = 0f;
             while(e < d)
             {
@@ -516,17 +549,31 @@ namespace Zoologic
             t.localScale = Vector3.one;
         }
 
+        private IEnumerator BubblePopRoutine()
+        {
+            yield return BubblePopRoutine(_bubbleRoot.transform);
+        }
+
         private IEnumerator ShowBubble(string text, bool showNext)
         {
             if(_bubbleText==null) { yield return new WaitForSecondsRealtime(1.2f); yield break; }
             _bubbleText.text=text;
-            if(_bubbleNext!=null) _bubbleNext.interactable=showNext;
             SetBubbleVisible(true);
-            if(!showNext){ yield return new WaitForSecondsRealtime(1.4f); SetBubbleVisible(false); yield break; }
-            _nextClicked=false;
-            yield return new WaitUntil(()=>_nextClicked);
-            SetBubbleVisible(false);
-            yield return new WaitForSecondsRealtime(0.2f);
+            if(showNext)
+            {
+                SetActionVisible(true, "Suivant");
+                _nextClicked=false;
+                yield return new WaitUntil(()=>_nextClicked);
+                SetActionVisible(false);
+                SetBubbleVisible(false);
+                yield return new WaitForSecondsRealtime(0.2f);
+            }
+            else
+            {
+                SetActionVisible(false);
+                yield return new WaitForSecondsRealtime(1.4f);
+                SetBubbleVisible(false);
+            }
         }
 
         private static Canvas EnsureCanvas()

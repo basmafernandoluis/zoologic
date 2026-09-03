@@ -127,8 +127,45 @@ namespace Zoologic.EditorTools
             {
                 new EditorBuildSettingsScene(ScenePaths[0], true),
                 new EditorBuildSettingsScene(ScenePaths[1], true),
-                new EditorBuildSettingsScene(ScenePaths[2], true)
+                new EditorBuildSettingsScene(ScenePaths[2], true),
+                new EditorBuildSettingsScene(ScenePaths[3], true)
             };
+            AssetDatabase.SaveAssets();
+
+            try
+            {
+                var t = System.Type.GetType("UnityEditor.Build.Profile.BuildProfile, UnityEditor.Build.Profile");
+                if (t != null)
+                {
+                    var m = t.GetMethod("GetActiveBuildProfile", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+                    var p = m?.Invoke(null, null);
+                    if (p != null)
+                    {
+                        var prop = t.GetProperty("scenes");
+                        if (prop != null)
+                        {
+                            var arr = System.Array.CreateInstance(prop.PropertyType.GetElementType(), ScenePaths.Length);
+                            for (int i = 0; i < ScenePaths.Length; i++)
+                            {
+                                var sceneInfoType = prop.PropertyType.GetElementType();
+                                var ctor = sceneInfoType.GetConstructor(new[] { typeof(string), typeof(bool) });
+                                object info = ctor != null ? ctor.Invoke(new object[] { ScenePaths[i], true }) : System.Activator.CreateInstance(sceneInfoType);
+                                if (ctor == null)
+                                {
+                                    var pathProp = sceneInfoType.GetProperty("path");
+                                    var enabledProp = sceneInfoType.GetProperty("enabled");
+                                    pathProp?.SetValue(info, ScenePaths[i]);
+                                    enabledProp?.SetValue(info, true);
+                                }
+                                arr.SetValue(info, i);
+                            }
+                            prop.SetValue(p, arr);
+                            Debug.Log("[Build] Active BuildProfile scenes synchronisés (" + ScenePaths.Length + ")");
+                        }
+                    }
+                }
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Build] BuildProfile sync ignoré: " + e.Message); }
 
             Debug.Log("[Build] Backend: " + PlayerSettings.GetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Android));
         }

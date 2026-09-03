@@ -1072,10 +1072,14 @@ namespace Zoologic
             _victoryText = textGO.GetComponent<TextMeshProUGUI>();
             _victoryText.font = tmpFont;
             _victoryText.text = "Niveau terminé !";
-            _victoryText.fontSize = 42;
+            _victoryText.fontSize = 52;
+            _victoryText.fontStyle = FontStyles.Bold;
             _victoryText.alignment = TextAlignmentOptions.Center;
-            _victoryText.color = new Color(0.15f, 0.15f, 0.18f, 1f);
+            _victoryText.color = new Color(0.18f, 0.12f, 0.08f, 1f);
             _victoryText.raycastTarget = false;
+            var vSh = textGO.AddComponent<Shadow>();
+            vSh.effectColor = new Color(1f, 0.92f, 0.75f, 0.55f);
+            vSh.effectDistance = new Vector2(0f, -3f);
 
             _victoryTextBasePosition = textRect.anchoredPosition;
 
