@@ -544,6 +544,15 @@ namespace Zoologic
             barShImg.raycastTarget = false;
             barShadow.transform.SetAsFirstSibling();
 
+            var hlg = container.AddComponent<HorizontalLayoutGroup>();
+            hlg.padding = new RectOffset(14, 14, 12, 12);
+            hlg.spacing = 12f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = true;
+            hlg.childForceExpandHeight = true;
+
             CreerCarteRegle(container.transform, "\u25CB", "1 par couleur", 0);
             CreerCarteRegle(container.transform, "\u25A1", "1 par ligne\net colonne", 1);
             CreerCarteRegleIcone(container.transform, GetDiagonalArrowSprite(), "Ne peut pas\nse toucher", 2);
@@ -627,11 +636,21 @@ namespace Zoologic
             labelText.font = _fontTitle;
             labelText.text = label;
             labelText.fontSize = 28;
+            labelText.fontSizeMin = 18;
+            labelText.fontSizeMax = 28;
+            labelText.enableAutoSizing = true;
             labelText.alignment = TextAlignmentOptions.MidlineLeft;
             labelText.color = ScoreValueColor;
             labelText.fontStyle = FontStyles.Bold;
             labelText.lineSpacing = 2f;
+            labelText.enableWordWrapping = true;
+            labelText.overflowMode = TextOverflowModes.Ellipsis;
             labelText.raycastTarget = false;
+
+            var cardLE = carte.AddComponent<LayoutElement>();
+            cardLE.flexibleWidth = 1f;
+            cardLE.preferredHeight = cardHeight;
+            cardLE.minWidth = 180f;
         }
 
         // ------------------------------------------------------------------
@@ -751,28 +770,7 @@ namespace Zoologic
             img.color = new Color(0.63f, 0.85f, 0.94f, 1f);
             img.raycastTarget = false;
 
-            var catGO = CreerObjetUI("CatSilhouette", footer.transform);
-            var catRect = catGO.GetComponent<RectTransform>();
-            catRect.anchorMin = new Vector2(0.5f, 1f);
-            catRect.anchorMax = new Vector2(0.5f, 1f);
-            catRect.pivot = new Vector2(0.5f, 0f);
-            catRect.sizeDelta = new Vector2(80f, 42f);
-            catRect.anchoredPosition = new Vector2(0f, -6f);
-            var catImg = catGO.AddComponent<Image>();
-            catImg.sprite = Resources.Load<Sprite>("Art/Animals/cat") ?? Resources.Load<Sprite>("Art/Animals/bear");
-            if (catImg.sprite == null)
-            {
-                var all = AnimalIconSet.LoadAll();
-                if (all != null && all.Length > 0) catImg.sprite = all[0];
-            }
-            if (catImg.sprite != null)
-            {
-                catImg.type = Image.Type.Simple;
-                catImg.preserveAspect = true;
-                catImg.color = new Color(1f, 1f, 1f, 0.35f);
-                catImg.raycastTarget = false;
-            }
-            else catGO.SetActive(false);
+            // CatSilhouette supprimé - re-ancrage évite icône flottante au bord du banner (task 3)
 
             var labelGO = CreerObjetUI("FooterLabel", footer.transform);
             var labelRect = labelGO.GetComponent<RectTransform>();
@@ -1185,7 +1183,7 @@ namespace Zoologic
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.pivot = new Vector2(0.5f, 0.5f);
-            panelRect.sizeDelta = new Vector2(700f, 540f);
+            panelRect.sizeDelta = new Vector2(700f, 620f);
             panelRect.anchoredPosition = Vector2.zero;
 
             var panelImg = _defaitePanel.AddComponent<Image>();
@@ -1196,17 +1194,28 @@ namespace Zoologic
             panelShadow.effectColor = new Color(0.18f, 0.11f, 0.06f, 0.32f);
             panelShadow.effectDistance = new Vector2(0f, -10f);
 
-            // Hibou mascotte — inclinaison triste à -12°
+            var vlg = _defaitePanel.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 18f;
+            vlg.childAlignment = TextAnchor.MiddleCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            vlg.padding = new RectOffset(28, 28, 28, 28);
+
+            var fitter = _defaitePanel.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            // Hibou mascotte — layout-driven, -12°
             Sprite owlSprite = Resources.Load<Sprite>("Art/Animals/owl");
             if (owlSprite != null)
             {
                 var owlObj = CreerObjetUI("DefeatOwl", _defaitePanel.transform);
+                var owlLE = owlObj.AddComponent<LayoutElement>();
+                owlLE.preferredHeight = 110f;
+                owlLE.flexibleWidth = 1f;
                 var owlRect = owlObj.GetComponent<RectTransform>();
-                owlRect.anchorMin = new Vector2(0.5f, 0.82f);
-                owlRect.anchorMax = new Vector2(0.5f, 0.82f);
-                owlRect.pivot = new Vector2(0.5f, 0.5f);
                 owlRect.sizeDelta = new Vector2(110f, 110f);
-                owlRect.anchoredPosition = Vector2.zero;
                 owlRect.localRotation = Quaternion.Euler(0f, 0f, -12f);
 
                 _defeatOwl = owlObj.AddComponent<Image>();
@@ -1216,14 +1225,11 @@ namespace Zoologic
                 _defeatOwl.raycastTarget = false;
             }
 
-            // Titre « Niveau échoué » (décalé vers le bas)
+            // Titre « Niveau échoué » - jelly style, layout-driven
             var titreObj = CreerObjetUI("Titre", _defaitePanel.transform);
-            var titreRect = titreObj.GetComponent<RectTransform>();
-            titreRect.anchorMin = new Vector2(0f, 0.58f);
-            titreRect.anchorMax = new Vector2(1f, 0.78f);
-            titreRect.offsetMin = Vector2.zero;
-            titreRect.offsetMax = Vector2.zero;
-
+            var titreLE = titreObj.AddComponent<LayoutElement>();
+            titreLE.preferredHeight = 62f;
+            titreLE.flexibleWidth = 1f;
             var titreText = titreObj.AddComponent<TextMeshProUGUI>();
             titreText.font = _fontTitle;
             titreText.text = "Niveau échoué";
@@ -1232,18 +1238,16 @@ namespace Zoologic
             titreText.color = new Color(0.18f, 0.12f, 0.08f, 1f);
             titreText.fontStyle = FontStyles.Bold;
             titreText.raycastTarget = false;
+            titreText.enableAutoSizing = false;
             var titreSh = titreObj.AddComponent<Shadow>();
             titreSh.effectColor = new Color(1f, 0.92f, 0.75f, 0.55f);
             titreSh.effectDistance = new Vector2(0f, -3f);
 
             // Sous-titre « Plus de vies ! »
             var sousObj = CreerObjetUI("SousTitre", _defaitePanel.transform);
-            var sousRect = sousObj.GetComponent<RectTransform>();
-            sousRect.anchorMin = new Vector2(0f, 0.48f);
-            sousRect.anchorMax = new Vector2(1f, 0.60f);
-            sousRect.offsetMin = Vector2.zero;
-            sousRect.offsetMax = Vector2.zero;
-
+            var sousLE = sousObj.AddComponent<LayoutElement>();
+            sousLE.preferredHeight = 42f;
+            sousLE.flexibleWidth = 1f;
             var sousText = sousObj.AddComponent<TextMeshProUGUI>();
             sousText.font = _fontTitle;
             sousText.text = "Plus de vies !";
@@ -1254,76 +1258,74 @@ namespace Zoologic
             sousText.raycastTarget = false;
 
             var timerGO = CreerObjetUI("TimerVies", _defaitePanel.transform);
-            var timerRect = timerGO.GetComponent<RectTransform>();
-            timerRect.anchorMin = new Vector2(0.5f, 0.38f);
-            timerRect.anchorMax = new Vector2(0.5f, 0.38f);
-            timerRect.pivot = new Vector2(0.5f, 0.5f);
-            timerRect.sizeDelta = new Vector2(460f, 30f);
-            timerRect.anchoredPosition = Vector2.zero;
+            var timerLE = timerGO.AddComponent<LayoutElement>();
+            timerLE.preferredHeight = 36f;
+            timerLE.flexibleWidth = 1f;
             _livesTimerText = timerGO.AddComponent<TextMeshProUGUI>();
             _livesTimerText.font = _fontTitle;
             _livesTimerText.text = "";
-            _livesTimerText.fontSize = 22;
+            _livesTimerText.fontSize = 26;
             _livesTimerText.fontStyle = FontStyles.Bold;
             _livesTimerText.alignment = TextAlignmentOptions.Center;
-            _livesTimerText.color = new Color(0.55f, 0.38f, 0.18f, 1f);
+            _livesTimerText.color = new Color(0.24f, 0.15f, 0.14f, 1f);
             _livesTimerText.raycastTarget = false;
+            _livesTimerText.enableAutoSizing = false;
 
             var pubGO = CreerObjetUI("BtnPubVies", _defaitePanel.transform);
-            var pubRect = pubGO.GetComponent<RectTransform>();
-            pubRect.anchorMin = new Vector2(0.5f, 0.24f);
-            pubRect.anchorMax = new Vector2(0.5f, 0.24f);
-            pubRect.pivot = new Vector2(0.5f, 0.5f);
-            pubRect.sizeDelta = new Vector2(360f, 52f);
-            pubRect.anchoredPosition = Vector2.zero;
+            var pubLE = pubGO.AddComponent<LayoutElement>();
+            pubLE.preferredHeight = 62f;
+            pubLE.flexibleWidth = 1f;
             var pubImg = pubGO.AddComponent<Image>();
-            pubImg.sprite = GetCarteSprite();
-            pubImg.type = Image.Type.Simple;
-            pubImg.color = new Color(0.22f, 0.65f, 0.30f, 1f);
+            var pubNormal = JellyUI.ButtonYellow ?? GetCarteSprite();
+            var pubHover = JellyUI.ButtonYellow ?? pubNormal;
+            var pubPressed = JellyUI.ButtonRed ?? pubNormal;
+            var pubDisabled = JellyUI.ButtonGrey ?? pubNormal;
+            pubImg.sprite = pubNormal;
+            pubImg.type = Image.Type.Sliced;
+            pubImg.pixelsPerUnitMultiplier = 1f;
             var pubBtn = pubGO.AddComponent<Button>();
-            pubBtn.targetGraphic = pubImg;
+            JellyUI.ApplyJellyButton(pubBtn, pubImg, pubNormal, pubHover, pubPressed, pubDisabled);
             pubBtn.onClick.AddListener(() => OnPubViesDemande?.Invoke());
             var pubTxtGO = CreerObjetUI("Text", pubGO.transform);
             var pubTxtRect = pubTxtGO.GetComponent<RectTransform>();
             pubTxtRect.anchorMin = Vector2.zero;
             pubTxtRect.anchorMax = Vector2.one;
-            pubTxtRect.offsetMin = Vector2.zero;
-            pubTxtRect.offsetMax = Vector2.zero;
+            pubTxtRect.offsetMin = new Vector2(12f, 6f);
+            pubTxtRect.offsetMax = new Vector2(-12f, -6f);
             var pubTxt = pubTxtGO.AddComponent<TextMeshProUGUI>();
             pubTxt.font = _fontTitle;
             pubTxt.text = "Regarder une pub (+3 ♥)";
             pubTxt.fontSize = 22;
             pubTxt.alignment = TextAlignmentOptions.Center;
-            pubTxt.color = Color.white;
+            pubTxt.color = new Color(0.20f, 0.12f, 0.06f, 1f);
             pubTxt.fontStyle = FontStyles.Bold;
             pubTxt.raycastTarget = false;
+            pubTxt.enableAutoSizing = true;
+            pubTxt.fontSizeMin = 16;
+            pubTxt.fontSizeMax = 22;
 
             var btnObj = CreerObjetUI("BtnReessayer", _defaitePanel.transform);
-            var btnRect = btnObj.GetComponent<RectTransform>();
-            btnRect.anchorMin = new Vector2(0.5f, 0.08f);
-            btnRect.anchorMax = new Vector2(0.5f, 0.08f);
-            btnRect.pivot = new Vector2(0.5f, 0.5f);
-            btnRect.sizeDelta = new Vector2(320f, 70f);
-            btnRect.anchoredPosition = Vector2.zero;
-
+            var btnLE = btnObj.AddComponent<LayoutElement>();
+            btnLE.preferredHeight = 72f;
+            btnLE.flexibleWidth = 1f;
             var btnImg = btnObj.AddComponent<Image>();
-            btnImg.sprite = KenneyUI.Button("Blue") ?? GetCarteSprite();
-            btnImg.type = Image.Type.Simple;
-            btnImg.color = RetryButtonColor;
-            var btnShadow = btnObj.AddComponent<Shadow>();
-            btnShadow.effectColor = new Color(0.18f, 0.11f, 0.06f, 0.25f);
-            btnShadow.effectDistance = new Vector2(0f, -4f);
-
+            var btnNormal = JellyUI.ButtonGreen ?? GetCarteSprite();
+            var btnHover = JellyUI.ButtonYellow ?? btnNormal;
+            var btnPressed = JellyUI.ButtonRed ?? btnNormal;
+            var btnDisabled = JellyUI.ButtonGrey ?? btnNormal;
+            btnImg.sprite = btnNormal;
+            btnImg.type = Image.Type.Sliced;
+            btnImg.pixelsPerUnitMultiplier = 1f;
             var btnComp = btnObj.AddComponent<Button>();
-            btnComp.targetGraphic = btnImg;
+            JellyUI.ApplyJellyButton(btnComp, btnImg, btnNormal, btnHover, btnPressed, btnDisabled);
             btnComp.onClick.AddListener(() => OnReessayer?.Invoke());
 
             var btnTextObj = CreerObjetUI("Texte", btnObj.transform);
             var btnTextRect = btnTextObj.GetComponent<RectTransform>();
             btnTextRect.anchorMin = Vector2.zero;
             btnTextRect.anchorMax = Vector2.one;
-            btnTextRect.offsetMin = Vector2.zero;
-            btnTextRect.offsetMax = Vector2.zero;
+            btnTextRect.offsetMin = new Vector2(12f, 6f);
+            btnTextRect.offsetMax = new Vector2(-12f, -6f);
 
             var btnText = btnTextObj.AddComponent<TextMeshProUGUI>();
             btnText.font = _fontTitle;
@@ -1333,38 +1335,15 @@ namespace Zoologic
             btnText.color = Color.white;
             btnText.fontStyle = FontStyles.Bold;
             btnText.raycastTarget = false;
+            var btnShadow = btnTextObj.AddComponent<Shadow>();
+            btnShadow.effectColor = new Color(0f, 0f, 0f, 0.25f);
+            btnShadow.effectDistance = new Vector2(0f, -2f);
 
-            var topBarGO = CreerObjetUI("TopAccent", _defaitePanel.transform);
-            var topBarRect = topBarGO.GetComponent<RectTransform>();
-            topBarRect.anchorMin = new Vector2(0f, 1f);
-            topBarRect.anchorMax = new Vector2(1f, 1f);
-            topBarRect.pivot = new Vector2(0.5f, 1f);
-            topBarRect.sizeDelta = new Vector2(-24f, 8f);
-            topBarRect.anchoredPosition = new Vector2(0f, -12f);
-            var topBarImg = topBarGO.AddComponent<Image>();
-            topBarImg.sprite = GetPiluleSprite();
-            topBarImg.type = Image.Type.Simple;
-            topBarImg.color = new Color(0.95f, 0.70f, 0.35f);
-            topBarImg.raycastTarget = false;
             var menuGO = CreerObjetUI("BtnMenu", _defaitePanel.transform);
-            var menuRect = menuGO.GetComponent<RectTransform>();
-            menuRect.anchorMin = new Vector2(0.5f, 0.02f);
-            menuRect.anchorMax = new Vector2(0.5f, 0.02f);
-            menuRect.pivot = new Vector2(0.5f, 0.5f);
-            menuRect.sizeDelta = new Vector2(200f, 44f);
-            menuRect.anchoredPosition = Vector2.zero;
-            var menuImg = menuGO.AddComponent<Image>();
-            menuImg.sprite = GetCarteSprite();
-            menuImg.type = Image.Type.Simple;
-            menuImg.color = new Color(0.92f, 0.89f, 0.86f, 1f);
+            var menuLE = menuGO.AddComponent<LayoutElement>();
+            menuLE.preferredHeight = 44f;
+            menuLE.flexibleWidth = 1f;
             var menuBtn = menuGO.AddComponent<Button>();
-            menuBtn.targetGraphic = menuImg;
-            menuBtn.onClick.AddListener(() =>
-            {
-                SFXManager.Instance.PlayMenuClose();
-                PuzzleGameController.IsDailyPuzzle = false;
-                UnityEngine.SceneManagement.SceneManager.LoadScene("LevelMap");
-            });
             var menuTxtGO = CreerObjetUI("Text", menuGO.transform);
             var menuTxtRect = menuTxtGO.GetComponent<RectTransform>();
             menuTxtRect.anchorMin = Vector2.zero;
@@ -1373,12 +1352,25 @@ namespace Zoologic
             menuTxtRect.offsetMax = Vector2.zero;
             var menuTxt = menuTxtGO.AddComponent<TextMeshProUGUI>();
             menuTxt.font = _fontBody;
-            menuTxt.text = "Retour menu";
-            menuTxt.fontSize = 20;
+            menuTxt.text = "‹ Retour menu";
+            menuTxt.fontSize = 18;
             menuTxt.alignment = TextAlignmentOptions.Center;
-            menuTxt.color = new Color(0.29f, 0.18f, 0.10f);
+            menuTxt.color = new Color(0.45f, 0.38f, 0.32f, 1f);
             menuTxt.fontStyle = FontStyles.Bold;
             menuTxt.raycastTarget = false;
+            menuBtn.targetGraphic = menuTxt;
+            menuBtn.transition = Selectable.Transition.ColorTint;
+            var menuColors = menuBtn.colors;
+            menuColors.normalColor = Color.white;
+            menuColors.highlightedColor = new Color(0.95f, 0.90f, 0.85f);
+            menuColors.pressedColor = new Color(0.85f, 0.80f, 0.75f);
+            menuBtn.colors = menuColors;
+            menuBtn.onClick.AddListener(() =>
+            {
+                SFXManager.Instance.PlayMenuClose();
+                PuzzleGameController.IsDailyPuzzle = false;
+                UnityEngine.SceneManagement.SceneManager.LoadScene("LevelMap");
+            });
             // Le root reste actif ; ce sont overlay et panel qui basculent.
             _overlay.SetActive(false);
             _defaitePanel.SetActive(false);
@@ -1833,11 +1825,21 @@ namespace Zoologic
             labelText.font = _fontTitle;
             labelText.text = label;
             labelText.fontSize = 28;
+            labelText.fontSizeMin = 18;
+            labelText.fontSizeMax = 28;
+            labelText.enableAutoSizing = true;
             labelText.alignment = TextAlignmentOptions.MidlineLeft;
             labelText.color = ScoreValueColor;
             labelText.fontStyle = FontStyles.Bold;
             labelText.lineSpacing = 2f;
+            labelText.enableWordWrapping = true;
+            labelText.overflowMode = TextOverflowModes.Ellipsis;
             labelText.raycastTarget = false;
+
+            var cardLE = carte.AddComponent<LayoutElement>();
+            cardLE.flexibleWidth = 1f;
+            cardLE.preferredHeight = cardHeight;
+            cardLE.minWidth = 180f;
         }
 
         // ------------------------------------------------------------------
