@@ -1001,7 +1001,7 @@ namespace Zoologic
         /// Court retour visuel quand le joueur n'a pas assez de pi�ces pour acheter un indice.
         /// La pilule indice rougit bri�vement et un petit toast affiche le manque.
         /// </summary>
-        public void NotifierPi�cesInsuffisantes(int cout)
+        public void NotifierPiecesInsuffisantes(int cout)
         {
             if (_indiceButtonBg != null)
             {

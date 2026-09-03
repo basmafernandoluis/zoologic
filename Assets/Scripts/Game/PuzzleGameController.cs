@@ -474,7 +474,7 @@ namespace Zoologic
             bool purchaseMode = _hud.IndiceCount <= 0;
             if (purchaseMode && !CurrencyManager.HasCoins(IndiceCout))
             {
-                _hud.NotifierPiècesInsuffisantes(IndiceCout);
+                _hud.NotifierPiecesInsuffisantes(IndiceCout);
                 return;
             }
 
@@ -508,7 +508,7 @@ namespace Zoologic
 
             if (!CurrencyManager.HasCoins(GommeCout))
             {
-                _hud.NotifierPiècesInsuffisantes(GommeCout);
+                _hud.NotifierPiecesInsuffisantes(GommeCout);
                 return;
             }
 
