@@ -776,13 +776,30 @@ namespace Zoologic
             var label = labelGO.AddComponent<TextMeshProUGUI>();
             label.font = _fontTitle;
             label.text = "Place les animaux";
-            label.fontSize = 38;
+            label.fontSize = 42;
             label.alignment = TextAlignmentOptions.Center;
-            label.color = Color.white;
             label.fontStyle = FontStyles.Bold;
-            label.outlineWidth = 0.28f;
-            label.outlineColor = new Color(0.20f, 0.55f, 0.80f, 1f);
             label.raycastTarget = false;
+            label.enableVertexGradient = true;
+            label.colorMode = ColorMode.Single;
+            Color topCol = new Color(1f, 0.945f, 0.231f, 1f);
+            Color botCol = new Color(1f, 0.596f, 0f, 1f);
+            label.colorGradient = new VertexGradient(topCol, topCol, botCol, botCol);
+            label.outlineWidth = 0.38f;
+            label.outlineColor = new Color(0.243f, 0.153f, 0.137f, 1f);
+            try
+            {
+                var mat = new Material(label.fontMaterial);
+                mat.EnableKeyword("UNDERLAY_ON");
+                mat.SetColor("_UnderlayColor", new Color(0.12f, 0.07f, 0.04f, 0.8f));
+                mat.SetFloat("_UnderlayOffsetX", 0f);
+                mat.SetFloat("_UnderlayOffsetY", -0.5f);
+                mat.SetFloat("_UnderlayDilate", 0.18f);
+                mat.SetFloat("_UnderlaySoftness", 0.05f);
+                label.fontMaterial = mat;
+            }
+            catch { }
+            labelGO.AddComponent<TMPArcCurve>();
         }
 
         // ------------------------------------------------------------------
@@ -2089,6 +2106,50 @@ namespace Zoologic
             texture.Apply();
             return Sprite.Create(texture, new Rect(0f, 0f, resolution, resolution),
                 new Vector2(0.5f, 0.5f));
+        }
+    }
+
+    public sealed class TMPArcCurve : MonoBehaviour
+    {
+        public float curveStrength = 8f;
+        private TMP_Text _tmp;
+        void Awake() { _tmp = GetComponent<TMP_Text>(); }
+        void LateUpdate()
+        {
+            if (_tmp == null) return;
+            _tmp.ForceMeshUpdate();
+            var info = _tmp.textInfo;
+            if (info == null || info.characterCount == 0) return;
+            float boundsMinX = float.MaxValue, boundsMaxX = float.MinValue;
+            for (int i = 0; i < info.characterCount; i++)
+            {
+                if (!info.characterInfo[i].isVisible) continue;
+                boundsMinX = Mathf.Min(boundsMinX, info.characterInfo[i].bottomLeft.x);
+                boundsMaxX = Mathf.Max(boundsMaxX, info.characterInfo[i].topRight.x);
+            }
+            float width = boundsMaxX - boundsMinX;
+            if (width <= 0.01f) return;
+            for (int i = 0; i < info.meshInfo.Length; i++)
+            {
+                var mesh = info.meshInfo[i];
+                var verts = mesh.vertices;
+                for (int j = 0; j < info.characterCount; j++)
+                {
+                    var ch = info.characterInfo[j];
+                    if (!ch.isVisible) continue;
+                    if (ch.materialReferenceIndex != i) continue;
+                    float cx = (ch.bottomLeft.x + ch.topRight.x) * 0.5f;
+                    float t = Mathf.InverseLerp(boundsMinX, boundsMaxX, cx);
+                    float arc = Mathf.Sin(t * Mathf.PI) * curveStrength;
+                    int v0 = ch.vertexIndex;
+                    verts[v0 + 0].y += arc;
+                    verts[v0 + 1].y += arc;
+                    verts[v0 + 2].y += arc;
+                    verts[v0 + 3].y += arc;
+                }
+                mesh.mesh.vertices = verts;
+                _tmp.UpdateGeometry(mesh.mesh, i);
+            }
         }
     }
 }
