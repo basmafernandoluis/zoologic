@@ -156,8 +156,10 @@ namespace Zoologic
             if (_musicSource == null || !_musicEnabled || _musicSource.clip == null)
                 return;
             if (!_musicSource.isPlaying)
-                _musicSource.Play();
+                _musicSource.UnPause();
         }
+
+        public bool IsMusicPlaying => _musicSource != null && _musicSource.isPlaying;
 
         public void PlayConfirm() => Play(_confirm ?? (_confirm = Load("Confirm")));
         public void PlayFailure() => Play(_failure ?? (_failure = Load("Failure")), 0.9f, 1.1f);

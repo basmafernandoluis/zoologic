@@ -55,6 +55,7 @@ namespace Zoologic
         private bool _interstitialLoading;
         private bool _appOpenLoading;
         private DateTime _appOpenExpire;
+        private bool _adMusicPaused;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Bootstrap()
@@ -111,6 +112,35 @@ namespace Zoologic
             return req;
         }
 
+        private void PauseMusicForAd()
+        {
+            try
+            {
+                if (SFXManager.Instance != null && SFXManager.Instance.IsMusicPlaying)
+                {
+                    SFXManager.Instance.PauseMusic();
+                    _adMusicPaused = true;
+                    Debug.Log("[AdMob] Music paused for ad");
+                }
+                else _adMusicPaused = false;
+            }
+            catch { _adMusicPaused = false; }
+        }
+
+        private void ResumeMusicAfterAd()
+        {
+            try
+            {
+                if (_adMusicPaused && SFXManager.Instance != null)
+                {
+                    SFXManager.Instance.ResumeMusic();
+                    Debug.Log("[AdMob] Music resumed after ad");
+                }
+            }
+            catch (Exception e) { Debug.LogWarning("[AdMob] ResumeMusic failed: " + e.Message); }
+            _adMusicPaused = false;
+        }
+
         private void LoadRewarded()
         {
             if (_rewardedLoading) return;
@@ -121,8 +151,8 @@ namespace Zoologic
                 _rewardedLoading = false;
                 if (err != null || ad == null) { Debug.LogWarning("[AdMob] Rewarded load failed: " + err); return; }
                 _rewardedAd = ad;
-                _rewardedAd.OnAdFullScreenContentFailed += (AdError e) => { _rewardedAd = null; LoadRewarded(); };
-                _rewardedAd.OnAdFullScreenContentClosed += () => { _rewardedAd = null; LoadRewarded(); };
+                _rewardedAd.OnAdFullScreenContentFailed += (AdError e) => { Debug.LogWarning("[AdMob] Rewarded prefail: " + e); _rewardedAd = null; ResumeMusicAfterAd(); LoadRewarded(); };
+                _rewardedAd.OnAdFullScreenContentClosed += () => { Debug.Log("[AdMob] Rewarded closed (preload handler)"); _rewardedAd = null; ResumeMusicAfterAd(); LoadRewarded(); };
                 Debug.Log("[AdMob] Rewarded loaded: " + RewardedId + " NPA=1");
             });
         }
@@ -137,8 +167,8 @@ namespace Zoologic
                 _interstitialLoading = false;
                 if (err != null || ad == null) { Debug.LogWarning("[AdMob] Interstitial load failed: " + err); return; }
                 _interstitialAd = ad;
-                _interstitialAd.OnAdFullScreenContentFailed += (AdError e) => { _interstitialAd = null; LoadInterstitial(); };
-                _interstitialAd.OnAdFullScreenContentClosed += () => { _interstitialAd = null; LoadInterstitial(); };
+                _interstitialAd.OnAdFullScreenContentFailed += (AdError e) => { Debug.LogWarning("[AdMob] Interstitial prefail: " + e); _interstitialAd = null; ResumeMusicAfterAd(); LoadInterstitial(); };
+                _interstitialAd.OnAdFullScreenContentClosed += () => { Debug.Log("[AdMob] Interstitial closed (preload)"); _interstitialAd = null; ResumeMusicAfterAd(); LoadInterstitial(); };
                 Debug.Log("[AdMob] Interstitial loaded: " + InterstitialId + " NPA=1");
             });
         }
@@ -154,8 +184,8 @@ namespace Zoologic
                 if (err != null || ad == null) { Debug.LogWarning("[AdMob] AppOpen load failed: " + err); return; }
                 _appOpenAd = ad;
                 _appOpenExpire = DateTime.Now.AddHours(4);
-                _appOpenAd.OnAdFullScreenContentFailed += (AdError e) => { _appOpenAd = null; LoadAppOpen(); };
-                _appOpenAd.OnAdFullScreenContentClosed += () => { _appOpenAd = null; LoadAppOpen(); };
+                _appOpenAd.OnAdFullScreenContentFailed += (AdError e) => { _appOpenAd = null; ResumeMusicAfterAd(); LoadAppOpen(); };
+                _appOpenAd.OnAdFullScreenContentClosed += () => { _appOpenAd = null; ResumeMusicAfterAd(); LoadAppOpen(); };
                 Debug.Log("[AdMob] AppOpen loaded: " + AppOpenId + " NPA=1");
             });
         }
@@ -165,14 +195,83 @@ namespace Zoologic
             Debug.Log($"[AdMob] ShowRewarded IsProduction={IsProduction} ID={RewardedId} NPA=1");
             if (_rewardedAd != null && _rewardedAd.CanShowAd())
             {
-                _rewardedAd.OnAdPaid += (AdValue v) => Debug.Log($"[AdMob] OnAdPaid {v.Value} {v.CurrencyCode}");
-                _rewardedAd.OnAdFullScreenContentClosed += () => { onRewarded?.Invoke(); _rewardedAd = null; LoadRewarded(); };
-                _rewardedAd.OnAdFullScreenContentFailed += (AdError e) => { Debug.LogWarning("[AdMob] Rewarded show failed: " + e); StartCoroutine(RewardedStubRoutine(onRewarded)); _rewardedAd = null; LoadRewarded(); };
-                try { _rewardedAd.Show((Reward r) => { Debug.Log($"[AdMob] Reward earned {r.Amount} {r.Type}"); }); return; } catch (Exception e) { Debug.LogWarning("[AdMob] Show exception: " + e.Message); }
+                PauseMusicForAd();
+                bool rewardEarned = false;
+                Action<AdValue> paidHandler = (AdValue v) => Debug.Log($"[AdMob] OnAdPaid {v.Value} {v.CurrencyCode}");
+                Action closedHandler = null;
+                Action<AdError> failedHandler = null;
+                closedHandler = () =>
+                {
+                    try
+                    {
+                        if (_rewardedAd != null)
+                        {
+                            _rewardedAd.OnAdPaid -= paidHandler;
+                            _rewardedAd.OnAdFullScreenContentClosed -= closedHandler;
+                            _rewardedAd.OnAdFullScreenContentFailed -= failedHandler;
+                        }
+                    }
+                    catch { }
+                    ResumeMusicAfterAd();
+                    if (rewardEarned)
+                    {
+                        try { onRewarded?.Invoke(); } catch (Exception e) { Debug.LogError("[AdMob] onRewarded exception: " + e); }
+                    }
+                    else Debug.Log("[AdMob] Rewarded closed without reward - no grant");
+                    _rewardedAd = null;
+                    LoadRewarded();
+                };
+                failedHandler = (AdError e) =>
+                {
+                    try
+                    {
+                        if (_rewardedAd != null)
+                        {
+                            _rewardedAd.OnAdPaid -= paidHandler;
+                            _rewardedAd.OnAdFullScreenContentClosed -= closedHandler;
+                            _rewardedAd.OnAdFullScreenContentFailed -= failedHandler;
+                        }
+                    }
+                    catch { }
+                    Debug.LogWarning("[AdMob] Rewarded show failed: " + e);
+                    ResumeMusicAfterAd();
+                    StartCoroutine(RewardedStubRoutine(onRewarded));
+                    _rewardedAd = null;
+                    LoadRewarded();
+                };
+                _rewardedAd.OnAdPaid += paidHandler;
+                _rewardedAd.OnAdFullScreenContentClosed += closedHandler;
+                _rewardedAd.OnAdFullScreenContentFailed += failedHandler;
+                try
+                {
+                    _rewardedAd.Show((Reward r) =>
+                    {
+                        rewardEarned = true;
+                        Debug.Log($"[AdMob] Reward earned {r.Amount} {r.Type}");
+                    });
+                    return;
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning("[AdMob] Show exception: " + e.Message);
+                    try
+                    {
+                        _rewardedAd.OnAdPaid -= paidHandler;
+                        _rewardedAd.OnAdFullScreenContentClosed -= closedHandler;
+                        _rewardedAd.OnAdFullScreenContentFailed -= failedHandler;
+                    }
+                    catch { }
+                    ResumeMusicAfterAd();
+                }
             }
-            Debug.LogWarning("[AdMob] Rewarded not ready (encore en chargement) -> fallback simulé 1s, vraie test ad prête après 2-3s");
+            Debug.LogWarning("[AdMob] Rewarded not ready -> fallback stub");
+            PauseMusicForAd();
             LoadRewarded();
-            StartCoroutine(RewardedStubRoutine(onRewarded));
+            StartCoroutine(RewardedStubRoutine(() =>
+            {
+                ResumeMusicAfterAd();
+                try { onRewarded?.Invoke(); } catch (Exception e) { Debug.LogError("[AdMob] stub onRewarded exception: " + e); }
+            }));
         }
 
         private IEnumerator RewardedStubRoutine(Action onRewarded)
@@ -222,9 +321,49 @@ namespace Zoologic
             Debug.Log($"[AdMob] Interstitial trigger 4th victory IsProduction={IsProduction} ID={InterstitialId} NPA=1");
             if (_interstitialAd != null && _interstitialAd.CanShowAd())
             {
-                _interstitialAd.OnAdFullScreenContentClosed += () => { _interstitialAd = null; LoadInterstitial(); };
-                _interstitialAd.OnAdFullScreenContentFailed += (AdError e) => { _interstitialAd = null; LoadInterstitial(); };
-                try { _interstitialAd.Show(); return; } catch (Exception e) { Debug.LogWarning("[AdMob] Interstitial show failed: " + e.Message); }
+                PauseMusicForAd();
+                Action closedHandler = null;
+                Action<AdError> failedHandler = null;
+                closedHandler = () =>
+                {
+                    try
+                    {
+                        if (_interstitialAd != null)
+                        {
+                            _interstitialAd.OnAdFullScreenContentClosed -= closedHandler;
+                            _interstitialAd.OnAdFullScreenContentFailed -= failedHandler;
+                        }
+                    }
+                    catch { }
+                    ResumeMusicAfterAd();
+                    _interstitialAd = null;
+                    LoadInterstitial();
+                };
+                failedHandler = (AdError e) =>
+                {
+                    try
+                    {
+                        if (_interstitialAd != null)
+                        {
+                            _interstitialAd.OnAdFullScreenContentClosed -= closedHandler;
+                            _interstitialAd.OnAdFullScreenContentFailed -= failedHandler;
+                        }
+                    }
+                    catch { }
+                    Debug.LogWarning("[AdMob] Interstitial failed: " + e);
+                    ResumeMusicAfterAd();
+                    _interstitialAd = null;
+                    LoadInterstitial();
+                };
+                _interstitialAd.OnAdFullScreenContentClosed += closedHandler;
+                _interstitialAd.OnAdFullScreenContentFailed += failedHandler;
+                try { _interstitialAd.Show(); return; } catch (Exception e) { Debug.LogWarning("[AdMob] Interstitial show failed: " + e.Message); ResumeMusicAfterAd(); }
+                try
+                {
+                    _interstitialAd.OnAdFullScreenContentClosed -= closedHandler;
+                    _interstitialAd.OnAdFullScreenContentFailed -= failedHandler;
+                }
+                catch { }
             }
             LoadInterstitial();
         }
@@ -273,7 +412,14 @@ namespace Zoologic
         public void ShowAppOpenIfNeeded()
         {
             if (_appOpenAd == null || !_appOpenAd.CanShowAd() || DateTime.Now > _appOpenExpire) { LoadAppOpen(); return; }
-            try { _appOpenAd.Show(); Debug.Log("[AdMob] AppOpen shown NPA"); } catch (Exception e) { Debug.LogWarning("[AdMob] AppOpen show failed: " + e.Message); _appOpenAd = null; LoadAppOpen(); }
+            PauseMusicForAd();
+            Action closedHandler = null;
+            Action<AdError> failedHandler = null;
+            closedHandler = () => { try { if (_appOpenAd != null) { _appOpenAd.OnAdFullScreenContentClosed -= closedHandler; _appOpenAd.OnAdFullScreenContentFailed -= failedHandler; } } catch { } ResumeMusicAfterAd(); _appOpenAd = null; LoadAppOpen(); };
+            failedHandler = (AdError e) => { try { if (_appOpenAd != null) { _appOpenAd.OnAdFullScreenContentClosed -= closedHandler; _appOpenAd.OnAdFullScreenContentFailed -= failedHandler; } } catch { } Debug.LogWarning("[AdMob] AppOpen failed: " + e); ResumeMusicAfterAd(); _appOpenAd = null; LoadAppOpen(); };
+            _appOpenAd.OnAdFullScreenContentClosed += closedHandler;
+            _appOpenAd.OnAdFullScreenContentFailed += failedHandler;
+            try { _appOpenAd.Show(); Debug.Log("[AdMob] AppOpen shown NPA"); } catch (Exception e) { Debug.LogWarning("[AdMob] AppOpen show failed: " + e.Message); ResumeMusicAfterAd(); _appOpenAd = null; LoadAppOpen(); try { _appOpenAd.OnAdFullScreenContentClosed -= closedHandler; _appOpenAd.OnAdFullScreenContentFailed -= failedHandler; } catch { } }
         }
     }
 }
