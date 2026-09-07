@@ -179,10 +179,11 @@ namespace Zoologic
             rect.anchoredPosition = Vector2.zero;
 
             var img = go.AddComponent<Image>();
-            Sprite wood = Resources.Load<Sprite>("UI/Cozy/btn_wood_light");
-            img.sprite = wood != null ? wood : CreerSpriteArrondi(128, 0.35f);
-            img.type = Image.Type.Simple;
-            img.preserveAspect = true;
+            Sprite playBtn = Resources.Load<Sprite>("UI/Jelly/Button_Green");
+            if (playBtn == null) playBtn = Resources.Load<Sprite>("UI/Cozy/btn_wood_light");
+            img.sprite = playBtn != null ? playBtn : CreerSpriteArrondi(128, 0.35f);
+            img.type = Image.Type.Sliced;
+            img.pixelsPerUnitMultiplier = 1f;
             img.color = Color.white;
 
             var btn = go.AddComponent<Button>();
@@ -281,12 +282,12 @@ namespace Zoologic
             var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             iconGO.transform.SetParent(go.transform, false);
             var iconRect = iconGO.GetComponent<RectTransform>();
-            iconRect.sizeDelta = new Vector2(28f, 28f);
+            iconRect.sizeDelta = new Vector2(36f, 36f);
             var iconImg = iconGO.GetComponent<Image>();
             iconImg.sprite = Resources.Load<Sprite>("UI/Icons/gem_icon");
             iconImg.preserveAspect = true;
             iconImg.raycastTarget = false;
-            iconGO.AddComponent<LayoutElement>().preferredWidth = 28f;
+            iconGO.AddComponent<LayoutElement>().preferredWidth = 36f;
 
             var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             txtGO.transform.SetParent(go.transform, false);
@@ -328,9 +329,11 @@ namespace Zoologic
             rect.sizeDelta = new Vector2(210f, 66f);
             rect.anchoredPosition = new Vector2(236f, -18f);
 
+            var missionBg = Resources.Load<Sprite>("UI/Icons/Mission");
             var img = go.AddComponent<Image>();
-            img.sprite = KenneyUI.Button(hasClaim ? "Yellow" : "Blue") ?? CreerSpriteArrondi(128, 0.35f);
-            img.type = Image.Type.Simple;
+            img.sprite = missionBg != null ? missionBg : KenneyUI.Button(hasClaim ? "Yellow" : "Blue") ?? CreerSpriteArrondi(128, 0.35f);
+            img.type = missionBg != null ? Image.Type.Sliced : Image.Type.Simple;
+            img.pixelsPerUnitMultiplier = 1f;
             img.color = Color.white;
 
             var hlg = go.AddComponent<HorizontalLayoutGroup>();
@@ -342,12 +345,12 @@ namespace Zoologic
             var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             iconGO.transform.SetParent(go.transform, false);
             var iconRect = iconGO.GetComponent<RectTransform>();
-            iconRect.sizeDelta = new Vector2(26f, 26f);
+            iconRect.sizeDelta = new Vector2(28f, 28f);
             var iconImg = iconGO.GetComponent<Image>();
             iconImg.sprite = Resources.Load<Sprite>("UI/Icons/scroll_icon");
             iconImg.preserveAspect = true;
             iconImg.raycastTarget = false;
-            iconGO.AddComponent<LayoutElement>().preferredWidth = 26f;
+            iconGO.AddComponent<LayoutElement>().preferredWidth = 28f;
 
             var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             txtGO.transform.SetParent(go.transform, false);
