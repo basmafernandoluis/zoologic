@@ -1329,6 +1329,10 @@ namespace Zoologic
 
         private static Sprite CreerCadenasSprite()
         {
+            var loaded = Resources.Load<Sprite>("UI/Icons/level_locked");
+            if (loaded != null) return loaded;
+            loaded = Resources.Load<Sprite>("UI/level_locked");
+            if (loaded != null) return loaded;
             int s = 64;
             var tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
             for (int y = 0; y < s; y++)
