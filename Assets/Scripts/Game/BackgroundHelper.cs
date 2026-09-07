@@ -57,6 +57,26 @@ namespace Zoologic
 
         public static void ApplyBackground(Transform canvasTransform)
         {
+            string scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (scene == "TestGrid")
+            {
+                Sprite gameplayBg = Resources.Load<Sprite>("Backgrounds/gameplay_bg");
+                if (gameplayBg != null)
+                {
+                    var bgGO = new GameObject("Background", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                    bgGO.transform.SetParent(canvasTransform, false);
+                    var bgRect = bgGO.GetComponent<RectTransform>();
+                    bgRect.anchorMin = Vector2.zero; bgRect.anchorMax = Vector2.one;
+                    bgRect.offsetMin = Vector2.zero; bgRect.offsetMax = Vector2.zero;
+                    var bgImg = bgGO.GetComponent<Image>();
+                    bgImg.sprite = gameplayBg;
+                    bgImg.type = Image.Type.Simple;
+                    bgImg.preserveAspect = false;
+                    bgImg.color = Color.white;
+                    bgImg.raycastTarget = false;
+                    return;
+                }
+            }
             // 1) Dégradé
             var gradGO = new GameObject("Background", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             gradGO.transform.SetParent(canvasTransform, false);
