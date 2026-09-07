@@ -102,6 +102,7 @@ namespace Zoologic
             _roundedSprite = CreateRoundedRectSprite();
             CreateOverlay(canvas);
             CreateBubble(canvas);
+            CreateSkipButton(canvas);
             _hand = UIHandPointer.Create(canvas);
 
             Canvas.ForceUpdateCanvases();
@@ -114,11 +115,13 @@ namespace Zoologic
 
         private IEnumerator RunTutorial()
         {
+            if (_skipRoot != null) _skipRoot.SetActive(true);
             yield return StartCoroutine(Step1_RowCol());
             yield return StartCoroutine(Step2_Zone());
             yield return StartCoroutine(Step3_Adjacency());
             yield return StartCoroutine(Step4_XElimination());
             SetAccept(false); ClearHighlights(); HideOverlay(); _hand.Hide();
+            if (_skipRoot != null) _skipRoot.SetActive(false);
             ConfettiHelper.Burst(this, _canvasRect.GetComponent<Canvas>(), 40);
             SFXManager.Instance.PlaySuccess();
             Haptics.VibrateStrong();
@@ -456,7 +459,42 @@ namespace Zoologic
 
         private void HideOverlay(){ if(_overlayRoot!=null) _overlayRoot.SetActive(false); }
 
+        private GameObject _skipRoot;
         private GameObject _actionRoot; private TextMeshProUGUI _actionText;
+        private void CreateSkipButton(Canvas canvas)
+        {
+            _skipRoot = new GameObject("SkipButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            _skipRoot.transform.SetParent(canvas.transform, false);
+            var rt = (RectTransform)_skipRoot.transform;
+            rt.anchorMin = new Vector2(1f, 1f); rt.anchorMax = new Vector2(1f, 1f); rt.pivot = new Vector2(1f, 1f);
+            rt.sizeDelta = new Vector2(180f, 56f); rt.anchoredPosition = new Vector2(-16f, -16f);
+            var img = _skipRoot.GetComponent<Image>();
+            img.sprite = JellyUI.ButtonGrey ?? _roundedSprite;
+            img.type = Image.Type.Sliced; img.color = new Color(1f, 1f, 1f, 0.92f); img.raycastTarget = true;
+            var btn = _skipRoot.GetComponent<Button>();
+            JellyUI.ApplyJellyButton(btn, img, JellyUI.ButtonGrey, JellyUI.ButtonGrey, JellyUI.ButtonGrey, JellyUI.ButtonGrey);
+            btn.onClick.AddListener(SkipTutorial);
+            var txtGO = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            txtGO.transform.SetParent(_skipRoot.transform, false);
+            var txtRect = (RectTransform)txtGO.transform; txtRect.anchorMin = Vector2.zero; txtRect.anchorMax = Vector2.one; txtRect.offsetMin = new Vector2(8f, 4f); txtRect.offsetMax = new Vector2(-8f, -4f);
+            var txt = txtGO.GetComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle != null ? _fontTitle : Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
+            txt.text = "Passer »"; txt.fontSize = 22; txt.fontStyle = FontStyles.Bold; txt.color = new Color(0.35f, 0.30f, 0.28f, 1f); txt.alignment = TextAlignmentOptions.Center;
+            txt.raycastTarget = false;
+            _skipRoot.transform.SetAsLastSibling();
+        }
+
+        private void SkipTutorial()
+        {
+            StopAllCoroutines();
+            SetAccept(false); ClearHighlights(); HideOverlay(); _hand?.Hide();
+            SetBubbleVisible(false); SetActionVisible(false);
+            if (_skipRoot != null) _skipRoot.SetActive(false);
+            MarkCompleted();
+            SFXManager.Instance.PlayMenuClose();
+            UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
+        }
+
         private void CreateBubble(Canvas canvas)
         {
             _bubbleRoot=new GameObject("InstructionBubble", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -508,6 +546,8 @@ namespace Zoologic
                 _bubbleRoot.transform.localScale = Vector3.zero;
                 if(_bubblePopRoutine!=null) StopCoroutine(_bubblePopRoutine);
                 _bubblePopRoutine = StartCoroutine(BubblePopRoutine(_bubbleRoot.transform));
+                if(_skipRoot!=null) _skipRoot.transform.SetAsLastSibling();
+                if(_hand!=null) _hand.transform.SetAsLastSibling();
             }
             else
             {
@@ -526,6 +566,7 @@ namespace Zoologic
                 _actionRoot.transform.localScale = Vector3.zero;
                 if(_actionPopRoutine!=null) StopCoroutine(_actionPopRoutine);
                 _actionPopRoutine = StartCoroutine(BubblePopRoutine(_actionRoot.transform));
+                if(_skipRoot!=null) _skipRoot.transform.SetAsLastSibling();
                 if(_hand!=null) _hand.transform.SetAsLastSibling();
             }
             else
