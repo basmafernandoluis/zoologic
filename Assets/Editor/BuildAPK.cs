@@ -85,14 +85,24 @@ namespace Zoologic.EditorTools
             PlayerSettings.bundleVersion = "0.2";
             PlayerSettings.Android.bundleVersionCode = 2;
             PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android, "com.appwizards.zoologic");
-            PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
+            PlayerSettings.defaultInterfaceOrientation = UIOrientation.AutoRotation;
             PlayerSettings.allowedAutorotateToPortrait = true;
             PlayerSettings.allowedAutorotateToPortraitUpsideDown = true;
-            PlayerSettings.allowedAutorotateToLandscapeLeft = false;
-            PlayerSettings.allowedAutorotateToLandscapeRight = false;
+            PlayerSettings.allowedAutorotateToLandscapeLeft = true;
+            PlayerSettings.allowedAutorotateToLandscapeRight = true;
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel29;
             PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel35;
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+            try { PlayerSettings.Android.resizableWindow = true; Debug.Log("[Build] resizableWindow=true for large screens"); } catch { }
+            try
+            {
+                var so = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset")[0]);
+                var p = so.FindProperty("AndroidResolverSettings");
+                // no-op, ensure manifest will have resizeableActivity true via resizableWindow
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+            catch { }
+            PlayerSettings.Android.preferredInstallLocation = AndroidPreferredInstallLocation.Auto;
 
             ApplyAppIcon();
             ApplyAndroidSplash();
