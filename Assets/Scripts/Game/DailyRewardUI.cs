@@ -145,27 +145,23 @@ namespace Zoologic
             {
                 x2Btn.onClick.AddListener(() =>
                 {
+                    x2Btn.interactable = false;
                     var admob = AdMobManager.Instance;
-                    if (admob != null) admob.ShowRewarded(() =>
+                    System.Action grant = () =>
                     {
-                        int r = DailyRewardManager.Claim();
-                        if (r > 0) CurrencyManager.AddCoins(r);
-                        SFXManager.Instance.PlayUnlock();
-                        Object.Destroy(_panelRoot);
-                        _panelRoot = null;
-                        var c = Object.FindFirstObjectByType<Canvas>();
-                        if (c != null) ShowCoinToast(c, $"+{r * 2} pièces (x2) !");
-                    });
-                    else
-                    {
-                        int r = DailyRewardManager.Claim();
-                        if (r > 0) CurrencyManager.AddCoins(r);
-                        SFXManager.Instance.PlayUnlock();
-                        Object.Destroy(_panelRoot);
-                        _panelRoot = null;
-                        var c = Object.FindFirstObjectByType<Canvas>();
-                        if (c != null) ShowCoinToast(c, $"+{r * 2} pièces (x2) !");
-                    }
+                        try
+                        {
+                            int r = DailyRewardManager.Claim();
+                            if (r > 0) CurrencyManager.AddCoins(r);
+                            SFXManager.Instance.PlayUnlock();
+                            if (_panelRoot != null) { Object.Destroy(_panelRoot); _panelRoot = null; }
+                            var c = Object.FindFirstObjectByType<Canvas>();
+                            if (c != null) ShowCoinToast(c, r > 0 ? $"+{r * 2} pièces (x2) !" : "Déjà réclamé !");
+                        }
+                        catch (System.Exception e) { Debug.LogError("[DailyReward] x2 grant exception: " + e); if (_panelRoot != null) { Object.Destroy(_panelRoot); _panelRoot = null; } }
+                    };
+                    if (admob != null) admob.ShowRewarded(grant);
+                    else grant();
                 });
             }
 
