@@ -285,28 +285,39 @@ namespace Zoologic
             btnRect.anchorMin = new Vector2(0f, 0.5f);
             btnRect.anchorMax = new Vector2(0f, 0.5f);
             btnRect.pivot = new Vector2(0f, 0.5f);
-            btnRect.sizeDelta = new Vector2(72f, 72f);
+            btnRect.sizeDelta = new Vector2(80f, 80f);
             btnRect.anchoredPosition = new Vector2(16f, 0f);
 
+            Sprite backSprite = Resources.Load<Sprite>("UI/Icons/back");
+            if (backSprite == null) backSprite = Resources.Load<Sprite>("UI/Icons/level_locked");
             var bgImg = btnGO.AddComponent<Image>();
-            bgImg.sprite = KenneyUI.Button("Grey") ?? CreerSpriteArrondi(128, 0.35f);
+            bgImg.sprite = backSprite ?? KenneyUI.Button("Grey") ?? CreerSpriteArrondi(128, 0.35f);
             bgImg.type = Image.Type.Simple;
+            bgImg.preserveAspect = true;
             bgImg.color = Color.white;
+            bgImg.raycastTarget = true;
+            if (backSprite == null) bgImg.color = new Color(1f, 0.97f, 0.92f, 1f);
 
-            Sprite arrow = Resources.Load<Sprite>("UI/Icons/back");
             var iconGO = new GameObject("Icon");
-            iconGO.transform.SetParent(btnGO.transform, false);
-            var iconRect = iconGO.AddComponent<RectTransform>();
-            iconRect.anchorMin = new Vector2(0.5f, 0.5f);
-            iconRect.anchorMax = new Vector2(0.5f, 0.5f);
-            iconRect.pivot = new Vector2(0.5f, 0.5f);
-            iconRect.sizeDelta = new Vector2(40f, 40f);
-            iconRect.anchoredPosition = Vector2.zero;
-            var iconImg = iconGO.AddComponent<Image>();
-            iconImg.sprite = arrow ?? CreerFlecheRetourSprite();
-            iconImg.preserveAspect = true;
-            iconImg.color = TitleColor;
-            iconImg.raycastTarget = false;
+            if (backSprite == null)
+            {
+                iconGO.transform.SetParent(btnGO.transform, false);
+                var iconRect = iconGO.AddComponent<RectTransform>();
+                iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+                iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+                iconRect.pivot = new Vector2(0.5f, 0.5f);
+                iconRect.sizeDelta = new Vector2(48f, 48f);
+                iconRect.anchoredPosition = Vector2.zero;
+                var iconImg = iconGO.AddComponent<Image>();
+                iconImg.sprite = CreerFlecheRetourSprite();
+                iconImg.preserveAspect = true;
+                iconImg.color = TitleColor;
+                iconImg.raycastTarget = false;
+            }
+            else
+            {
+                iconGO.SetActive(false);
+            }
 
             var btn = btnGO.AddComponent<Button>();
             btn.targetGraphic = bgImg;

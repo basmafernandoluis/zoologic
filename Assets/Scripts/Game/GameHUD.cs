@@ -223,7 +223,9 @@ namespace Zoologic
             // Row 1: ? back | Niveau X pill | ? settings
             float row1Y = H * 0.5f - dRow1;
 
-            var btnRetour = CreerBoutonTuileImage(header.transform, GetBackSprite(), 34f,
+            var backSprite = Resources.Load<Sprite>("UI/Icons/back");
+            if (backSprite == null) backSprite = GetBackSprite();
+            var btnRetour = CreerBoutonTuileImage(header.transform, backSprite, 46f,
                 new Vector2(HeaderPadding, row1Y), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Color.white);
             btnRetour.onClick.AddListener(() =>
             {
@@ -235,7 +237,9 @@ namespace Zoologic
 
             CreerPiluleNiveau(header.transform, numeroNiveau, row1Y);
 
-            var btnReglages = CreerBoutonTuileImage(header.transform, GetSettingsSprite(), 34f,
+            var settingsSprite = Resources.Load<Sprite>("UI/settings");
+            if (settingsSprite == null) settingsSprite = GetSettingsSprite();
+            var btnReglages = CreerBoutonTuileImage(header.transform, settingsSprite, 46f,
                 new Vector2(-HeaderPadding, row1Y), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
             btnReglages.onClick.AddListener(() =>
             {
@@ -661,8 +665,8 @@ namespace Zoologic
         private void BuildGommeBouton(Canvas canvas)
         {
             float bottomMargin = 26f + BottomInset + 148f;
-            float rightMargin = 16f;
-            float size = 76f;
+            float rightMargin = 14f;
+            float size = 96f;
 
             var btnObj = CreerObjetUI("GommeBouton", canvas.transform);
             var btnRect = btnObj.GetComponent<RectTransform>();
@@ -1662,7 +1666,7 @@ namespace Zoologic
             btnRect.anchorMin = anchor;
             btnRect.anchorMax = anchor;
             btnRect.pivot = pivot;
-            btnRect.sizeDelta = new Vector2(68f, 68f);
+            btnRect.sizeDelta = new Vector2(80f, 80f);
             btnRect.anchoredPosition = anchoredPos;
 
             var btnImg = btnObj.AddComponent<Image>();
