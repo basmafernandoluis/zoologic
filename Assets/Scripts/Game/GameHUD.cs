@@ -781,7 +781,6 @@ namespace Zoologic
             label.fontStyle = FontStyles.Bold;
             label.raycastTarget = false;
             label.enableVertexGradient = true;
-            label.colorMode = ColorMode.Single;
             Color topCol = new Color(1f, 0.945f, 0.231f, 1f);
             Color botCol = new Color(1f, 0.596f, 0f, 1f);
             label.colorGradient = new VertexGradient(topCol, topCol, botCol, botCol);
