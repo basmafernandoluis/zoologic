@@ -185,7 +185,7 @@ namespace Zoologic
             subRect.anchorMax = new Vector2(0.5f, 0.5f);
             subRect.pivot = new Vector2(0.5f, 0.5f);
             subRect.sizeDelta = new Vector2(760f, 40f);
-            subRect.anchoredPosition = new Vector2(0f, -48f);
+            subRect.anchoredPosition = new Vector2(0f, -80f);
             var subTxt = subGO.AddComponent<TextMeshProUGUI>();
             subTxt.font = _fontBody;
             subTxt.text = "Casse-Tête Animalier!";
@@ -315,7 +315,7 @@ namespace Zoologic
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle != null ? _fontTitle : Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
             txt.text = "CADEAU";
-            txt.fontSize = 24;
+            txt.fontSize = 21;
             txt.fontStyle = FontStyles.Bold;
             txt.color = new Color(0.29f, 0.157f, 0.063f, 1f);
             txt.alignment = TextAlignmentOptions.Center;
@@ -348,7 +348,7 @@ namespace Zoologic
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
             rect.sizeDelta = new Vector2(210f, 66f);
-            rect.anchoredPosition = new Vector2(236f, -18f);
+            rect.anchoredPosition = new Vector2(300f, -18f);
 
             var missionBg = Resources.Load<Sprite>("UI/Icons/Mission");
             var img = go.AddComponent<Image>();
@@ -552,7 +552,7 @@ namespace Zoologic
             rect.anchorMax = new Vector2(0.5f, 0f);
             rect.pivot = new Vector2(0.5f, 0f);
             rect.sizeDelta = new Vector2(200f, 40f);
-            rect.anchoredPosition = new Vector2(0f, 20f);
+            rect.anchoredPosition = new Vector2(0f, 80f);
 
             var txt = go.AddComponent<TextMeshProUGUI>();
             txt.font = _fontBody;
