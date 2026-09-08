@@ -140,31 +140,60 @@ namespace Zoologic
 
         private void BuildTitle(Transform parent)
         {
-            var go = new GameObject("Title");
-            go.transform.SetParent(parent, false);
-            var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.72f);
-            rect.anchorMax = new Vector2(0.5f, 0.72f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(800f, 140f);
-            rect.anchoredPosition = Vector2.zero;
+            var bannerGO = new GameObject("TitleBanner");
+            bannerGO.transform.SetParent(parent, false);
+            var bannerRect = bannerGO.AddComponent<RectTransform>();
+            bannerRect.anchorMin = new Vector2(0.5f, 0.75f);
+            bannerRect.anchorMax = new Vector2(0.5f, 0.75f);
+            bannerRect.pivot = new Vector2(0.5f, 0.5f);
+            bannerRect.sizeDelta = new Vector2(800f, 220f);
+            bannerRect.anchoredPosition = Vector2.zero;
+            var bannerImg = bannerGO.AddComponent<Image>();
+            bannerImg.sprite = Resources.Load<Sprite>("UI/banner_header");
+            bannerImg.type = Image.Type.Sliced;
+            bannerImg.preserveAspect = false;
+            bannerImg.raycastTarget = false;
 
-            var txt = go.AddComponent<TextMeshProUGUI>();
+            var titleGO = new GameObject("Title");
+            titleGO.transform.SetParent(bannerGO.transform, false);
+            var titleRect = titleGO.AddComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0.5f, 0.55f);
+            titleRect.anchorMax = new Vector2(0.5f, 0.55f);
+            titleRect.pivot = new Vector2(0.5f, 0.5f);
+            titleRect.sizeDelta = new Vector2(760f, 110f);
+            titleRect.anchoredPosition = new Vector2(0f, 18f);
+            var txt = titleGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = "ZOO LOGIC";
-            txt.fontSize = 80;
+            txt.fontSize = 78;
             txt.fontStyle = FontStyles.Bold;
-            txt.color = TitleOrange;
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
+            txt.enableVertexGradient = true;
+            txt.colorGradient = new VertexGradient(
+                new Color(1f, 0.92f, 0.45f),
+                new Color(1f, 0.92f, 0.45f),
+                new Color(1f, 0.62f, 0.12f),
+                new Color(1f, 0.62f, 0.12f));
+            txt.outlineWidth = 0.38f;
+            txt.outlineColor = new Color(0.29f, 0.157f, 0.063f, 1f);
 
-            var shadow = go.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.35f);
-            shadow.effectDistance = new Vector2(4f, -4f);
-
-            var outline = go.AddComponent<Outline>();
-            outline.effectColor = new Color(TitleOutline.r, TitleOutline.g, TitleOutline.b, 0.50f);
-            outline.effectDistance = new Vector2(3f, -3f);
+            var subGO = new GameObject("Subtitle");
+            subGO.transform.SetParent(bannerGO.transform, false);
+            var subRect = subGO.AddComponent<RectTransform>();
+            subRect.anchorMin = new Vector2(0.5f, 0.5f);
+            subRect.anchorMax = new Vector2(0.5f, 0.5f);
+            subRect.pivot = new Vector2(0.5f, 0.5f);
+            subRect.sizeDelta = new Vector2(760f, 40f);
+            subRect.anchoredPosition = new Vector2(0f, -48f);
+            var subTxt = subGO.AddComponent<TextMeshProUGUI>();
+            subTxt.font = _fontBody;
+            subTxt.text = "Casse-Tête Animalier!";
+            subTxt.fontSize = 26;
+            subTxt.fontStyle = FontStyles.Bold;
+            subTxt.color = new Color(0.29f, 0.157f, 0.063f, 1f);
+            subTxt.alignment = TextAlignmentOptions.Center;
+            subTxt.raycastTarget = false;
         }
 
         private void BuildPlayButton(Transform parent)
@@ -172,19 +201,19 @@ namespace Zoologic
             var go = new GameObject("PlayButton");
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.32f);
-            rect.anchorMax = new Vector2(0.5f, 0.32f);
+            rect.anchorMin = new Vector2(0.5f, 0.22f);
+            rect.anchorMax = new Vector2(0.5f, 0.22f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(440f, 100f);
+            rect.sizeDelta = new Vector2(500f, 130f);
             rect.anchoredPosition = Vector2.zero;
 
             var img = go.AddComponent<Image>();
-            Sprite playBtn = Resources.Load<Sprite>("UI/Jelly/Button_Green");
-            if (playBtn == null) playBtn = Resources.Load<Sprite>("UI/Cozy/btn_wood_light");
-            img.sprite = playBtn != null ? playBtn : CreerSpriteArrondi(128, 0.35f);
+            img.sprite = Resources.Load<Sprite>("UI/btn_play_green");
             img.type = Image.Type.Sliced;
             img.pixelsPerUnitMultiplier = 1f;
+            img.preserveAspect = false;
             img.color = Color.white;
+            img.raycastTarget = true;
 
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
@@ -206,22 +235,21 @@ namespace Zoologic
             var txtRect = txtGO.AddComponent<RectTransform>();
             txtRect.anchorMin = Vector2.zero;
             txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = Vector2.zero;
-            txtRect.offsetMax = Vector2.zero;
+            txtRect.offsetMin = new Vector2(0f, 0f);
+            txtRect.offsetMax = new Vector2(0f, 0f);
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
-            txt.text = "JOUER";
-            txt.fontSize = 52;
+            txt.text = "JOUER >";
+            txt.fontSize = 54;
             txt.fontStyle = FontStyles.Bold;
-            txt.color = new Color(0.32f, 0.20f, 0.12f);
+            txt.color = Color.white;
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
-            txt.outlineWidth = 0.18f;
-            txt.outlineColor = new Color(1f, 1f, 1f, 0.85f);
-
-            var shadow = go.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0.38f, 0.24f, 0.14f, 0.14f);
-            shadow.effectDistance = new Vector2(0f, -5f);
+            txt.outlineWidth = 0.32f;
+            txt.outlineColor = new Color(0.18f, 0.35f, 0.18f, 1f);
+            var txtShadow = txtGO.AddComponent<Shadow>();
+            txtShadow.effectColor = new Color(0f, 0f, 0f, 0.35f);
+            txtShadow.effectDistance = new Vector2(0f, -4f);
         }
 
         private void BuildSettingsButton(Transform parent)
@@ -264,41 +292,33 @@ namespace Zoologic
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
-            rect.sizeDelta = new Vector2(210f, 66f);
+            rect.sizeDelta = new Vector2(260f, 90f);
             rect.anchoredPosition = new Vector2(18f, -18f);
 
             var img = go.AddComponent<Image>();
-            img.sprite = KenneyUI.Button(canClaim ? "Yellow" : "Grey") ?? CreerSpriteArrondi(128, 0.35f);
-            img.type = Image.Type.Simple;
-            img.color = Color.white;
-
-            var hlg = go.AddComponent<HorizontalLayoutGroup>();
-            hlg.padding = new RectOffset(14, 12, 0, 0);
-            hlg.spacing = 8f;
-            hlg.childAlignment = TextAnchor.MiddleCenter;
-            hlg.childForceExpandWidth = false;
-            hlg.childControlWidth = false;
-
-            var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            iconGO.transform.SetParent(go.transform, false);
-            var iconRect = iconGO.GetComponent<RectTransform>();
-            iconRect.sizeDelta = new Vector2(36f, 36f);
-            var iconImg = iconGO.GetComponent<Image>();
-            iconImg.sprite = Resources.Load<Sprite>("UI/Icons/gem_icon");
-            iconImg.preserveAspect = true;
-            iconImg.raycastTarget = false;
-            iconGO.AddComponent<LayoutElement>().preferredWidth = 36f;
+            img.sprite = Resources.Load<Sprite>("UI/badge_cadeau");
+            if (img.sprite == null) img.sprite = KenneyUI.Button(canClaim ? "Yellow" : "Grey");
+            if (img.sprite == null) img.sprite = CreerSpriteArrondi(128, 0.35f);
+            img.type = Image.Type.Sliced;
+            img.color = canClaim ? Color.white : new Color(0.85f, 0.85f, 0.85f, 1f);
+            img.raycastTarget = true;
 
             var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             txtGO.transform.SetParent(go.transform, false);
-            var txt = txtGO.GetComponent<TextMeshProUGUI>();
+            var txtRect = txtGO.AddComponent<RectTransform>();
+            txtRect.anchorMin = new Vector2(0.5f, 0.5f);
+            txtRect.anchorMax = new Vector2(0.5f, 0.5f);
+            txtRect.pivot = new Vector2(0.5f, 0.5f);
+            txtRect.sizeDelta = new Vector2(200f, 40f);
+            txtRect.anchoredPosition = new Vector2(30f, 0f);
+            var txt = txtGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
-            txt.text = "Cadeau";
-            txt.fontSize = 21;
+            txt.text = "CADEAU";
+            txt.fontSize = 24;
             txt.fontStyle = FontStyles.Bold;
-            txt.color = canClaim ? new Color(0.32f, 0.20f, 0.10f) : new Color(0.45f, 0.40f, 0.36f);
+            txt.color = new Color(0.29f, 0.157f, 0.063f, 1f);
             txt.alignment = TextAlignmentOptions.Center;
-            txtGO.AddComponent<LayoutElement>().flexibleWidth = 1f;
+            txt.raycastTarget = false;
 
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
@@ -310,7 +330,7 @@ namespace Zoologic
             });
 
             var sh = go.AddComponent<Shadow>();
-            sh.effectColor = new Color(0.38f, 0.24f, 0.14f, 0.14f);
+            sh.effectColor = new Color(0f, 0f, 0f, 0.18f);
             sh.effectDistance = new Vector2(0f, -4f);
 
             if (canClaim) go.AddComponent<DailyPulse>();
@@ -535,7 +555,7 @@ namespace Zoologic
 
             var txt = go.AddComponent<TextMeshProUGUI>();
             txt.font = _fontBody;
-            txt.text = "v0.1";
+            txt.text = "v" + Application.version;
             txt.fontSize = 20;
             txt.color = new Color(0.40f, 0.45f, 0.48f, 0.70f);
             txt.alignment = TextAlignmentOptions.Center;
