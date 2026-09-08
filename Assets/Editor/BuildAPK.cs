@@ -7,8 +7,8 @@ namespace Zoologic.EditorTools
 {
     public static class BuildAPK
     {
-        private const string ApkPath = "Builds/ZooLogic_v0.3.apk";
-        private const string AabPath = "Builds/ZooLogic_v0.3.aab";
+        private const string ApkPath = "Builds/ZooLogic_v0.4.apk";
+        private const string AabPath = "Builds/ZooLogic_v0.4.aab";
 
         // https://developer.android.com/studio/publish/app-signing
         private const string KeystorePath = "Assets/play store/memorymatrix.keystore";
@@ -82,8 +82,8 @@ namespace Zoologic.EditorTools
 
             PlayerSettings.companyName = "AppWizards";
             PlayerSettings.productName = "Zoo Logic";
-            PlayerSettings.bundleVersion = "0.3";
-            PlayerSettings.Android.bundleVersionCode = 3;
+            PlayerSettings.bundleVersion = "0.4";
+            PlayerSettings.Android.bundleVersionCode = 4;
             PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android, "com.appwizards.zoologic");
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.AutoRotation;
             PlayerSettings.allowedAutorotateToPortrait = true;
@@ -93,7 +93,7 @@ namespace Zoologic.EditorTools
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel29;
             PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel36;
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
-            try { PlayerSettings.Android.resizableWindow = true; Debug.Log("[Build] resizableWindow=true for large screens"); } catch { }
+            try { PlayerSettings.Android.resizeableActivity = true; Debug.Log("[Build] resizableWindow=true for large screens"); } catch { }
             try
             {
                 var so = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset")[0]);
