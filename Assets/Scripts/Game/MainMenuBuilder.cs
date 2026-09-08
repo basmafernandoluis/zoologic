@@ -181,11 +181,11 @@ namespace Zoologic
             var subGO = new GameObject("Subtitle");
             subGO.transform.SetParent(bannerGO.transform, false);
             var subRect = subGO.AddComponent<RectTransform>();
-            subRect.anchorMin = new Vector2(0.5f, 0.5f);
-            subRect.anchorMax = new Vector2(0.5f, 0.5f);
-            subRect.pivot = new Vector2(0.5f, 0.5f);
-            subRect.sizeDelta = new Vector2(760f, 40f);
-            subRect.anchoredPosition = new Vector2(0f, -80f);
+            subRect.anchorMin = new Vector2(0.5f, 0f);
+            subRect.anchorMax = new Vector2(0.5f, 0f);
+            subRect.pivot = new Vector2(0.5f, 1f);
+            subRect.sizeDelta = new Vector2(760f, 50f);
+            subRect.anchoredPosition = new Vector2(0f, -15f);
             var subTxt = subGO.AddComponent<TextMeshProUGUI>();
             subTxt.font = _fontBody;
             subTxt.text = "Casse-Tête Animalier!";
