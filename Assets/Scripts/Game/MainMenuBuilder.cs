@@ -303,7 +303,7 @@ namespace Zoologic
             img.color = canClaim ? Color.white : new Color(0.85f, 0.85f, 0.85f, 1f);
             img.raycastTarget = true;
 
-            var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            var txtGO = new GameObject("Text");
             txtGO.transform.SetParent(go.transform, false);
             var txtRect = txtGO.AddComponent<RectTransform>();
             txtRect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -311,8 +311,9 @@ namespace Zoologic
             txtRect.pivot = new Vector2(0.5f, 0.5f);
             txtRect.sizeDelta = new Vector2(200f, 40f);
             txtRect.anchoredPosition = new Vector2(30f, 0f);
+            txtGO.AddComponent<CanvasRenderer>();
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
-            txt.font = _fontTitle;
+            txt.font = _fontTitle != null ? _fontTitle : Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
             txt.text = "CADEAU";
             txt.fontSize = 24;
             txt.fontStyle = FontStyles.Bold;
