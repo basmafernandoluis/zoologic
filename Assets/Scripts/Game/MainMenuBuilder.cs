@@ -106,6 +106,24 @@ namespace Zoologic
 
         private void BuildBackground(Transform parent)
         {
+            Sprite paw = Resources.Load<Sprite>("UI/Background_PawPattern");
+            if (paw != null)
+            {
+                var bgGO = new GameObject("Background", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                bgGO.transform.SetParent(parent, false);
+                var bgRect = bgGO.GetComponent<RectTransform>();
+                bgRect.anchorMin = Vector2.zero;
+                bgRect.anchorMax = Vector2.one;
+                bgRect.offsetMin = Vector2.zero;
+                bgRect.offsetMax = Vector2.zero;
+                var bgImg = bgGO.GetComponent<Image>();
+                bgImg.sprite = paw;
+                bgImg.type = Image.Type.Tiled;
+                bgImg.preserveAspect = false;
+                bgImg.color = Color.white;
+                bgImg.raycastTarget = false;
+                return;
+            }
             BackgroundHelper.ApplyBackground(parent);
         }
 
