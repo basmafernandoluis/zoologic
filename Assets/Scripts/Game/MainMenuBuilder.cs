@@ -576,7 +576,7 @@ namespace Zoologic
             txt.font = _fontBody;
             txt.text = "v" + Application.version;
             txt.fontSize = 20;
-            txt.color = new Color(0.40f, 0.45f, 0.48f, 0.70f);
+            txt.color = new Color(0.29f, 0.157f, 0.063f, 1f);
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
         }
