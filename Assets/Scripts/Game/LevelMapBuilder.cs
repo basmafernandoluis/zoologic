@@ -41,14 +41,15 @@ namespace Zoologic
         private const float FixedDailyHeight = 122f;
 
         // ------------------------------------------------------------------
-        // Palette pastel chaude cohérente avec l'écran de jeu.
+        // Palette Pastel Pop chaude - dynamique et douce.
         // ------------------------------------------------------------------
 
+        private static readonly Color PastelPopBg = new Color(0.992f, 0.973f, 0.949f, 1f);
         private static readonly Color HeaderBg = new Color(1f, 1f, 1f, 0.97f);
         private static readonly Color HeaderSepColor = new Color(0f, 0f, 0f, 0.10f);
         private static readonly Color TitleColor = new Color(0.15f, 0.13f, 0.10f);
         private static readonly Color BubbleWhite = new Color(1.00f, 0.98f, 0.96f, 1f);
-        private static readonly Color BubbleLocked = new Color(0.96f, 0.94f, 0.90f, 1f);
+        private static readonly Color BubbleLocked = new Color(0.914f, 0.906f, 0.894f, 1f);
         private static readonly Color BubbleBorderLight = new Color(0.92f, 0.89f, 0.86f, 1f);
         private static readonly Color NumberColor = new Color(0.22f, 0.19f, 0.16f, 1f);
         private static readonly Color NumberLockedColor = new Color(0.42f, 0.38f, 0.34f, 1f);
@@ -56,10 +57,15 @@ namespace Zoologic
         private static readonly Color EmptyStar = new Color(0.92f, 0.88f, 0.83f, 1f);
         private static readonly Color LockedStar = new Color(0.80f, 0.74f, 0.66f, 1f);
         private static readonly Color LockColor = new Color(0.62f, 0.54f, 0.46f, 1f);
-        private static readonly Color SeparatorBg = new Color(0.93f, 0.68f, 0.35f, 1f);
+        private static readonly Color SeparatorBg = new Color(0.639f, 0.788f, 0.659f, 1f);
+        private static readonly Color SeparatorBgLight = new Color(0.72f, 0.85f, 0.74f, 1f);
+        private static readonly Color SeparatorBevelLight = new Color(1f, 1f, 1f, 0.55f);
+        private static readonly Color SeparatorBevelDark = new Color(0.45f, 0.60f, 0.50f, 0.25f);
         private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.18f);
-        private static readonly Color CurrentLevelBorder = new Color(0.95f, 0.55f, 0.15f, 1f);
-        private static readonly Color CurrentLevelGlow = new Color(0.95f, 0.55f, 0.15f, 0.30f);
+        private static readonly Color CurrentLevelGradientTop = new Color(1f, 0.702f, 0.278f, 1f);
+        private static readonly Color CurrentLevelGradientBottom = new Color(1f, 0.549f, 0.259f, 1f);
+        private static readonly Color CurrentLevelBorder = new Color(1f, 0.65f, 0.22f, 1f);
+        private static readonly Color CurrentLevelGlow = new Color(1f, 0.58f, 0.20f, 0.45f);
 
         // ------------------------------------------------------------------
         // Champs.
@@ -231,7 +237,16 @@ namespace Zoologic
 
         private void BuildBackground(Transform parent)
         {
-            BackgroundHelper.ApplyBackground(parent);
+            var bgGO = new GameObject("Background", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            bgGO.transform.SetParent(parent, false);
+            var bgRect = bgGO.GetComponent<RectTransform>();
+            bgRect.anchorMin = Vector2.zero;
+            bgRect.anchorMax = Vector2.one;
+            bgRect.offsetMin = Vector2.zero;
+            bgRect.offsetMax = Vector2.zero;
+            var bgImg = bgGO.GetComponent<Image>();
+            bgImg.color = PastelPopBg;
+            bgImg.raycastTarget = false;
         }
 
         // ------------------------------------------------------------------
@@ -572,10 +587,35 @@ namespace Zoologic
             shadowImg.color = new Color(0f, 0f, 0f, 0.28f);
             shadowImg.raycastTarget = false;
 
-            // Fond principal : dégradé vertical (haut clair → bas soutenu).
+            // Fond principal : bleu pastel doux avec relief biseauté 3D.
             var img = go.AddComponent<Image>();
-            img.sprite = CreerSpriteGradientArrondi(128, 0.35f, SeparatorBg, Lighten(SeparatorBg, 0.30f));
+            img.sprite = CreerSpriteGradientArrondi(128, 0.35f, SeparatorBg, SeparatorBgLight);
             img.raycastTarget = false;
+
+            // Biseau 3D : liseré clair en haut, ombre douce en bas.
+            var bevelLightGO = new GameObject("BevelLight", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            bevelLightGO.transform.SetParent(go.transform, false);
+            var bevelLightRect = bevelLightGO.GetComponent<RectTransform>();
+            bevelLightRect.anchorMin = new Vector2(0f, 0.88f);
+            bevelLightRect.anchorMax = new Vector2(1f, 1f);
+            bevelLightRect.offsetMin = new Vector2(12f, 0f);
+            bevelLightRect.offsetMax = new Vector2(-12f, 0f);
+            var bevelLightImg = bevelLightGO.GetComponent<Image>();
+            bevelLightImg.sprite = CreerSpriteArrondi(64, 0.35f);
+            bevelLightImg.color = SeparatorBevelLight;
+            bevelLightImg.raycastTarget = false;
+
+            var bevelDarkGO = new GameObject("BevelDark", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            bevelDarkGO.transform.SetParent(go.transform, false);
+            var bevelDarkRect = bevelDarkGO.GetComponent<RectTransform>();
+            bevelDarkRect.anchorMin = new Vector2(0f, 0f);
+            bevelDarkRect.anchorMax = new Vector2(1f, 0.12f);
+            bevelDarkRect.offsetMin = new Vector2(12f, 0f);
+            bevelDarkRect.offsetMax = new Vector2(-12f, 0f);
+            var bevelDarkImg = bevelDarkGO.GetComponent<Image>();
+            bevelDarkImg.sprite = CreerSpriteArrondi(64, 0.35f);
+            bevelDarkImg.color = SeparatorBevelDark;
+            bevelDarkImg.raycastTarget = false;
 
             var le = go.AddComponent<LayoutElement>();
             le.preferredHeight = SeparatorHeight;
@@ -883,7 +923,16 @@ namespace Zoologic
             CreerFondArrondi(bubbleGO);
 
             var bubbleImg = bubbleGO.GetComponent<Image>();
-            bubbleImg.color = unlocked ? BubbleWhite : BubbleLocked;
+            if (isCurrent)
+            {
+                bubbleImg.sprite = CreerSpriteGradientArrondi(256, 0.22f, CurrentLevelGradientBottom, CurrentLevelGradientTop);
+                bubbleImg.type = Image.Type.Simple;
+                bubbleImg.color = Color.white;
+            }
+            else
+            {
+                bubbleImg.color = unlocked ? BubbleWhite : BubbleLocked;
+            }
             bubbleImg.raycastTarget = unlocked;
 
             if (unlocked)
@@ -892,9 +941,9 @@ namespace Zoologic
                 btn.targetGraphic = bubbleImg;
                 btn.transition = Selectable.Transition.ColorTint;
                 var colors = btn.colors;
-                colors.normalColor = isCurrent ? CurrentLevelGlow : BubbleWhite;
-                colors.highlightedColor = new Color(0.90f, 0.93f, 1f);
-                colors.pressedColor = new Color(0.82f, 0.86f, 0.95f);
+                colors.normalColor = Color.white;
+                colors.highlightedColor = new Color(1f, 0.96f, 0.85f);
+                colors.pressedColor = new Color(1f, 0.88f, 0.70f);
                 btn.colors = colors;
 
                 int capturedLevel = level;
@@ -1042,6 +1091,19 @@ namespace Zoologic
 
         private GameObject CreerGlowBorder(Transform parent)
         {
+            var glowOuterGO = new GameObject("GlowOuter");
+            glowOuterGO.transform.SetParent(parent, false);
+            var outerRect = glowOuterGO.AddComponent<RectTransform>();
+            outerRect.anchorMin = Vector2.zero;
+            outerRect.anchorMax = Vector2.one;
+            outerRect.offsetMin = new Vector2(-14f, -14f);
+            outerRect.offsetMax = new Vector2(14f, 14f);
+            var outerImg = glowOuterGO.AddComponent<Image>();
+            outerImg.sprite = CreerSpriteArrondi(128, 0.28f);
+            outerImg.color = new Color(CurrentLevelGlow.r, CurrentLevelGlow.g, CurrentLevelGlow.b, 0.18f);
+            outerImg.raycastTarget = false;
+            glowOuterGO.transform.SetAsFirstSibling();
+
             var glowGO = new GameObject("Glow");
             glowGO.transform.SetParent(parent, false);
             var rect = glowGO.AddComponent<RectTransform>();
@@ -1052,7 +1114,7 @@ namespace Zoologic
 
             var img = glowGO.AddComponent<Image>();
             img.sprite = CreerSpriteArrondi(128, 0.28f);
-            img.color = CurrentLevelBorder;
+            img.color = CurrentLevelGlow;
             img.raycastTarget = false;
 
             glowGO.transform.SetAsFirstSibling();
