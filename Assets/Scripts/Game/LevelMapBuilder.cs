@@ -323,7 +323,6 @@ namespace Zoologic
             bgImg.color = Color.white;
             bgImg.raycastTarget = true;
 
-            Sprite arrow = Resources.Load<Sprite>("UI/Icons/back");
             var iconGO = new GameObject("Icon");
             iconGO.transform.SetParent(btnGO.transform, false);
             var iconRect = iconGO.AddComponent<RectTransform>();
@@ -333,7 +332,7 @@ namespace Zoologic
             iconRect.sizeDelta = new Vector2(28f, 28f);
             iconRect.anchoredPosition = Vector2.zero;
             var iconImg = iconGO.AddComponent<Image>();
-            iconImg.sprite = arrow ?? CreerFlecheRetourSprite();
+            iconImg.sprite = GetBackIconSprite();
             iconImg.preserveAspect = true;
             iconImg.color = TitleColor;
             iconImg.raycastTarget = false;
@@ -346,7 +345,7 @@ namespace Zoologic
             iconShadowRect.sizeDelta = new Vector2(28f, 28f);
             iconShadowRect.anchoredPosition = new Vector2(0f, -1.5f);
             var iconShadowImg = iconShadow.AddComponent<Image>();
-            iconShadowImg.sprite = arrow ?? CreerFlecheRetourSprite();
+            iconShadowImg.sprite = GetBackIconSprite();
             iconShadowImg.preserveAspect = true;
             iconShadowImg.color = new Color(0f, 0f, 0f, 0.12f);
             iconShadowImg.raycastTarget = false;
@@ -668,15 +667,14 @@ namespace Zoologic
             sheenImg.color = new Color(1f, 1f, 1f, 0.07f);
             sheenImg.raycastTarget = false;
 
-            // Pastille 32x32 avec padding gauche 20f, jamais débordante.
             var badgeGO = new GameObject("Badge", typeof(RectTransform));
             badgeGO.transform.SetParent(go.transform, false);
             var badgeRect = badgeGO.GetComponent<RectTransform>();
             badgeRect.anchorMin = new Vector2(0f, 0.5f);
             badgeRect.anchorMax = new Vector2(0f, 0.5f);
             badgeRect.pivot = new Vector2(0.5f, 0.5f);
-            badgeRect.sizeDelta = new Vector2(32f, 32f);
-            badgeRect.anchoredPosition = new Vector2(36f, 0f);
+            badgeRect.sizeDelta = new Vector2(28f, 28f);
+            badgeRect.anchoredPosition = new Vector2(24f, 0f);
             var badgeImg = badgeGO.AddComponent<Image>();
             badgeImg.sprite = CreerSpriteArrondi(64, 0.5f);
             badgeImg.color = new Color(1f, 1f, 1f, 0.95f);
@@ -1496,6 +1494,15 @@ namespace Zoologic
 
             tex.Apply();
             return Sprite.Create(tex, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), 100f);
+        }
+
+        private static Sprite GetBackIconSprite()
+        {
+            var s = Resources.Load<Sprite>("UI/Icons/back");
+            if (s != null) return s;
+            s = Resources.Load<Sprite>("UI/back");
+            if (s != null) return s;
+            return CreerFlecheRetourSprite();
         }
 
         private static Sprite CreerFlecheRetourSprite()
