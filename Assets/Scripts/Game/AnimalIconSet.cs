@@ -21,8 +21,8 @@ namespace Zoologic
     /// </summary>
     public static class AnimalIconSet
     {
-        private const string ResourceFolder = "Art/Animals";
-        private const string AssetFolder = "Assets/Resources/Art/Animals";
+        private const string ResourceFolder = "Sprites";
+        private const string AssetFolder = "Assets/Resources/Sprites";
 
         private static Sprite[] _icons;
 
