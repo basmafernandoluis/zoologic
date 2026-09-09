@@ -968,11 +968,15 @@ namespace Zoologic
                     CreerGlowBorder(bubbleGO.transform);
             }
 
-            CreerTexteNiveau(bubbleGO.transform, level, unlocked);
-            CreerEtoiles(bubbleGO.transform, stars, unlocked);
-
-            if (!unlocked)
+            if (unlocked)
+            {
+                CreerTexteNiveau(bubbleGO.transform, level, unlocked);
+                CreerEtoiles(bubbleGO.transform, stars, unlocked);
+            }
+            else
+            {
                 CreerCadenas(bubbleGO.transform);
+            }
 
             _bubbles.Add(new LevelBubble
             {
