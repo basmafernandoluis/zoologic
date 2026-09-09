@@ -329,23 +329,29 @@ namespace Zoologic
             iconRect.anchorMin = new Vector2(0.5f, 0.5f);
             iconRect.anchorMax = new Vector2(0.5f, 0.5f);
             iconRect.pivot = new Vector2(0.5f, 0.5f);
-            iconRect.sizeDelta = new Vector2(28f, 28f);
+            iconRect.sizeDelta = new Vector2(36f, 36f);
             iconRect.anchoredPosition = Vector2.zero;
             var iconImg = iconGO.AddComponent<Image>();
-            iconImg.sprite = GetBackIconSprite();
+            var backIcon = GetBackIconSprite();
+            iconImg.sprite = backIcon;
             iconImg.preserveAspect = true;
-            iconImg.color = TitleColor;
+            iconImg.color = Color.white;
             iconImg.raycastTarget = false;
+            if (backIcon == null || backIcon.texture == null)
+            {
+                iconImg.sprite = CreerFlecheRetourSprite();
+                iconImg.color = TitleColor;
+            }
             var iconShadow = new GameObject("IconShadow");
             iconShadow.transform.SetParent(iconGO.transform, false);
             var iconShadowRect = iconShadow.AddComponent<RectTransform>();
             iconShadowRect.anchorMin = new Vector2(0.5f, 0.5f);
             iconShadowRect.anchorMax = new Vector2(0.5f, 0.5f);
             iconShadowRect.pivot = new Vector2(0.5f, 0.5f);
-            iconShadowRect.sizeDelta = new Vector2(28f, 28f);
+            iconShadowRect.sizeDelta = new Vector2(36f, 36f);
             iconShadowRect.anchoredPosition = new Vector2(0f, -1.5f);
             var iconShadowImg = iconShadow.AddComponent<Image>();
-            iconShadowImg.sprite = GetBackIconSprite();
+            iconShadowImg.sprite = iconImg.sprite;
             iconShadowImg.preserveAspect = true;
             iconShadowImg.color = new Color(0f, 0f, 0f, 0.12f);
             iconShadowImg.raycastTarget = false;
