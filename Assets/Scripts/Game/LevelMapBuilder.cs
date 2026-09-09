@@ -300,39 +300,57 @@ namespace Zoologic
             btnRect.anchorMin = new Vector2(0f, 0.5f);
             btnRect.anchorMax = new Vector2(0f, 0.5f);
             btnRect.pivot = new Vector2(0f, 0.5f);
-            btnRect.sizeDelta = new Vector2(80f, 80f);
-            btnRect.anchoredPosition = new Vector2(16f, 0f);
+            btnRect.sizeDelta = new Vector2(64f, 64f);
+            btnRect.anchoredPosition = new Vector2(18f, 0f);
 
-            Sprite backSprite = Resources.Load<Sprite>("UI/Icons/back");
-            if (backSprite == null) backSprite = Resources.Load<Sprite>("UI/Icons/level_locked");
+            var shadowGO = new GameObject("Shadow");
+            shadowGO.transform.SetParent(btnGO.transform, false);
+            var shadowRect = shadowGO.AddComponent<RectTransform>();
+            shadowRect.anchorMin = new Vector2(0.5f, 0.5f);
+            shadowRect.anchorMax = new Vector2(0.5f, 0.5f);
+            shadowRect.pivot = new Vector2(0.5f, 0.5f);
+            shadowRect.sizeDelta = new Vector2(64f, 64f);
+            shadowRect.anchoredPosition = new Vector2(0f, -4f);
+            var shadowImg = shadowGO.AddComponent<Image>();
+            shadowImg.sprite = CreerSpriteArrondi(128, 0.5f);
+            shadowImg.color = new Color(0f, 0f, 0f, 0.16f);
+            shadowImg.raycastTarget = false;
+            shadowGO.transform.SetAsFirstSibling();
+
             var bgImg = btnGO.AddComponent<Image>();
-            bgImg.sprite = backSprite ?? KenneyUI.Button("Grey") ?? CreerSpriteArrondi(128, 0.35f);
+            bgImg.sprite = CreerSpriteArrondi(128, 0.5f);
             bgImg.type = Image.Type.Simple;
-            bgImg.preserveAspect = true;
             bgImg.color = Color.white;
             bgImg.raycastTarget = true;
-            if (backSprite == null) bgImg.color = new Color(1f, 0.97f, 0.92f, 1f);
 
+            Sprite arrow = Resources.Load<Sprite>("UI/Icons/back");
             var iconGO = new GameObject("Icon");
-            if (backSprite == null)
-            {
-                iconGO.transform.SetParent(btnGO.transform, false);
-                var iconRect = iconGO.AddComponent<RectTransform>();
-                iconRect.anchorMin = new Vector2(0.5f, 0.5f);
-                iconRect.anchorMax = new Vector2(0.5f, 0.5f);
-                iconRect.pivot = new Vector2(0.5f, 0.5f);
-                iconRect.sizeDelta = new Vector2(48f, 48f);
-                iconRect.anchoredPosition = Vector2.zero;
-                var iconImg = iconGO.AddComponent<Image>();
-                iconImg.sprite = CreerFlecheRetourSprite();
-                iconImg.preserveAspect = true;
-                iconImg.color = TitleColor;
-                iconImg.raycastTarget = false;
-            }
-            else
-            {
-                iconGO.SetActive(false);
-            }
+            iconGO.transform.SetParent(btnGO.transform, false);
+            var iconRect = iconGO.AddComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+            iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+            iconRect.pivot = new Vector2(0.5f, 0.5f);
+            iconRect.sizeDelta = new Vector2(28f, 28f);
+            iconRect.anchoredPosition = Vector2.zero;
+            var iconImg = iconGO.AddComponent<Image>();
+            iconImg.sprite = arrow ?? CreerFlecheRetourSprite();
+            iconImg.preserveAspect = true;
+            iconImg.color = TitleColor;
+            iconImg.raycastTarget = false;
+            var iconShadow = new GameObject("IconShadow");
+            iconShadow.transform.SetParent(iconGO.transform, false);
+            var iconShadowRect = iconShadow.AddComponent<RectTransform>();
+            iconShadowRect.anchorMin = new Vector2(0.5f, 0.5f);
+            iconShadowRect.anchorMax = new Vector2(0.5f, 0.5f);
+            iconShadowRect.pivot = new Vector2(0.5f, 0.5f);
+            iconShadowRect.sizeDelta = new Vector2(28f, 28f);
+            iconShadowRect.anchoredPosition = new Vector2(0f, -1.5f);
+            var iconShadowImg = iconShadow.AddComponent<Image>();
+            iconShadowImg.sprite = arrow ?? CreerFlecheRetourSprite();
+            iconShadowImg.preserveAspect = true;
+            iconShadowImg.color = new Color(0f, 0f, 0f, 0.12f);
+            iconShadowImg.raycastTarget = false;
+            iconShadow.transform.SetAsFirstSibling();
 
             var btn = btnGO.AddComponent<Button>();
             btn.targetGraphic = bgImg;
@@ -355,14 +373,17 @@ namespace Zoologic
             pillRect.anchorMin = new Vector2(1f, 0.5f);
             pillRect.anchorMax = new Vector2(1f, 0.5f);
             pillRect.pivot = new Vector2(1f, 0.5f);
-            pillRect.sizeDelta = new Vector2(118f, 52f);
-            pillRect.anchoredPosition = new Vector2(-22f, 0f);
+            pillRect.sizeDelta = new Vector2(128f, 56f);
+            pillRect.anchoredPosition = new Vector2(-18f, 0f);
 
             var pillImg = pill.AddComponent<Image>();
             pillImg.sprite = KenneyUI.FlatButton("Grey") ?? CreerSpriteArrondi(128, 0.5f);
             pillImg.type = Image.Type.Simple;
             pillImg.color = Color.white;
             pillImg.raycastTarget = false;
+            var pillShadow = pill.AddComponent<Shadow>();
+            pillShadow.effectColor = new Color(0f, 0f, 0f, 0.08f);
+            pillShadow.effectDistance = new Vector2(0f, -3f);
 
             Sprite heart = Resources.Load<Sprite>("UI/heart");
             var heartObj = new GameObject("Heart");
@@ -371,29 +392,33 @@ namespace Zoologic
             heartRect.anchorMin = new Vector2(0f, 0.5f);
             heartRect.anchorMax = new Vector2(0f, 0.5f);
             heartRect.pivot = new Vector2(0.5f, 0.5f);
-            heartRect.sizeDelta = new Vector2(30f, 30f);
-            heartRect.anchoredPosition = new Vector2(26f, 0f);
+            heartRect.sizeDelta = new Vector2(32f, 32f);
+            heartRect.anchoredPosition = new Vector2(28f, 1.5f);
             var heartImg = heartObj.AddComponent<Image>();
             heartImg.sprite = heart;
             heartImg.preserveAspect = true;
             heartImg.color = GoldStar;
             heartImg.raycastTarget = false;
+            var heartJuice = heartObj.AddComponent<HeartJuice>();
 
             var txtObj = new GameObject("Count");
             txtObj.transform.SetParent(pill.transform, false);
             var txtRect = txtObj.AddComponent<RectTransform>();
             txtRect.anchorMin = Vector2.zero;
             txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = new Vector2(44f, 0f);
-            txtRect.offsetMax = Vector2.zero;
+            txtRect.offsetMin = new Vector2(52f, 0f);
+            txtRect.offsetMax = new Vector2(-12f, 0f);
             var txt = txtObj.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = LivesManager.GetStoredLives().ToString();
-            txt.fontSize = 30;
+            txt.fontSize = 34;
             txt.fontStyle = FontStyles.Bold;
             txt.color = NumberColor;
             txt.alignment = TextAlignmentOptions.MidlineRight;
             txt.raycastTarget = false;
+            var txtShadow = txtObj.AddComponent<Shadow>();
+            txtShadow.effectColor = new Color(0.15f, 0.12f, 0.10f, 0.12f);
+            txtShadow.effectDistance = new Vector2(0f, -1.5f);
             _livesCountText = txt;
 
             var timerObj = new GameObject("Timer");
@@ -411,6 +436,15 @@ namespace Zoologic
             _livesTimerText.alignment = TextAlignmentOptions.Center;
             _livesTimerText.raycastTarget = false;
             _livesTimerText.text = "";
+        }
+
+        private class HeartJuice : MonoBehaviour
+        {
+            void Update()
+            {
+                float s = 1f + Mathf.Sin(Time.unscaledTime * 2.2f) * 0.06f;
+                transform.localScale = new Vector3(s, s, s);
+            }
         }
 
         // ------------------------------------------------------------------
