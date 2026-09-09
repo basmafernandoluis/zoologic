@@ -634,16 +634,15 @@ namespace Zoologic
             sheenImg.color = new Color(1f, 1f, 1f, 0.07f);
             sheenImg.raycastTarget = false;
 
-            // Pastille blanche pleinement visible à gauche, avec l'étoile centrée
-            // dedans (aucune troncature, contrairement à l'ancien accent nu).
+            // Pastille 32x32 avec padding gauche 20f, jamais débordante.
             var badgeGO = new GameObject("Badge", typeof(RectTransform));
             badgeGO.transform.SetParent(go.transform, false);
             var badgeRect = badgeGO.GetComponent<RectTransform>();
             badgeRect.anchorMin = new Vector2(0f, 0.5f);
             badgeRect.anchorMax = new Vector2(0f, 0.5f);
             badgeRect.pivot = new Vector2(0.5f, 0.5f);
-            badgeRect.sizeDelta = new Vector2(44f, 44f);
-            badgeRect.anchoredPosition = new Vector2(30f, 0f);
+            badgeRect.sizeDelta = new Vector2(32f, 32f);
+            badgeRect.anchoredPosition = new Vector2(36f, 0f);
             var badgeImg = badgeGO.AddComponent<Image>();
             badgeImg.sprite = CreerSpriteArrondi(64, 0.5f);
             badgeImg.color = new Color(1f, 1f, 1f, 0.95f);
