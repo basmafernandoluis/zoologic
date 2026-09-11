@@ -35,12 +35,12 @@ namespace Zoologic
             if (_icons != null)
                 return _icons;
 
-            _icons = Resources.LoadAll<Sprite>(ResourceFolder);
+            var all = Resources.LoadAll<Sprite>(ResourceFolder);
+            _icons = FilterAnimalSprites(all);
 
 #if UNITY_EDITOR
-            // Repli éditeur/batch : la base Resources peut ne pas encore être à jour.
             if (_icons == null || _icons.Length == 0)
-                _icons = LoadFromAssetDatabase();
+                _icons = FilterAnimalSprites(LoadFromAssetDatabase());
 #endif
 
             if (_icons == null || _icons.Length == 0)
@@ -48,7 +48,7 @@ namespace Zoologic
                 _icons = new Sprite[0];
                 Debug.LogWarning(
                     "[Zoologic] AnimalIconSet : aucune icône trouvée dans " + AssetFolder +
-                    ". Les pions retomberont sur le cercle de secours.");
+                    " (filtre sp1_*). Les pions retomberont sur le cercle de secours.");
             }
             else
             {
@@ -58,19 +58,31 @@ namespace Zoologic
             return _icons;
         }
 
+        private static Sprite[] FilterAnimalSprites(Sprite[] source)
+        {
+            if (source == null) return new Sprite[0];
+            var list = new System.Collections.Generic.List<Sprite>();
+            for (int i = 0; i < source.Length; i++)
+            {
+                var s = source[i];
+                if (s == null) continue;
+                if (s.name.StartsWith("sp1_")) list.Add(s);
+            }
+            return list.ToArray();
+        }
+
 #if UNITY_EDITOR
         private static Sprite[] LoadFromAssetDatabase()
         {
             string[] guids = AssetDatabase.FindAssets("t:Sprite", new[] { AssetFolder });
-            var sprites = new Sprite[guids.Length];
-
+            var list = new System.Collections.Generic.List<Sprite>();
             for (int i = 0; i < guids.Length; i++)
             {
                 string path = AssetDatabase.GUIDToAssetPath(guids[i]);
-                sprites[i] = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+                var sp = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+                if (sp != null && sp.name.StartsWith("sp1_")) list.Add(sp);
             }
-
-            return sprites;
+            return list.ToArray();
         }
 #endif
 

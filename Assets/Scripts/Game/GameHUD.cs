@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Zoologic.Localization;
 
 namespace Zoologic
 {
@@ -25,7 +27,7 @@ namespace Zoologic
         // ------------------------------------------------------------------
 
         private const float HeaderPadding = 22f;
-        private const float RuleBarHeight = 92f;
+        private const float RuleBarHeight = 104f;
 
         // Encoche simulee (px ref 1080x1920) utilisee quand la safe area reelle
         // est nulle (editeur, desktop) afin de previsualiser l'espacement.
@@ -113,14 +115,16 @@ namespace Zoologic
 
         // Pieces : solde affiche + indicateur d'achat d'indice.
         private TextMeshProUGUI _coinsValueText;
-        private Image _coinsIconImage;
+        private Image _coinsPillBg;
         private Image _indiceCoinIconImage;
+        private TextMeshProUGUI _indiceCostText;
         private Sprite _coinSprite;
         private Coroutine _toastRoutine;
 
         // Power-up e gomme e : bouton flottant en bas d'ecran.
         private Button _gommeButton;
         private Image _gommeButtonBg;
+        private bool _gommeUsesSprite;
         private Coroutine _gommeRechargeRoutine;
 
         // Interactions bloquees
@@ -161,18 +165,15 @@ namespace Zoologic
             }
         }
 
-        /// <summary>Board offset Y pour centrer la grille dans l'espace HUD en haut et le bas de l'ecran.</summary>
+        /// <summary>Board offset Y pour centrer la grille entre Header et footer texte (footer léger).</summary>
         public float BoardYOffset
         {
             get
             {
-                // Zone haute : header (encoche comprise) + barre de regles.
                 float topOccupied = _headerBottom + RuleBarHeight;
-                float bottomReserved = 35f;
-                // Reference : on travaille dans l'espace du canvas (hauteur 1920 en compte moyen).
+                float footerReserve = Mathf.Max(BottomInset, 30f) + 70f;
                 float canvasHeight = 1920f;
-                float availableCenter = (topOccupied + (canvasHeight - bottomReserved)) * 0.5f;
-                // Decalage par rapport au centre du canvas (960 = moitie de la hauteur de reference).
+                float availableCenter = (topOccupied + (canvasHeight - footerReserve)) * 0.5f;
                 return -(availableCenter - canvasHeight * 0.5f);
             }
         }
@@ -223,10 +224,24 @@ namespace Zoologic
             // Row 1: ? back | Niveau X pill | ? settings
             float row1Y = H * 0.5f - dRow1;
 
-            var backSprite = Resources.Load<Sprite>("UI/Icons/back");
+            var backSprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_13") ?? Resources.Load<Sprite>("Sprites/b_13");
+            if (backSprite == null) backSprite = Resources.Load<Sprite>("UI/Icons/back");
             if (backSprite == null) backSprite = GetBackSprite();
-            var btnRetour = CreerBoutonTuileImage(header.transform, backSprite, 46f,
-                new Vector2(HeaderPadding, row1Y), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Color.white);
+            var btnRetourObj = CreerObjetUI("BtnRetour", header.transform);
+            var btnRetourRect = btnRetourObj.GetComponent<RectTransform>();
+            btnRetourRect.anchorMin = new Vector2(0f, 0.5f);
+            btnRetourRect.anchorMax = new Vector2(0f, 0.5f);
+            btnRetourRect.pivot = new Vector2(0f, 0.5f);
+            btnRetourRect.sizeDelta = new Vector2(88f, 88f);
+            btnRetourRect.anchoredPosition = new Vector2(HeaderPadding, row1Y);
+            var btnRetourBg = btnRetourObj.AddComponent<Image>();
+            btnRetourBg.sprite = backSprite;
+            btnRetourBg.type = Image.Type.Simple;
+            btnRetourBg.preserveAspect = true;
+            btnRetourBg.color = Color.white;
+            btnRetourBg.raycastTarget = true;
+            var btnRetour = btnRetourObj.AddComponent<Button>();
+            btnRetour.targetGraphic = btnRetourBg;
             btnRetour.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
@@ -237,10 +252,22 @@ namespace Zoologic
 
             CreerPiluleNiveau(header.transform, numeroNiveau, row1Y);
 
-            var settingsSprite = Resources.Load<Sprite>("UI/settings");
-            if (settingsSprite == null) settingsSprite = GetSettingsSprite();
-            var btnReglages = CreerBoutonTuileImage(header.transform, settingsSprite, 46f,
-                new Vector2(-HeaderPadding, row1Y), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f));
+            var gearSprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_8") ?? Resources.Load<Sprite>("Sprites/b_8");
+            var btnReglagesObj = CreerObjetUI("BtnReglages", header.transform);
+            var btnReglagesRect = btnReglagesObj.GetComponent<RectTransform>();
+            btnReglagesRect.anchorMin = new Vector2(1f, 0.5f);
+            btnReglagesRect.anchorMax = new Vector2(1f, 0.5f);
+            btnReglagesRect.pivot = new Vector2(1f, 0.5f);
+            btnReglagesRect.sizeDelta = new Vector2(88f, 88f);
+            btnReglagesRect.anchoredPosition = new Vector2(-HeaderPadding, row1Y);
+            var btnReglagesBg = btnReglagesObj.AddComponent<Image>();
+            btnReglagesBg.sprite = gearSprite;
+            btnReglagesBg.type = Image.Type.Simple;
+            btnReglagesBg.preserveAspect = true;
+            btnReglagesBg.color = Color.white;
+            btnReglagesBg.raycastTarget = true;
+            var btnReglages = btnReglagesObj.AddComponent<Button>();
+            btnReglages.targetGraphic = btnReglagesBg;
             btnReglages.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuOpen();
@@ -314,13 +341,15 @@ namespace Zoologic
             _progressionText.raycastTarget = false;
 
             // --- Hearts pill (center) ---
-            Sprite heartSprite = Resources.Load<Sprite>("UI/heart");
-            float heartSize = 40f;
+            Sprite heartSprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_9") ?? Resources.Load<Sprite>("Sprites/b_9");
+            if (heartSprite == null) heartSprite = Resources.Load<Sprite>("UI/heart");
+            float heartSize = 38f;
             float heartSpacing = 6f;
             float totalHeartsW = LivesManager.ViesDepart * heartSize + (LivesManager.ViesDepart - 1) * heartSpacing;
             float headerWidth = header is RectTransform hrt && hrt.rect.width > 0f ? hrt.rect.width : 1080f;
-            float pillPadX = 22f;
-            float heartsPillW = totalHeartsW + pillPadX * 2f;
+            float pillPadX = 16f;
+            float heartsLeftOffset = 84f;
+            float heartsPillW = totalHeartsW + heartsLeftOffset + pillPadX;
             float heartsPillH = 56f;
 
             // Conteneur pilule coherent avec score (gauche) et indice (droite).
@@ -334,9 +363,19 @@ namespace Zoologic
             AjouterOmbre(hpPillRect, header, 3f, -5f);
 
             var heartsPillImg = heartsPill.AddComponent<Image>();
-            heartsPillImg.sprite = GetPiluleSprite();
-            heartsPillImg.type = Image.Type.Simple;
-            heartsPillImg.color = HeartPillBg;
+            Sprite livesBarSprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_38") ?? Resources.Load<Sprite>("Sprites/b_38");
+            if (livesBarSprite != null)
+            {
+                heartsPillImg.sprite = livesBarSprite;
+                heartsPillImg.type = Image.Type.Sliced;
+                heartsPillImg.color = Color.white;
+            }
+            else
+            {
+                heartsPillImg.sprite = GetPiluleSprite();
+                heartsPillImg.type = Image.Type.Simple;
+                heartsPillImg.color = HeartPillBg;
+            }
             heartsPillImg.raycastTarget = false;
 
             for (int i = 0; i < LivesManager.ViesDepart; i++)
@@ -348,87 +387,100 @@ namespace Zoologic
                 heartRect.pivot = new Vector2(0.5f, 0.5f);
                 heartRect.sizeDelta = new Vector2(heartSize, heartSize);
                 heartRect.anchoredPosition = new Vector2(
-                    pillPadX + heartSize * 0.5f + i * (heartSize + heartSpacing),
+                    heartsLeftOffset + heartSize * 0.5f + i * (heartSize + heartSpacing),
                     0f);
 
                 _heartImages[i] = heartObj.AddComponent<Image>();
                 _heartImages[i].sprite = heartSprite;
                 _heartImages[i].type = Image.Type.Simple;
                 _heartImages[i].preserveAspect = true;
-                _heartImages[i].color = HeartFullColor;
+                _heartImages[i].color = Color.white;
                 _heartImages[i].raycastTarget = false;
                 _heartRoots[i] = heartObj;
             }
 
-            // --- Pilule economie combinee (pieces | indice) : une seule pilule e droite ---
+            // --- Pilule pieces gagnees (fond barre b_32, piece integree) ---
             _coinSprite = Resources.Load<Sprite>("UI/coin");
-            float economyW = 202f;
-            float economyX = -HeaderPadding;
+            float coinsW = 150f;
+
+            var coinsPill = CreerObjetUI("CoinsPill", header);
+            var cpRect = coinsPill.GetComponent<RectTransform>();
+            cpRect.anchorMin = new Vector2(1f, 0.5f);
+            cpRect.anchorMax = new Vector2(1f, 0.5f);
+            cpRect.pivot = new Vector2(1f, 0.5f);
+            cpRect.sizeDelta = new Vector2(coinsW, pillH);
+            cpRect.anchoredPosition = new Vector2(-HeaderPadding, y);
+            AjouterOmbre(cpRect, header, 3f, -5f);
+
+            _coinsPillBg = coinsPill.AddComponent<Image>();
+            Sprite coinsBarSprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_32") ?? Resources.Load<Sprite>("Sprites/b_32");
+            if (coinsBarSprite != null)
+            {
+                _coinsPillBg.sprite = coinsBarSprite;
+                _coinsPillBg.type = Image.Type.Sliced;
+                _coinsPillBg.color = Color.white;
+            }
+            else
+            {
+                _coinsPillBg.sprite = GetPiluleSprite();
+                _coinsPillBg.type = Image.Type.Simple;
+                _coinsPillBg.color = HintPillBg;
+            }
+            _coinsPillBg.raycastTarget = false;
+
+            var coinCountObj = CreerObjetUI("CoinNombre", coinsPill.transform);
+            var coinCountRect = coinCountObj.GetComponent<RectTransform>();
+            coinCountRect.anchorMin = new Vector2(0f, 0.5f);
+            coinCountRect.anchorMax = new Vector2(0f, 0.5f);
+            coinCountRect.pivot = new Vector2(0f, 0.5f);
+            coinCountRect.sizeDelta = new Vector2(58f, pillH);
+            coinCountRect.anchoredPosition = new Vector2(80f, 0f);
+
+            _coinsValueText = coinCountObj.AddComponent<TextMeshProUGUI>();
+            _coinsValueText.font = _fontTitle;
+            _coinsValueText.text = CurrencyManager.GetCoins().ToString();
+            _coinsValueText.fontSize = 30;
+            _coinsValueText.alignment = TextAlignmentOptions.MidlineLeft;
+            _coinsValueText.color = Color.white;
+            _coinsValueText.fontStyle = FontStyles.Bold;
+            _coinsValueText.outlineWidth = 0.18f;
+            _coinsValueText.outlineColor = new Color(0f, 0f, 0f, 0.45f);
+            _coinsValueText.raycastTarget = false;
+            var coinSh = coinCountObj.AddComponent<Shadow>();
+            coinSh.effectColor = new Color(0f, 0f, 0f, 0.35f);
+            coinSh.effectDistance = new Vector2(0f, -2f);
+
+            // --- Pilule indices (fond barre b_44, loupe integree) ---
+            float hintW = 170f;
 
             var economyPill = CreerObjetUI("EconomyPill", header);
             var epRect = economyPill.GetComponent<RectTransform>();
             epRect.anchorMin = new Vector2(1f, 0.5f);
             epRect.anchorMax = new Vector2(1f, 0.5f);
             epRect.pivot = new Vector2(1f, 0.5f);
-            epRect.sizeDelta = new Vector2(economyW, pillH);
-            epRect.anchoredPosition = new Vector2(economyX, y);
+            epRect.sizeDelta = new Vector2(hintW, pillH);
+            epRect.anchoredPosition = new Vector2(-HeaderPadding - coinsW - 12f, y);
             AjouterOmbre(epRect, header, 3f, -5f);
 
             _indiceButtonBg = economyPill.AddComponent<Image>();
-            _indiceButtonBg.sprite = GetPiluleSprite();
-            _indiceButtonBg.type = Image.Type.Simple;
-            _indiceButtonBg.color = HintPillBg;
+            Sprite hintBarSprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_44") ?? Resources.Load<Sprite>("Sprites/b_44");
+            if (hintBarSprite != null)
+            {
+                _indiceButtonBg.sprite = hintBarSprite;
+                _indiceButtonBg.type = Image.Type.Sliced;
+                _indiceButtonBg.color = Color.white;
+            }
+            else
+            {
+                _indiceButtonBg.sprite = GetPiluleSprite();
+                _indiceButtonBg.type = Image.Type.Simple;
+                _indiceButtonBg.color = HintPillBg;
+            }
             _indiceButtonBg.raycastTarget = true;
 
             _indiceButton = economyPill.AddComponent<Button>();
             _indiceButton.targetGraphic = _indiceButtonBg;
             _indiceButton.onClick.AddListener(() => OnIndiceDemande?.Invoke());
-
-            if (_coinSprite != null)
-            {
-                var coinIconObj = CreerObjetUI("CoinIcone", economyPill.transform);
-                var coinIconRect = coinIconObj.GetComponent<RectTransform>();
-                coinIconRect.anchorMin = new Vector2(0f, 0.5f);
-                coinIconRect.anchorMax = new Vector2(0f, 0.5f);
-                coinIconRect.pivot = new Vector2(0.5f, 0.5f);
-                coinIconRect.sizeDelta = new Vector2(32f, 32f);
-                coinIconRect.anchoredPosition = new Vector2(22f, 0f);
-
-                _coinsIconImage = coinIconObj.AddComponent<Image>();
-                _coinsIconImage.sprite = _coinSprite;
-                _coinsIconImage.type = Image.Type.Simple;
-                _coinsIconImage.preserveAspect = true;
-                _coinsIconImage.color = CoinPillTextColor;
-                _coinsIconImage.raycastTarget = false;
-            }
-
-            var coinCountObj = CreerObjetUI("CoinNombre", economyPill.transform);
-            var coinCountRect = coinCountObj.GetComponent<RectTransform>();
-            coinCountRect.anchorMin = new Vector2(0f, 0.5f);
-            coinCountRect.anchorMax = new Vector2(0f, 0.5f);
-            coinCountRect.pivot = new Vector2(0f, 0.5f);
-            coinCountRect.sizeDelta = new Vector2(52f, pillH);
-            coinCountRect.anchoredPosition = new Vector2(52f, 0f);
-
-            _coinsValueText = coinCountObj.AddComponent<TextMeshProUGUI>();
-            _coinsValueText.font = _fontTitle;
-            _coinsValueText.text = CurrencyManager.GetCoins().ToString();
-            _coinsValueText.fontSize = 28;
-            _coinsValueText.alignment = TextAlignmentOptions.MidlineLeft;
-            _coinsValueText.color = CoinPillTextColor;
-            _coinsValueText.fontStyle = FontStyles.Bold;
-            _coinsValueText.raycastTarget = false;
-
-            var divider = CreerObjetUI("Divider", economyPill.transform);
-            var divRect = divider.GetComponent<RectTransform>();
-            divRect.anchorMin = new Vector2(0.5f, 0.15f);
-            divRect.anchorMax = new Vector2(0.5f, 0.85f);
-            divRect.pivot = new Vector2(0.5f, 0.5f);
-            divRect.sizeDelta = new Vector2(2f, 0f);
-            divRect.anchoredPosition = new Vector2(1f, 0f);
-            var divImg = divider.AddComponent<Image>();
-            divImg.color = new Color(0f, 0f, 0f, 0.12f);
-            divImg.raycastTarget = false;
 
             Sprite potionSprite = Resources.Load<Sprite>("UI/potion");
             var hintIconObj = CreerObjetUI("IndiceIcone", economyPill.transform);
@@ -443,25 +495,31 @@ namespace Zoologic
             _indiceIconImage.sprite = potionSprite;
             _indiceIconImage.type = Image.Type.Simple;
             _indiceIconImage.preserveAspect = true;
-            _indiceIconImage.color = HintPillTextColor;
+            _indiceIconImage.color = Color.white;
             _indiceIconImage.raycastTarget = false;
+            hintIconObj.SetActive(false);
 
             var hintCountObj = CreerObjetUI("IndiceNombre", economyPill.transform);
             var hintCountRect = hintCountObj.GetComponent<RectTransform>();
             hintCountRect.anchorMin = new Vector2(0f, 0.5f);
             hintCountRect.anchorMax = new Vector2(0f, 0.5f);
             hintCountRect.pivot = new Vector2(0f, 0.5f);
-            hintCountRect.sizeDelta = new Vector2(36f, pillH);
-            hintCountRect.anchoredPosition = new Vector2(148f, 0f);
+            hintCountRect.sizeDelta = new Vector2(58f, pillH);
+            hintCountRect.anchoredPosition = new Vector2(92f, 0f);
 
             _indiceCountText = hintCountObj.AddComponent<TextMeshProUGUI>();
             _indiceCountText.font = _fontTitle;
             _indiceCountText.text = _indiceCount.ToString();
-            _indiceCountText.fontSize = 28;
+            _indiceCountText.fontSize = 30;
             _indiceCountText.alignment = TextAlignmentOptions.MidlineLeft;
-            _indiceCountText.color = HintPillTextColor;
+            _indiceCountText.color = Color.white;
             _indiceCountText.fontStyle = FontStyles.Bold;
+            _indiceCountText.outlineWidth = 0.18f;
+            _indiceCountText.outlineColor = new Color(0f, 0f, 0f, 0.45f);
             _indiceCountText.raycastTarget = false;
+            var hintSh = hintCountObj.AddComponent<Shadow>();
+            hintSh.effectColor = new Color(0f, 0f, 0f, 0.35f);
+            hintSh.effectDistance = new Vector2(0f, -2f);
 
             if (_coinSprite != null)
             {
@@ -471,16 +529,33 @@ namespace Zoologic
                 coinRect.anchorMax = new Vector2(0f, 0.5f);
                 coinRect.pivot = new Vector2(0.5f, 0.5f);
                 coinRect.sizeDelta = new Vector2(18f, 18f);
-                coinRect.anchoredPosition = new Vector2(170f, 0f);
+                coinRect.anchoredPosition = new Vector2(74f, 0f);
 
                 _indiceCoinIconImage = coinObj.AddComponent<Image>();
                 _indiceCoinIconImage.sprite = _coinSprite;
                 _indiceCoinIconImage.type = Image.Type.Simple;
                 _indiceCoinIconImage.preserveAspect = true;
-                _indiceCoinIconImage.color = CoinPillTextColor;
+                _indiceCoinIconImage.color = Color.white;
                 _indiceCoinIconImage.raycastTarget = false;
                 _indiceCoinIconImage.gameObject.SetActive(false);
             }
+
+            var costObj = CreerObjetUI("IndiceCout", economyPill.transform);
+            var costRect = costObj.GetComponent<RectTransform>();
+            costRect.anchorMin = new Vector2(0f, 0.5f);
+            costRect.anchorMax = new Vector2(0f, 0.5f);
+            costRect.pivot = new Vector2(0f, 0.5f);
+            costRect.sizeDelta = new Vector2(44f, pillH);
+            costRect.anchoredPosition = new Vector2(100f, 0f);
+            _indiceCostText = costObj.AddComponent<TextMeshProUGUI>();
+            _indiceCostText.font = _fontTitle;
+            _indiceCostText.text = PuzzleGameController.IndiceCout.ToString();
+            _indiceCostText.fontSize = 24;
+            _indiceCostText.alignment = TextAlignmentOptions.MidlineLeft;
+            _indiceCostText.color = CoinPillTextColor;
+            _indiceCostText.fontStyle = FontStyles.Bold;
+            _indiceCostText.raycastTarget = false;
+            costObj.SetActive(false);
 
             UpdateIndiceButtonState();
             StartIndiceBounce();
@@ -498,7 +573,8 @@ namespace Zoologic
 
             var text = texte.AddComponent<TextMeshProUGUI>();
             text.font = _fontTitle;
-            text.text = PuzzleGameController.IsDailyPuzzle ? "Defi du jour" : $"Niveau {numero}";
+            text.text = PuzzleGameController.IsDailyPuzzle ? LocalizationManager.Get("hud.daily") : LocalizationManager.Get("hud.level", numero);
+            LocalizationManager.ApplyTo(text);
             text.fontSize = 48;
             text.alignment = TextAlignmentOptions.Center;
             text.color = TitleBrown;
@@ -533,7 +609,7 @@ namespace Zoologic
             var barBgImg = barBg.AddComponent<Image>();
             barBgImg.sprite = GetCarteSprite();
             barBgImg.type = Image.Type.Simple;
-            barBgImg.color = new Color(1f, 1f, 1f, 0.98f);
+            barBgImg.color = new Color(1f, 1f, 1f, 0f);
             barBgImg.raycastTarget = false;
             barBg.transform.SetAsFirstSibling();
             var barShadow = CreerObjetUI("BarShadow", barBg.transform);
@@ -544,24 +620,24 @@ namespace Zoologic
             barShRect.offsetMax = new Vector2(4f, -6f);
             var barShImg = barShadow.AddComponent<Image>();
             barShImg.sprite = GetCarteSprite();
-            barShImg.color = new Color(0f, 0f, 0f, 0.10f);
+            barShImg.color = new Color(0f, 0f, 0f, 0f);
             barShImg.raycastTarget = false;
             barShadow.transform.SetAsFirstSibling();
             var barIgnore = barBg.AddComponent<LayoutElement>();
             barIgnore.ignoreLayout = true;
 
             var hlg = container.AddComponent<HorizontalLayoutGroup>();
-            hlg.padding = new RectOffset(8, 8, 8, 8);
-            hlg.spacing = 6f;
+            hlg.padding = new RectOffset(12, 12, 10, 10);
+            hlg.spacing = 10f;
             hlg.childAlignment = TextAnchor.MiddleCenter;
             hlg.childControlWidth = true;
             hlg.childControlHeight = true;
             hlg.childForceExpandWidth = true;
             hlg.childForceExpandHeight = true;
 
-            CreerCarteRegle(container.transform, "\u25CB", "1 par couleur", 0);
-            CreerCarteRegle(container.transform, "\u25A1", "1 par ligne\net colonne", 1);
-            CreerCarteRegleIcone(container.transform, GetDiagonalArrowSprite(), "Ne peut pas\nse toucher", 2);
+            CreerCarteRegle(container.transform, "\u25CB", LocalizationManager.Get("hud.rule_color"), 0);
+            CreerCarteRegle(container.transform, "\u25A1", LocalizationManager.Get("hud.rule_rowcol"), 1);
+            CreerCarteRegleIcone(container.transform, GetDiagonalArrowSprite(), LocalizationManager.Get("hud.rule_no_touch"), 2);
         }
 
         private void CreerCarteRegle(Transform parent, string icone, string label, int index)
@@ -572,55 +648,68 @@ namespace Zoologic
             carteLE.preferredWidth = 220f;
             carteLE.minWidth = 150f;
             var carteRect = carte.GetComponent<RectTransform>();
-            carteRect.sizeDelta = new Vector2(0f, RuleBarHeight - 20f);
+            carteRect.sizeDelta = new Vector2(0f, RuleBarHeight - 16f);
 
             var carteImg = carte.AddComponent<Image>();
-            carteImg.sprite = GetCarteSprite();
-            carteImg.type = Image.Type.Simple;
-            carteImg.color = GetRuleCardBg(index);
+            Sprite bannerSprite = GetRuleBannerSprite(index);
+            carteImg.sprite = bannerSprite != null ? bannerSprite : GetCarteSprite();
+            carteImg.type = Image.Type.Sliced;
+            carteImg.color = Color.white;
             carteImg.raycastTarget = false;
 
-            // Lisere d'accent en haut de carte (finition, distingue chaque regle).
             var accent = CreerObjetUI("Accent", carte.transform);
             var accentRect = accent.GetComponent<RectTransform>();
             accentRect.anchorMin = new Vector2(0f, 1f);
             accentRect.anchorMax = new Vector2(1f, 1f);
             accentRect.pivot = new Vector2(0.5f, 1f);
-            accentRect.sizeDelta = new Vector2(-20f, 8f);
-            accentRect.anchoredPosition = new Vector2(0f, -8f);
+            accentRect.sizeDelta = new Vector2(-24f, 10f);
+            accentRect.anchoredPosition = new Vector2(0f, -7f);
             var accentImg = accent.AddComponent<Image>();
             accentImg.sprite = GetPiluleSprite();
             accentImg.type = Image.Type.Simple;
             accentImg.color = GetRuleAccent(index);
             accentImg.raycastTarget = false;
 
-            // Ombre sous la carte
             var ombre = CreerObjetUI("Ombre", carte.transform);
             var ombreRect = ombre.GetComponent<RectTransform>();
             ombreRect.anchorMin = Vector2.zero;
             ombreRect.anchorMax = Vector2.one;
-            ombreRect.offsetMin = new Vector2(4f, -5f);
-            ombreRect.offsetMax = new Vector2(4f, -5f);
+            ombreRect.offsetMin = new Vector2(0f, -6f);
+            ombreRect.offsetMax = new Vector2(0f, -6f);
             var ombreImg = ombre.AddComponent<Image>();
-            ombreImg.color = CardShadowColor;
+            ombreImg.sprite = GetCarteSprite();
+            ombreImg.type = Image.Type.Simple;
+            ombreImg.color = new Color(0.35f, 0.22f, 0.12f, 0.18f);
             ombreImg.raycastTarget = false;
             ombre.transform.SetAsFirstSibling();
 
-            // Icene
             var iconObj = CreerObjetUI("Icone", carte.transform);
             var iconRect = iconObj.GetComponent<RectTransform>();
-            iconRect.anchorMin = new Vector2(0f, 0f);
-            iconRect.anchorMax = new Vector2(0f, 1f);
+            iconRect.anchorMin = new Vector2(0f, 0.5f);
+            iconRect.anchorMax = new Vector2(0f, 0.5f);
             iconRect.pivot = new Vector2(0.5f, 0.5f);
-            iconRect.sizeDelta = new Vector2(56f, 0f);
-            iconRect.anchoredPosition = new Vector2(46f, 0f);
+            iconRect.sizeDelta = new Vector2(56f, 56f);
+            iconRect.anchoredPosition = new Vector2(46f, -4f);
 
-            var iconText = iconObj.AddComponent<TextMeshProUGUI>();
+            var badgeBg = iconObj.AddComponent<Image>();
+            badgeBg.sprite = GetPiluleSprite();
+            badgeBg.type = Image.Type.Simple;
+            badgeBg.color = GetRuleAccent(index);
+            badgeBg.raycastTarget = false;
+
+            var glyphGO = CreerObjetUI("Glyph", iconObj.transform);
+            var glyphRect = glyphGO.GetComponent<RectTransform>();
+            glyphRect.anchorMin = Vector2.zero;
+            glyphRect.anchorMax = Vector2.one;
+            glyphRect.offsetMin = Vector2.zero;
+            glyphRect.offsetMax = new Vector2(0f, 2f);
+
+            var iconText = glyphGO.AddComponent<TextMeshProUGUI>();
             iconText.font = _fontTitle;
             iconText.text = icone;
-            iconText.fontSize = 42;
+            iconText.fontSize = 38;
             iconText.alignment = TextAlignmentOptions.Center;
-            iconText.color = GetRuleAccent(index);
+            iconText.color = Color.white;
             iconText.fontStyle = FontStyles.Bold;
             iconText.raycastTarget = false;
 
@@ -628,20 +717,20 @@ namespace Zoologic
             var labelRect = labelObj.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;
             labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = new Vector2(88f, 10f);
-            labelRect.offsetMax = new Vector2(-10f, -10f);
+            labelRect.offsetMin = new Vector2(112f, 12f);
+            labelRect.offsetMax = new Vector2(-12f, -12f);
 
             var labelText = labelObj.AddComponent<TextMeshProUGUI>();
             labelText.font = _fontTitle;
             labelText.text = label;
-            labelText.fontSize = 28;
-            labelText.fontSizeMin = 18;
-            labelText.fontSizeMax = 28;
+            labelText.fontSize = 26;
+            labelText.fontSizeMin = 20;
+            labelText.fontSizeMax = 26;
             labelText.enableAutoSizing = true;
             labelText.alignment = TextAlignmentOptions.MidlineLeft;
-            labelText.color = ScoreValueColor;
+            labelText.color = new Color(0.23f, 0.14f, 0.08f, 1f);
             labelText.fontStyle = FontStyles.Bold;
-            labelText.lineSpacing = 2f;
+            labelText.lineSpacing = 0f;
             labelText.textWrappingMode = TextWrappingModes.Normal;
             labelText.overflowMode = TextOverflowModes.Ellipsis;
             labelText.raycastTarget = false;
@@ -651,7 +740,7 @@ namespace Zoologic
         // 3bis) POWER-UP - GOMME : bouton flottant, coin bas-droit.
         // ------------------------------------------------------------------
 
-        private float BottomInset
+        public float BottomInset
         {
             get
             {
@@ -664,25 +753,39 @@ namespace Zoologic
 
         private void BuildGommeBouton(Canvas canvas)
         {
-            float bottomMargin = 26f + BottomInset + 148f;
-            float rightMargin = 14f;
-            float size = 96f;
+            float size = 72f;
 
             var btnObj = CreerObjetUI("GommeBouton", canvas.transform);
+            btnObj.name = "ResetButton";
             var btnRect = btnObj.GetComponent<RectTransform>();
             btnRect.anchorMin = new Vector2(1f, 0f);
             btnRect.anchorMax = new Vector2(1f, 0f);
             btnRect.pivot = new Vector2(1f, 0f);
             btnRect.sizeDelta = new Vector2(size, size);
-            btnRect.anchoredPosition = new Vector2(-rightMargin, bottomMargin);
+            btnRect.anchoredPosition = new Vector2(-56f, Mathf.Max(BottomInset, 30f) + 22f);
+            btnObj.transform.SetAsLastSibling();
 
             _gommeButtonBg = btnObj.AddComponent<Image>();
-            _gommeButtonBg.sprite = KenneyUI.Button("Red") ?? GetPiluleSprite();
-            _gommeButtonBg.type = Image.Type.Simple;
-            _gommeButtonBg.color = GumBgColor;
+            Sprite resetSprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_11") ?? Resources.Load<Sprite>("Sprites/b_11");
+            _gommeUsesSprite = resetSprite != null;
+            if (_gommeUsesSprite)
+            {
+                _gommeButtonBg.sprite = resetSprite;
+                _gommeButtonBg.type = Image.Type.Simple;
+                _gommeButtonBg.color = Color.white;
+            }
+            else
+            {
+                _gommeButtonBg.sprite = GetPiluleSprite();
+                _gommeButtonBg.type = Image.Type.Simple;
+                _gommeButtonBg.color = GumBgColor;
+            }
+            _gommeButtonBg.preserveAspect = true;
             _gommeButtonBg.raycastTarget = true;
 
-            AjouterOmbre(btnRect, canvas.transform, 3f, -5f);
+            var resetShadow = btnObj.AddComponent<Shadow>();
+            resetShadow.effectColor = new Color(0f, 0f, 0f, 0.28f);
+            resetShadow.effectDistance = new Vector2(0f, -4f);
 
             _gommeButton = btnObj.AddComponent<Button>();
             _gommeButton.targetGraphic = _gommeButtonBg;
@@ -691,114 +794,82 @@ namespace Zoologic
             _gommeButton.colors = colors;
             _gommeButton.onClick.AddListener(() => OnGommeDemande?.Invoke());
 
-            // Icene gemme rouge (gomme corrective).
-            Sprite gemSprite = Resources.Load<Sprite>("UI/gemRed");
-            if (gemSprite != null)
-            {
-                var iconObj = CreerObjetUI("Icone", btnObj.transform);
-                var iconRect = iconObj.GetComponent<RectTransform>();
-                iconRect.anchorMin = Vector2.zero;
-                iconRect.anchorMax = Vector2.one;
-                iconRect.offsetMin = Vector2.zero;
-                iconRect.offsetMax = Vector2.zero;
-                var iconImg = iconObj.AddComponent<Image>();
-                iconImg.sprite = gemSprite;
-                iconImg.type = Image.Type.Simple;
-                iconImg.preserveAspect = true;
-                iconImg.color = Color.white;
-                iconImg.raycastTarget = false;
-            }
-
             var badgeGO = CreerObjetUI("BadgeCout", btnObj.transform);
             var badgeRect = badgeGO.GetComponent<RectTransform>();
             badgeRect.anchorMin = new Vector2(1f, 1f);
             badgeRect.anchorMax = new Vector2(1f, 1f);
             badgeRect.pivot = new Vector2(0.5f, 0.5f);
-            badgeRect.sizeDelta = new Vector2(56f, 30f);
-            badgeRect.anchoredPosition = new Vector2(8f, 10f);
+            badgeRect.sizeDelta = new Vector2(48f, 28f);
+            badgeRect.anchoredPosition = new Vector2(4f, 6f);
             var badgeImg = badgeGO.AddComponent<Image>();
             badgeImg.sprite = GetPiluleSprite();
             badgeImg.type = Image.Type.Simple;
-            badgeImg.color = new Color(1f, 1f, 1f, 0.97f);
+            badgeImg.color = new Color(1f, 0.98f, 0.96f, 0.98f);
             badgeImg.raycastTarget = false;
-            var badgeShadow = CreerObjetUI("Shadow", badgeGO.transform);
-            var bsRect2 = badgeShadow.GetComponent<RectTransform>();
-            bsRect2.anchorMin = Vector2.zero;
-            bsRect2.anchorMax = Vector2.one;
-            bsRect2.offsetMin = new Vector2(2f, -3f);
-            bsRect2.offsetMax = new Vector2(2f, -3f);
-            var bsImg2 = badgeShadow.AddComponent<Image>();
-            bsImg2.sprite = GetPiluleSprite();
-            bsImg2.color = new Color(0f, 0f, 0f, 0.18f);
-            bsImg2.raycastTarget = false;
-            badgeShadow.transform.SetAsFirstSibling();
-
             var badgeTxtGO = CreerObjetUI("Text", badgeGO.transform);
             var badgeTxtRect = badgeTxtGO.GetComponent<RectTransform>();
             badgeTxtRect.anchorMin = Vector2.zero;
             badgeTxtRect.anchorMax = Vector2.one;
-            badgeTxtRect.offsetMin = Vector2.zero;
-            badgeTxtRect.offsetMax = Vector2.zero;
             var badgeTxt = badgeTxtGO.AddComponent<TextMeshProUGUI>();
             badgeTxt.font = _fontTitle;
             badgeTxt.text = PuzzleGameController.GommeCout.ToString();
             badgeTxt.fontSize = 20;
             badgeTxt.alignment = TextAlignmentOptions.Center;
-            badgeTxt.color = GumBgColor;
+            badgeTxt.color = TitleBrown;
             badgeTxt.fontStyle = FontStyles.Bold;
             badgeTxt.raycastTarget = false;
+            badgeGO.SetActive(false);
         }
 
         private void BuildFooterWave(Canvas canvas)
         {
             var footer = CreerObjetUI("FooterWave", canvas.transform);
+            footer.name = "DockBois";
+            var oldBg = footer.GetComponent<Image>();
+            if (oldBg != null) Destroy(oldBg);
             var rect = footer.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, 0f);
-            rect.anchorMax = new Vector2(1f, 0f);
+            rect.anchorMin = new Vector2(0.5f, 0f);
+            rect.anchorMax = new Vector2(0.5f, 0f);
             rect.pivot = new Vector2(0.5f, 0f);
-            rect.sizeDelta = new Vector2(0f, 148f);
-            rect.anchoredPosition = Vector2.zero;
-            var img = footer.AddComponent<Image>();
-            img.sprite = GetCarteSprite();
-            img.type = Image.Type.Simple;
-            img.color = new Color(0.63f, 0.85f, 0.94f, 1f);
-            img.raycastTarget = false;
-
-            // CatSilhouette supprime - re-ancrage evite icene flottante au bord du banner (task 3)
-
+            rect.sizeDelta = new Vector2(0f, 70f);
+            rect.anchoredPosition = new Vector2(0f, Mathf.Max(BottomInset, 48f));
+            footer.transform.SetAsLastSibling();
             var labelGO = CreerObjetUI("FooterLabel", footer.transform);
             var labelRect = labelGO.GetComponent<RectTransform>();
-            labelRect.anchorMin = new Vector2(0f, 0.5f);
-            labelRect.anchorMax = new Vector2(1f, 0.5f);
-            labelRect.pivot = new Vector2(0.5f, 0.5f);
-            labelRect.sizeDelta = new Vector2(0f, 60f);
-            labelRect.anchoredPosition = new Vector2(0f, -6f);
+            labelRect.anchorMin = new Vector2(0.5f, 0f);
+            labelRect.anchorMax = new Vector2(0.5f, 0f);
+            labelRect.pivot = new Vector2(0.5f, 0f);
+            labelRect.sizeDelta = new Vector2(700f, 64f);
+            labelRect.anchoredPosition = Vector2.zero;
             var label = labelGO.AddComponent<TextMeshProUGUI>();
             label.font = _fontTitle;
-            label.text = "Place les animaux";
-            label.fontSize = 42;
+            label.text = LocalizationManager.Get("hud.place_animals");
+            LocalizationManager.ApplyTo(label);
+            label.fontSize = 40;
+            label.enableAutoSizing = false;
             label.alignment = TextAlignmentOptions.Center;
             label.fontStyle = FontStyles.Bold;
+            label.color = new Color(0.29f, 0.18f, 0.10f, 1f);
+            label.outlineWidth = 0.32f;
+            label.outlineColor = Color.white;
+            label.characterSpacing = 2f;
             label.raycastTarget = false;
-            label.enableVertexGradient = true;
-            Color topCol = new Color(1f, 0.945f, 0.231f, 1f);
-            Color botCol = new Color(1f, 0.596f, 0f, 1f);
-            label.colorGradient = new VertexGradient(topCol, topCol, botCol, botCol);
-            label.outlineWidth = 0.38f;
-            label.outlineColor = new Color(0.243f, 0.153f, 0.137f, 1f);
             try
             {
                 var mat = new Material(label.fontMaterial);
                 mat.EnableKeyword("UNDERLAY_ON");
-                mat.SetColor("_UnderlayColor", new Color(0.12f, 0.07f, 0.04f, 0.8f));
-                mat.SetFloat("_UnderlayOffsetX", 0f);
-                mat.SetFloat("_UnderlayOffsetY", -0.5f);
-                mat.SetFloat("_UnderlayDilate", 0.18f);
-                mat.SetFloat("_UnderlaySoftness", 0.05f);
+                mat.SetColor("_UnderlayColor", new Color(0f, 0f, 0f, 0.32f));
+                mat.SetFloat("_UnderlayOffsetX", 2f);
+                mat.SetFloat("_UnderlayOffsetY", -3f);
+                mat.SetFloat("_UnderlayDilate", 0.38f);
+                mat.SetFloat("_UnderlaySoftness", 0.08f);
                 label.fontMaterial = mat;
             }
             catch { }
-            labelGO.AddComponent<TMPArcCurve>();
+            var sh = labelGO.AddComponent<Shadow>();
+            sh.effectColor = new Color(0f, 0f, 0f, 0.22f);
+            sh.effectDistance = new Vector2(2f, -3f);
+            labelGO.transform.SetAsLastSibling();
         }
 
         // ------------------------------------------------------------------
@@ -872,9 +943,9 @@ namespace Zoologic
 
                 if (i < vies)
                 {
-                    // Ceur vivant : blanc (couleur d'origine du sprite).
+                    // Ceur vivant : blanc (couleur d'origine du sprite b_9).
                     StopHeartAnim(i);
-                    _heartImages[i].color = HeartFullColor;
+                    _heartImages[i].color = Color.white;
                     _heartRoots[i].transform.localScale = Vector3.one;
                 }
                 else
@@ -973,31 +1044,39 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Met e jour l'etat visuel du bouton indice. Avec indices gratuits restants
-        /// il libelle le nombre restant ; e 0 il passe en e achat e : libelle du coet
-        /// en pieces + piecette d'achat. Le bouton reste cliquable tant que les
-        /// interactions ne sont pas bloquees.
+        /// Met à jour l'état visuel du bouton indice.
+        /// - Affiche le stock gratuit ou le coût en pièces.
+        /// - Gère la visibilité de l'icône pièce.
+        /// - Active/désactive l'interactivité selon le stock et la monnaie.
+        /// - Applique les couleurs et l'animation de rebond.
         /// </summary>
         private void UpdateIndiceButtonState()
         {
             bool purchaseMode = _indiceCount <= 0;
-            bool enabled = !_interactionsBloquees;
 
-            if (_indiceButton != null)
-                _indiceButton.interactable = enabled;
+            bool hasEnoughCoins = CurrencyManager.HasCoins(PuzzleGameController.IndiceCout);
 
-            if (_indiceIconImage != null)
-                _indiceIconImage.color = enabled ? HintPillTextColor : IndiceDisabledColor;
+            bool canInteract = !_interactionsBloquees && (_indiceCount > 0 || hasEnoughCoins);
 
             if (_indiceCountText != null)
             {
                 _indiceCountText.text = _indiceCount.ToString();
+                _indiceCountText.color = canInteract ? Color.white : new Color(1f, 1f, 1f, 0.55f);
             }
 
-            if (_indiceCoinIconImage != null)
-                _indiceCoinIconImage.gameObject.SetActive(purchaseMode && enabled);
+            if (_indiceCostText != null)
+                _indiceCostText.gameObject.SetActive(false);
 
-            if (enabled)
+            if (_indiceCoinIconImage != null)
+                _indiceCoinIconImage.gameObject.SetActive(purchaseMode && !_interactionsBloquees);
+
+            if (_indiceButton != null)
+                _indiceButton.interactable = canInteract;
+
+            if (_indiceIconImage != null)
+                _indiceIconImage.color = canInteract ? Color.white : IndiceDisabledColor;
+
+            if (canInteract)
                 StartIndiceBounce();
             else
                 StopIndiceBounce();
@@ -1010,6 +1089,21 @@ namespace Zoologic
         {
             if (_coinsValueText != null)
                 _coinsValueText.text = CurrencyManager.GetCoins().ToString();
+            UpdateIndiceButtonState();
+        }
+
+        public void RefreshIndiceDisplay()
+        {
+            UpdateIndiceButtonState();
+        }
+
+        public void AjouterIndices(int n)
+        {
+            if (n <= 0) return;
+            _indiceCount = Mathf.Max(0, _indiceCount + n);
+            if (_indiceCountText != null)
+                _indiceCountText.text = _indiceCount.ToString();
+            UpdateIndiceButtonState();
         }
 
         /// <summary>
@@ -1025,10 +1119,10 @@ namespace Zoologic
                 StartCoroutine(RestoreIndiceBgRoutine(original));
             }
 
-            if (_coinsIconImage != null)
-                Punch.FlashAlpha(this, _coinsIconImage, 0.3f, 0.4f);
+            if (_coinsPillBg != null)
+                Punch.FlashAlpha(this, _coinsPillBg, 0.3f, 0.4f);
 
-            ShowCoinToast($"Pas assez de pieces ({cout})");
+            ShowCoinToast(LocalizationManager.Get("hud.not_enough", cout));
             Haptics.VibrateLight();
         }
 
@@ -1038,13 +1132,13 @@ namespace Zoologic
         /// </summary>
         public void NotifierAucuneCible()
         {
-            ShowCoinToast("Aucun conflit e retirer");
+            ShowCoinToast(LocalizationManager.Get("hud.no_target"));
             Haptics.VibrateLight();
         }
 
         public void NotifierViesEpuisees()
         {
-            ShowCoinToast("Plus de vies ! Patiente ou regarde une pub");
+            ShowCoinToast(LocalizationManager.Get("hud.no_lives"));
             Haptics.VibrateLight();
         }
 
@@ -1073,7 +1167,7 @@ namespace Zoologic
             if (_gommeButton != null && !_interactionsBloquees)
                 _gommeButton.interactable = true;
             if (_gommeButtonBg != null)
-                _gommeButtonBg.color = GumBgColor;
+                _gommeButtonBg.color = _gommeUsesSprite ? Color.white : GumBgColor;
 
             _gommeRechargeRoutine = null;
         }
@@ -1242,7 +1336,7 @@ namespace Zoologic
             titreLE.flexibleWidth = 1f;
             var titreText = titreObj.AddComponent<TextMeshProUGUI>();
             titreText.font = _fontTitle;
-            titreText.text = "Niveau echoue";
+            titreText.text = LocalizationManager.Get("hud.level_failed");
             titreText.fontSize = 54;
             titreText.alignment = TextAlignmentOptions.Center;
             titreText.color = new Color(0.18f, 0.12f, 0.08f, 1f);
@@ -1260,7 +1354,7 @@ namespace Zoologic
             sousLE.flexibleWidth = 1f;
             var sousText = sousObj.AddComponent<TextMeshProUGUI>();
             sousText.font = _fontTitle;
-            sousText.text = "Plus de vies !";
+            sousText.text = LocalizationManager.Get("hud.no_lives_title");
             sousText.fontSize = 32;
             sousText.fontStyle = FontStyles.Bold;
             sousText.alignment = TextAlignmentOptions.Center;
@@ -1304,7 +1398,7 @@ namespace Zoologic
             pubTxtRect.offsetMax = new Vector2(-12f, -6f);
             var pubTxt = pubTxtGO.AddComponent<TextMeshProUGUI>();
             pubTxt.font = _fontTitle;
-            pubTxt.text = "Regarder une pub (+3 ?)";
+            pubTxt.text = LocalizationManager.Get("hud.watch_ad");
             pubTxt.fontSize = 22;
             pubTxt.alignment = TextAlignmentOptions.Center;
             pubTxt.color = new Color(0.20f, 0.12f, 0.06f, 1f);
@@ -1339,7 +1433,7 @@ namespace Zoologic
 
             var btnText = btnTextObj.AddComponent<TextMeshProUGUI>();
             btnText.font = _fontTitle;
-            btnText.text = "Reessayer";
+            btnText.text = LocalizationManager.Get("hud.retry");
             btnText.fontSize = 30;
             btnText.alignment = TextAlignmentOptions.Center;
             btnText.color = Color.white;
@@ -1388,7 +1482,7 @@ namespace Zoologic
             var menuTxtGO = CreerObjetUI("Text", menuContentGO.transform);
             var menuTxt = menuTxtGO.AddComponent<TextMeshProUGUI>();
             menuTxt.font = _fontTitle;
-            menuTxt.text = "Retour menu";
+            menuTxt.text = LocalizationManager.Get("hud.back_menu");
             menuTxt.fontSize = 20;
             menuTxt.alignment = TextAlignmentOptions.MidlineLeft;
             menuTxt.color = new Color(0.22f, 0.15f, 0.10f, 1f);
@@ -1475,8 +1569,8 @@ namespace Zoologic
                 int secs = LivesManager.GetSecondsUntilNextLife();
                 if (_livesTimerText != null)
                 {
-                    if (secs <= 0) _livesTimerText.text = "Vies pleines !";
-                    else _livesTimerText.text = $"Prochaine vie dans {secs / 60:00}:{secs % 60:00}";
+                    if (secs <= 0) _livesTimerText.text = LocalizationManager.Get("hud.full_lives");
+                    else _livesTimerText.text = LocalizationManager.Get("hud.next_life", secs / 60, secs % 60);
                 }
                 if (LivesManager.GetStoredLives() >= LivesManager.MaxVies) yield break;
                 yield return new WaitForSecondsRealtime(1f);
@@ -1515,7 +1609,7 @@ namespace Zoologic
             if (_gommeButton != null)
                 _gommeButton.interactable = !bloquer;
             if (_gommeButtonBg != null && !bloquer)
-                _gommeButtonBg.color = GumBgColor;
+                _gommeButtonBg.color = _gommeUsesSprite ? Color.white : GumBgColor;
         }
 
         public bool InteractionsBloquees => _interactionsBloquees;
@@ -1682,7 +1776,7 @@ namespace Zoologic
             btnRect.anchorMin = anchor;
             btnRect.anchorMax = anchor;
             btnRect.pivot = pivot;
-            btnRect.sizeDelta = new Vector2(80f, 80f);
+            btnRect.sizeDelta = new Vector2(88f, 88f);
             btnRect.anchoredPosition = anchoredPos;
 
             var btnImg = btnObj.AddComponent<Image>();
@@ -1704,7 +1798,7 @@ namespace Zoologic
             iconRect.anchorMax = new Vector2(0.5f, 0.5f);
             iconRect.pivot = new Vector2(0.5f, 0.5f);
             iconRect.sizeDelta = new Vector2(iconSize, iconSize);
-            iconRect.anchoredPosition = new Vector2(0f, 3f);
+            iconRect.anchoredPosition = Vector2.zero;
 
             var iconImage = iconObj.AddComponent<Image>();
             iconImage.sprite = iconSprite;
@@ -1781,7 +1875,7 @@ namespace Zoologic
 
         private void CreerCarteRegleIcone(Transform parent, Sprite iconSprite, string label, int index)
         {
-            float cardHeight = RuleBarHeight - 20f;
+            float cardHeight = RuleBarHeight - 16f;
             var carte = CreerObjetUI($"Carte{index}", parent);
             var carteLE = carte.AddComponent<LayoutElement>();
             carteLE.flexibleWidth = 1f;
@@ -1791,71 +1885,84 @@ namespace Zoologic
             carteRect.sizeDelta = new Vector2(0f, cardHeight);
 
             var carteImg = carte.AddComponent<Image>();
-            carteImg.sprite = GetCarteSprite();
-            carteImg.type = Image.Type.Simple;
-            carteImg.color = GetRuleCardBg(index);
+            Sprite bannerSprite = GetRuleBannerSprite(index);
+            carteImg.sprite = bannerSprite != null ? bannerSprite : GetCarteSprite();
+            carteImg.type = Image.Type.Sliced;
+            carteImg.color = Color.white;
             carteImg.raycastTarget = false;
 
-            // Lisere d'accent en haut de carte (finition, distingue chaque regle).
             var accent = CreerObjetUI("Accent", carte.transform);
             var accentRect = accent.GetComponent<RectTransform>();
             accentRect.anchorMin = new Vector2(0f, 1f);
             accentRect.anchorMax = new Vector2(1f, 1f);
             accentRect.pivot = new Vector2(0.5f, 1f);
-            accentRect.sizeDelta = new Vector2(-20f, 8f);
-            accentRect.anchoredPosition = new Vector2(0f, -8f);
+            accentRect.sizeDelta = new Vector2(-24f, 10f);
+            accentRect.anchoredPosition = new Vector2(0f, -7f);
             var accentImg = accent.AddComponent<Image>();
             accentImg.sprite = GetPiluleSprite();
             accentImg.type = Image.Type.Simple;
             accentImg.color = GetRuleAccent(index);
             accentImg.raycastTarget = false;
 
-            // Ombre sous la carte
             var ombre = CreerObjetUI("Ombre", carte.transform);
             var ombreRect = ombre.GetComponent<RectTransform>();
             ombreRect.anchorMin = Vector2.zero;
             ombreRect.anchorMax = Vector2.one;
-            ombreRect.offsetMin = new Vector2(4f, -5f);
-            ombreRect.offsetMax = new Vector2(4f, -5f);
+            ombreRect.offsetMin = new Vector2(0f, -6f);
+            ombreRect.offsetMax = new Vector2(0f, -6f);
             var ombreImg = ombre.AddComponent<Image>();
-            ombreImg.color = CardShadowColor;
+            ombreImg.sprite = GetCarteSprite();
+            ombreImg.type = Image.Type.Simple;
+            ombreImg.color = new Color(0.35f, 0.22f, 0.12f, 0.18f);
             ombreImg.raycastTarget = false;
             ombre.transform.SetAsFirstSibling();
 
-            // Icene sprite (au lieu de texte)
             var iconObj = CreerObjetUI("Icone", carte.transform);
             var iconRect = iconObj.GetComponent<RectTransform>();
-            iconRect.anchorMin = new Vector2(0f, 0f);
-            iconRect.anchorMax = new Vector2(0f, 1f);
+            iconRect.anchorMin = new Vector2(0f, 0.5f);
+            iconRect.anchorMax = new Vector2(0f, 0.5f);
             iconRect.pivot = new Vector2(0.5f, 0.5f);
-            iconRect.sizeDelta = new Vector2(56f, 0f);
-            iconRect.anchoredPosition = new Vector2(46f, 0f);
+            iconRect.sizeDelta = new Vector2(56f, 56f);
+            iconRect.anchoredPosition = new Vector2(46f, -4f);
 
-            var iconImage = iconObj.AddComponent<Image>();
+            var badgeBg = iconObj.AddComponent<Image>();
+            badgeBg.sprite = GetPiluleSprite();
+            badgeBg.type = Image.Type.Simple;
+            badgeBg.color = GetRuleAccent(index);
+            badgeBg.raycastTarget = false;
+
+            var glyphGO = CreerObjetUI("Glyph", iconObj.transform);
+            var glyphRect = glyphGO.GetComponent<RectTransform>();
+            glyphRect.anchorMin = Vector2.zero;
+            glyphRect.anchorMax = Vector2.one;
+            glyphRect.offsetMin = new Vector2(10f, 10f);
+            glyphRect.offsetMax = new Vector2(-10f, -10f);
+
+            var iconImage = glyphGO.AddComponent<Image>();
             iconImage.sprite = iconSprite;
             iconImage.type = Image.Type.Simple;
             iconImage.preserveAspect = true;
-            iconImage.color = GetRuleAccent(index);
+            iconImage.color = Color.white;
             iconImage.raycastTarget = false;
 
             var labelObj = CreerObjetUI("Label", carte.transform);
             var labelRect = labelObj.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;
             labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = new Vector2(88f, 10f);
-            labelRect.offsetMax = new Vector2(-10f, -10f);
+            labelRect.offsetMin = new Vector2(112f, 12f);
+            labelRect.offsetMax = new Vector2(-12f, -12f);
 
             var labelText = labelObj.AddComponent<TextMeshProUGUI>();
             labelText.font = _fontTitle;
             labelText.text = label;
-            labelText.fontSize = 28;
-            labelText.fontSizeMin = 18;
-            labelText.fontSizeMax = 28;
+            labelText.fontSize = 26;
+            labelText.fontSizeMin = 20;
+            labelText.fontSizeMax = 26;
             labelText.enableAutoSizing = true;
             labelText.alignment = TextAlignmentOptions.MidlineLeft;
-            labelText.color = ScoreValueColor;
+            labelText.color = new Color(0.23f, 0.14f, 0.08f, 1f);
             labelText.fontStyle = FontStyles.Bold;
-            labelText.lineSpacing = 2f;
+            labelText.lineSpacing = 0f;
             labelText.textWrappingMode = TextWrappingModes.Normal;
             labelText.overflowMode = TextOverflowModes.Ellipsis;
             labelText.raycastTarget = false;
@@ -1909,6 +2016,13 @@ namespace Zoologic
             if (_diagonalNoTouchSprite == null)
                 _diagonalNoTouchSprite = CreerSpriteDiagonaleInterdite(128);
             return _diagonalNoTouchSprite;
+        }
+
+        private static Sprite GetRuleBannerSprite(int index)
+        {
+            string path = index == 0 ? "Sprites/bak_0" : index == 1 ? "Sprites/bak_2" : "Sprites/bak_3";
+            var s = Resources.Load<Sprite>(path);
+            return s;
         }
 
         private static Color GetRuleCardBg(int index)

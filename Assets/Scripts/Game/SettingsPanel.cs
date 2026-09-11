@@ -3,6 +3,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
+using Zoologic.Localization;
 
 namespace Zoologic
 {
@@ -115,8 +116,9 @@ namespace Zoologic
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.pivot = new Vector2(0.5f, 0.5f);
-            panelRect.sizeDelta = new Vector2(900f, 760f);
+            panelRect.sizeDelta = new Vector2(760f, 0f);
             panelRect.anchoredPosition = Vector2.zero;
+            panel.transform.localScale = Vector3.zero;
 
             // Ombre portée (frère derrière le panneau, légèrement décalée).
             var shadowGO = new GameObject("Shadow");
@@ -125,34 +127,43 @@ namespace Zoologic
             shadowRect.anchorMin = new Vector2(0.5f, 0.5f);
             shadowRect.anchorMax = new Vector2(0.5f, 0.5f);
             shadowRect.pivot = new Vector2(0.5f, 0.5f);
-            shadowRect.sizeDelta = new Vector2(930f, 790f);
-            shadowRect.anchoredPosition = new Vector2(0f, -10f);
+            shadowRect.sizeDelta = new Vector2(790f, 100f);
+            shadowRect.anchoredPosition = new Vector2(0f, -14f);
             var shadowImg = shadowGO.AddComponent<Image>();
-            shadowImg.sprite = CreerSpriteArrondi(128, 0.08f);
-            shadowImg.color = new Color(0f, 0f, 0f, 0.42f);
+            shadowImg.sprite = CreerSpriteArrondi(128, 0.10f);
+            shadowImg.color = new Color(0.25f, 0.15f, 0.08f, 0.35f);
             shadowImg.raycastTarget = false;
             shadowGO.transform.SetSiblingIndex(panel.transform.GetSiblingIndex());
 
             var panelImg = panel.AddComponent<Image>();
-            panelImg.sprite = BackgroundHelper.CreateGradientSprite(BackgroundHelper.BgTop, BackgroundHelper.BgBottom);
-            panelImg.type = Image.Type.Simple;
-            panelImg.color = Color.white;
+            panelImg.sprite = CreerSpriteArrondi(256, 0.10f);
+            panelImg.type = Image.Type.Sliced;
+            panelImg.color = new Color(1f, 0.985f, 0.95f, 1f);
             panelImg.raycastTarget = true;
+            var panelOutline = panel.AddComponent<Outline>();
+            panelOutline.effectColor = new Color(1f, 1f, 1f, 0.9f);
+            panelOutline.effectDistance = new Vector2(3f, -3f);
 
             var vlg = panel.AddComponent<VerticalLayoutGroup>();
-            vlg.spacing = 24f;
+            vlg.spacing = 16f;
             vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
-            vlg.padding = new RectOffset(55, 55, 46, 34);
+            vlg.padding = new RectOffset(48, 48, 64, 28);
+            var csf = panel.AddComponent<ContentSizeFitter>();
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            PanelPopper.Pop(panelRect);
 
             CreerTitre(panel.transform);
-            CreerToggle(panel.transform, "Sons", SFXManager.Instance.IsEnabled,
+            CreerToggle(panel.transform, LocalizationManager.Get("settings.sounds"), SFXManager.Instance.IsEnabled,
                 val => { SFXManager.Instance.IsEnabled = val; });
-            CreerToggle(panel.transform, "Musique", SFXManager.Instance.MusicEnabled,
+            CreerToggle(panel.transform, LocalizationManager.Get("settings.music"), SFXManager.Instance.MusicEnabled,
                 val => { SFXManager.Instance.MusicEnabled = val; });
-            CreerToggle(panel.transform, "Vibrations", Haptics.IsEnabled,
+            CreerToggle(panel.transform, LocalizationManager.Get("settings.vibrations"), Haptics.IsEnabled,
                 val => { Haptics.IsEnabled = val; });
+            CreerLangue(panel.transform);
             CreerBoutonResetProgression(panel.transform);
             CreerBoutonResetTuto(panel.transform);
             CreerVersion(panel.transform);
@@ -166,15 +177,21 @@ namespace Zoologic
             go.transform.SetParent(parent, false);
             var txt = go.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
-            txt.text = "Réglages";
-            txt.fontSize = 48;
+            txt.text = LocalizationManager.Get("settings.title");
+            txt.fontSize = 54;
             txt.fontStyle = FontStyles.Bold;
             txt.color = TitleText;
             txt.alignment = TextAlignmentOptions.Center;
+            txt.outlineWidth = 0.15f;
+            txt.outlineColor = new Color(1f, 0.98f, 0.92f, 0.9f);
             txt.raycastTarget = false;
+            var sh = go.AddComponent<Shadow>();
+            sh.effectColor = new Color(0.35f, 0.22f, 0.12f, 0.18f);
+            sh.effectDistance = new Vector2(0f, -3f);
 
             var le = go.AddComponent<LayoutElement>();
-            le.preferredHeight = 64f;
+            le.preferredHeight = 70f;
+            le.flexibleWidth = 1f;
         }
 
         private static void CreerToggle(Transform parent, string label, bool isOn, System.Action<bool> onValueChanged)
@@ -191,17 +208,20 @@ namespace Zoologic
 
             // Carte de fond : sépare visuellement chaque réglage.
             var card = row.AddComponent<Image>();
-            card.sprite = CreerSpriteArrondi(128, 0.22f);
-            card.type = Image.Type.Simple;
+            card.sprite = CreerSpriteArrondi(128, 0.28f);
+            card.type = Image.Type.Sliced;
             card.color = ToggleCardBg;
             card.raycastTarget = false;
+            var cardOutline = row.gameObject.AddComponent<Outline>();
+            cardOutline.effectColor = ToggleCardBorder;
+            cardOutline.effectDistance = new Vector2(2f, -2f);
 
             var cardShadow = row.gameObject.AddComponent<Shadow>();
-            cardShadow.effectColor = new Color(0f, 0f, 0f, 0.14f);
-            cardShadow.effectDistance = new Vector2(2f, -3f);
+            cardShadow.effectColor = new Color(0.35f, 0.22f, 0.12f, 0.16f);
+            cardShadow.effectDistance = new Vector2(0f, -4f);
 
             var rowLE = row.AddComponent<LayoutElement>();
-            rowLE.preferredHeight = 88f;
+            rowLE.preferredHeight = 96f;
             rowLE.flexibleWidth = 1f;
 
             // Label (gras et sombre pour une meilleure identification).
@@ -222,15 +242,15 @@ namespace Zoologic
             var statusGO = new GameObject("Status");
             statusGO.transform.SetParent(row.transform, false);
             var statusText = statusGO.AddComponent<TextMeshProUGUI>();
-            statusText.font = _fontBody;
-            statusText.text = isOn ? "Activé" : "Désactivé";
-            statusText.fontSize = 28;
+            statusText.font = _fontTitle;
+            statusText.text = isOn ? LocalizationManager.Get("settings.on") : LocalizationManager.Get("settings.off");
+            statusText.fontSize = 26;
             statusText.fontStyle = FontStyles.Bold;
             statusText.color = isOn ? StatusOn : StatusOff;
             statusText.alignment = TextAlignmentOptions.MidlineRight;
             statusText.raycastTarget = false;
             var statusLE = statusGO.AddComponent<LayoutElement>();
-            statusLE.preferredWidth = 130f;
+            statusLE.preferredWidth = 150f;
 
             // Grand interrupteur clair.
             var toggleGO = new GameObject("Switch");
@@ -252,8 +272,12 @@ namespace Zoologic
             bgRect.offsetMax = Vector2.zero;
             var bgImg = bgGO.AddComponent<Image>();
             bgImg.color = isOn ? ToggleOn : ToggleOff;
-            bgImg.sprite = CreerSpriteArrondi(128, 0.45f);
+            bgImg.sprite = CreerSpriteArrondi(128, 0.5f);
+            bgImg.type = Image.Type.Sliced;
             toggle.targetGraphic = bgImg;
+            var bgShadow = bgGO.AddComponent<Shadow>();
+            bgShadow.effectColor = new Color(0f, 0f, 0f, 0.20f);
+            bgShadow.effectDistance = new Vector2(0f, -2f);
 
             var knobGO = new GameObject("Knob", typeof(RectTransform));
             knobGO.transform.SetParent(bgGO.transform, false);
@@ -266,11 +290,14 @@ namespace Zoologic
             var knobImg = knobGO.AddComponent<Image>();
             knobImg.sprite = CreerSpriteArrondi(64, 0.5f);
             knobImg.color = Color.white;
+            var knobShadow = knobGO.AddComponent<Shadow>();
+            knobShadow.effectColor = new Color(0f, 0f, 0f, 0.28f);
+            knobShadow.effectDistance = new Vector2(0f, -2f);
 
             toggle.onValueChanged.AddListener(val =>
             {
                 bgImg.color = val ? ToggleOn : ToggleOff;
-                statusText.text = val ? "Activé" : "Désactivé";
+                statusText.text = val ? LocalizationManager.Get("settings.on") : LocalizationManager.Get("settings.off");
                 statusText.color = val ? StatusOn : StatusOff;
                 SwitchAnimator.Animate(knobRect, val ? 28f : -28f);
                 onValueChanged(val);
@@ -278,9 +305,90 @@ namespace Zoologic
             });
         }
 
+        private static string LangNative(string code) => code switch
+        {
+            "fr-FR" => "Français",
+            "en-US" => "English",
+            "pt-BR" => "Português",
+            "ru-RU" => "Русский",
+            "ar-SA" => "العربية",
+            "zh-CN" => "中文",
+            "ja-JP" => "日本語",
+            "hi-IN" => "हिन्दी",
+            _ => code,
+        };
+
+        private static void CreerLangue(Transform parent)
+        {
+            var row = new GameObject("Langue");
+            row.transform.SetParent(parent, false);
+            var hlg = row.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 16f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childForceExpandWidth = true;
+            hlg.childForceExpandHeight = false;
+            hlg.padding = new RectOffset(22, 22, 14, 14);
+            var card = row.AddComponent<Image>();
+            card.sprite = CreerSpriteArrondi(128, 0.28f);
+            card.type = Image.Type.Sliced;
+            card.color = ToggleCardBg;
+            card.raycastTarget = false;
+            var rowLE = row.AddComponent<LayoutElement>();
+            rowLE.preferredHeight = 96f;
+            rowLE.flexibleWidth = 1f;
+
+            var labelGO = new GameObject("Label");
+            labelGO.transform.SetParent(row.transform, false);
+            var labelText = labelGO.AddComponent<TextMeshProUGUI>();
+            labelText.font = _fontTitle;
+            labelText.text = "Language";
+            labelText.fontSize = 34;
+            labelText.fontStyle = FontStyles.Bold;
+            labelText.color = TitleText;
+            labelText.alignment = TextAlignmentOptions.MidlineLeft;
+            labelText.raycastTarget = false;
+            var labelLE = labelGO.AddComponent<LayoutElement>();
+            labelLE.flexibleWidth = 1f;
+
+            var btnGO = new GameObject("LangBtn", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            btnGO.transform.SetParent(row.transform, false);
+            var btnImg = btnGO.GetComponent<Image>();
+            btnImg.sprite = CreerSpriteArrondi(128, 0.4f);
+            btnImg.type = Image.Type.Sliced;
+            btnImg.color = AccentOrange;
+            var btn = btnGO.GetComponent<Button>();
+            btn.targetGraphic = btnImg;
+            var btnLE = btnGO.AddComponent<LayoutElement>();
+            btnLE.preferredWidth = 260f; btnLE.preferredHeight = 62f;
+            var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            txtGO.transform.SetParent(btnGO.transform, false);
+            var txtRect = (RectTransform)txtGO.transform;
+            txtRect.anchorMin = Vector2.zero; txtRect.anchorMax = Vector2.one;
+            txtRect.offsetMin = new Vector2(8f, 4f); txtRect.offsetMax = new Vector2(-8f, -4f);
+            var txt = txtGO.GetComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.fontSize = 26;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = Color.white;
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.raycastTarget = false;
+            System.Action refresh = () => { txt.text = LangNative(LocalizationManager.Current); };
+            refresh();
+            btn.onClick.AddListener(() =>
+            {
+                var all = LocalizationManager.Supported;
+                int i = System.Array.IndexOf(all, LocalizationManager.Current);
+                string next = all[(i + 1) % all.Length];
+                LocalizationManager.SetLanguage(next);
+                SFXManager.Instance.PlayMenuOpen();
+                Close();
+                Open();
+            });
+        }
+
         private static void CreerBoutonResetProgression(Transform parent)
         {
-            var btn = CreerBouton(parent, "Réinitialiser la progression", DangerRed, 34f);
+            var btn = CreerBouton(parent, LocalizationManager.Get("settings.reset_progress"), DangerRed, 34f);
             btn.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
@@ -290,7 +398,7 @@ namespace Zoologic
 
         private static void CreerBoutonResetTuto(Transform parent)
         {
-            var btn = CreerBouton(parent, "Revoir le tutoriel", AccentOrange, 30f);
+            var btn = CreerBouton(parent, LocalizationManager.Get("settings.retake_tutorial"), AccentOrange, 30f);
             btn.onClick.AddListener(() =>
             {
                 TutorialManager.ResetTutorial();
@@ -342,7 +450,7 @@ namespace Zoologic
             msgGO.transform.SetParent(confirmPanel.transform, false);
             var msgTxt = msgGO.AddComponent<TextMeshProUGUI>();
             msgTxt.font = _fontBody;
-            msgTxt.text = "Es-tu sûr ?\nCette action est irréversible.";
+            msgTxt.text = LocalizationManager.Get("settings.reset_confirm");
             msgTxt.fontSize = 32;
             msgTxt.color = BodyText;
             msgTxt.alignment = TextAlignmentOptions.Center;
@@ -360,7 +468,7 @@ namespace Zoologic
             btnHLG.childForceExpandHeight = false;
             btnRow.AddComponent<LayoutElement>().preferredHeight = 60f;
 
-            var btnOui = CreerBouton(btnRow.transform, "Oui", DangerRed, 30f);
+            var btnOui = CreerBouton(btnRow.transform, LocalizationManager.Get("settings.reset_yes"), DangerRed, 30f);
             btnOui.onClick.AddListener(() =>
             {
                 LevelProgressManager.ResetAll();
@@ -369,7 +477,7 @@ namespace Zoologic
                 SceneManager.LoadScene("MainMenu");
             });
 
-            var btnAnnuler = CreerBouton(btnRow.transform, "Annuler", AccentOrange, 30f);
+            var btnAnnuler = CreerBouton(btnRow.transform, LocalizationManager.Get("settings.cancel"), AccentOrange, 30f);
             btnAnnuler.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
@@ -399,22 +507,26 @@ namespace Zoologic
             var go = new GameObject("CloseBtn", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             var rect = go.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(72f, 72f);
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.sizeDelta = new Vector2(64f, 64f);
+            rect.anchoredPosition = new Vector2(-16f, -16f);
 
             var img = go.AddComponent<Image>();
             img.sprite = CreerSpriteArrondi(128, 0.5f);
             img.type = Image.Type.Simple;
-            img.color = new Color(0.93f, 0.90f, 0.86f, 1f);
+            img.color = new Color(0.84f, 0.28f, 0.26f, 1f);
             img.raycastTarget = true;
+            var ol = go.AddComponent<Outline>();
+            ol.effectColor = new Color(1f, 1f, 1f, 0.85f);
+            ol.effectDistance = new Vector2(2f, -2f);
+            var sh = go.AddComponent<Shadow>();
+            sh.effectColor = new Color(0f, 0f, 0f, 0.28f);
+            sh.effectDistance = new Vector2(0f, -4f);
 
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
-            btn.transition = Selectable.Transition.ColorTint;
-            var colors = btn.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(0.85f, 0.88f, 0.92f);
-            colors.pressedColor = new Color(0.72f, 0.76f, 0.82f);
-            btn.colors = colors;
 
             var iconGO = new GameObject("X", typeof(RectTransform));
             iconGO.transform.SetParent(go.transform, false);
@@ -422,12 +534,13 @@ namespace Zoologic
             iconRect.anchorMin = Vector2.zero;
             iconRect.anchorMax = Vector2.one;
             iconRect.offsetMin = Vector2.zero;
-            iconRect.offsetMax = Vector2.zero;
+            iconRect.offsetMax = new Vector2(0f, 3f);
             var iconTxt = iconGO.AddComponent<TextMeshProUGUI>();
+            iconTxt.font = _fontTitle;
             iconTxt.text = "\u00D7";
-            iconTxt.fontSize = 52;
+            iconTxt.fontSize = 46;
             iconTxt.fontStyle = FontStyles.Bold;
-            iconTxt.color = NumberColor;
+            iconTxt.color = Color.white;
             iconTxt.alignment = TextAlignmentOptions.Center;
             iconTxt.raycastTarget = false;
 
@@ -438,8 +551,7 @@ namespace Zoologic
             });
 
             var le = go.AddComponent<LayoutElement>();
-            le.preferredWidth = 72f;
-            le.preferredHeight = 72f;
+            le.ignoreLayout = true;
         }
 
         private static Button CreerBouton(Transform parent, string label, Color bgColor, float fontSize)
@@ -450,16 +562,23 @@ namespace Zoologic
             rect.sizeDelta = new Vector2(320f, 66f);
 
             var img = go.AddComponent<Image>();
-            img.sprite = CreerSpriteArrondi(128, 0.3f);
+            img.sprite = CreerSpriteArrondi(128, 0.4f);
+            img.type = Image.Type.Sliced;
             img.color = bgColor;
+            var ol = go.AddComponent<Outline>();
+            ol.effectColor = new Color(1f, 1f, 1f, 0.45f);
+            ol.effectDistance = new Vector2(1.5f, -1.5f);
+            var sh = go.AddComponent<Shadow>();
+            sh.effectColor = new Color(0.20f, 0.12f, 0.07f, 0.28f);
+            sh.effectDistance = new Vector2(0f, -4f);
 
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.transition = Selectable.Transition.ColorTint;
             var colors = btn.colors;
             colors.normalColor = bgColor;
-            colors.highlightedColor = bgColor * 1.15f;
-            colors.pressedColor = bgColor * 0.8f;
+            colors.highlightedColor = bgColor * 1.12f;
+            colors.pressedColor = bgColor * 0.82f;
             btn.colors = colors;
 
             var txtGO = new GameObject("Text");
@@ -467,20 +586,23 @@ namespace Zoologic
             var txtRect = txtGO.AddComponent<RectTransform>();
             txtRect.anchorMin = Vector2.zero;
             txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = Vector2.zero;
-            txtRect.offsetMax = Vector2.zero;
+            txtRect.offsetMin = new Vector2(12f, 4f);
+            txtRect.offsetMax = new Vector2(-12f, -4f);
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
-            txt.font = _fontBody;
+            txt.font = _fontTitle;
             txt.text = label;
             txt.fontSize = fontSize;
             txt.fontStyle = FontStyles.Bold;
             txt.color = Color.white;
+            txt.outlineWidth = 0.1f;
+            txt.outlineColor = new Color(0f, 0f, 0f, 0.25f);
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
 
             var le = go.AddComponent<LayoutElement>();
             le.preferredWidth = 520f;
-            le.preferredHeight = 66f;
+            le.preferredHeight = 76f;
+            le.flexibleWidth = 1f;
 
             return btn;
         }
@@ -514,6 +636,37 @@ namespace Zoologic
             texture.Apply();
             return Sprite.Create(texture, new Rect(0f, 0f, resolution, resolution),
                 new Vector2(0.5f, 0.5f));
+        }
+
+        internal static class PanelPopper
+        {
+            public static void Pop(RectTransform rt)
+            {
+                var host = new GameObject("SettingsPop");
+                Object.DontDestroyOnLoad(host);
+                var runner = host.AddComponent<PopRunner>();
+                runner.Run(rt);
+            }
+            private class PopRunner : MonoBehaviour
+            {
+                private RectTransform _rt;
+                private float _t;
+                public void Run(RectTransform rt) { _rt = rt; _t = 0f; StartCoroutine(Anim()); }
+                private System.Collections.IEnumerator Anim()
+                {
+                    const float dur = 0.30f;
+                    while (_t < dur && _rt != null)
+                    {
+                        _t += Time.unscaledDeltaTime;
+                        float k = Mathf.Clamp01(_t / dur);
+                        float s = 1f + 2.7f * Mathf.Pow(k - 1f, 3f) + 1.7f * Mathf.Pow(k - 1f, 2f);
+                        _rt.localScale = new Vector3(s, s, s);
+                        yield return null;
+                    }
+                    if (_rt != null) _rt.localScale = Vector3.one;
+                    Destroy(gameObject);
+                }
+            }
         }
 
         internal static class SwitchAnimator

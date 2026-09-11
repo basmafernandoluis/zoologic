@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -164,22 +165,46 @@ namespace Zoologic
             bannerRect.anchorMin = new Vector2(0.5f, 0.75f);
             bannerRect.anchorMax = new Vector2(0.5f, 0.75f);
             bannerRect.pivot = new Vector2(0.5f, 0.5f);
-            bannerRect.sizeDelta = new Vector2(800f, 220f);
+            bannerRect.sizeDelta = new Vector2(860f, 150f);
             bannerRect.anchoredPosition = Vector2.zero;
             var bannerImg = bannerGO.AddComponent<Image>();
-            bannerImg.sprite = Resources.Load<Sprite>("UI/banner_header");
-            bannerImg.type = Image.Type.Sliced;
+            Sprite woodBar = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_4") ?? Resources.Load<Sprite>("Sprites/b_4");
+            if (woodBar == null) Debug.LogWarning("[MainMenu] b_4 missing, fallback banner_header");
+            if (woodBar != null)
+            {
+                bannerImg.sprite = woodBar;
+                bannerImg.type = Image.Type.Sliced;
+                bannerImg.color = Color.white;
+            }
+            else
+            {
+                bannerImg.sprite = Resources.Load<Sprite>("UI/banner_header");
+                bannerImg.type = Image.Type.Sliced;
+            }
             bannerImg.preserveAspect = false;
             bannerImg.raycastTarget = false;
+            var bannerShadow = bannerGO.AddComponent<Shadow>();
+            bannerShadow.effectColor = new Color(0.25f, 0.15f, 0.06f, 0.30f);
+            bannerShadow.effectDistance = new Vector2(0f, -8f);
+            StartCoroutine(BannerPopRoutine(bannerRect));
+
+            Sprite beeSprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_7") ?? Resources.Load<Sprite>("Sprites/b_7");
+            if (beeSprite == null) Debug.LogWarning("[MainMenu] b_7 missing, no bees");
+            if (beeSprite != null)
+            {
+                AddBee(bannerGO.transform, beeSprite, new Vector2(-360f, 52f), 0f);
+                AddBee(bannerGO.transform, beeSprite, new Vector2(372f, 58f), 2.1f);
+                AddBee(bannerGO.transform, beeSprite, new Vector2(336f, -56f), 4.2f);
+            }
 
             var titleGO = new GameObject("Title");
             titleGO.transform.SetParent(bannerGO.transform, false);
             var titleRect = titleGO.AddComponent<RectTransform>();
-            titleRect.anchorMin = new Vector2(0.5f, 0.55f);
-            titleRect.anchorMax = new Vector2(0.5f, 0.55f);
+            titleRect.anchorMin = new Vector2(0.5f, 0.5f);
+            titleRect.anchorMax = new Vector2(0.5f, 0.5f);
             titleRect.pivot = new Vector2(0.5f, 0.5f);
-            titleRect.sizeDelta = new Vector2(760f, 110f);
-            titleRect.anchoredPosition = new Vector2(0f, 18f);
+            titleRect.sizeDelta = new Vector2(760f, 100f);
+            titleRect.anchoredPosition = new Vector2(0f, 8f);
             var txt = titleGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = "ZOO LOGIC";
@@ -206,7 +231,8 @@ namespace Zoologic
             subRect.anchoredPosition = new Vector2(0f, -80f);
             var subTxt = subGO.AddComponent<TextMeshProUGUI>();
             subTxt.font = _fontBody;
-            subTxt.text = "Casse-Tête Animalier!";
+            subTxt.text = Zoologic.Localization.LocalizationManager.Get("menu.subtitle");
+            Zoologic.Localization.LocalizationManager.ApplyTo(subTxt);
             subTxt.fontSize = 26;
             subTxt.fontStyle = FontStyles.Bold;
             subTxt.color = new Color(0.29f, 0.157f, 0.063f, 1f);
@@ -214,24 +240,88 @@ namespace Zoologic
             subTxt.raycastTarget = false;
         }
 
+        private void AddBee(Transform parent, Sprite beeSprite, Vector2 basePos, float phase)
+        {
+            var beeGO = new GameObject("Bee");
+            beeGO.transform.SetParent(parent, false);
+            var beeRect = beeGO.AddComponent<RectTransform>();
+            beeRect.anchorMin = new Vector2(0.5f, 0.5f);
+            beeRect.anchorMax = new Vector2(0.5f, 0.5f);
+            beeRect.pivot = new Vector2(0.5f, 0.5f);
+            beeRect.sizeDelta = new Vector2(44f, 44f);
+            beeRect.anchoredPosition = basePos;
+            var beeImg = beeGO.AddComponent<Image>();
+            beeImg.sprite = beeSprite;
+            beeImg.preserveAspect = true;
+            beeImg.raycastTarget = false;
+            var fx = beeGO.AddComponent<BeeFX>();
+            fx.Init(basePos, phase);
+        }
+
+        private System.Collections.IEnumerator BannerPopRoutine(RectTransform bannerRect)
+        {
+            bannerRect.localScale = Vector3.zero;
+            float d = 0.5f;
+            float e = 0f;
+            while (e < d)
+            {
+                e += Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(e / d);
+                float s = Easing.EaseOutBack(k);
+                bannerRect.localScale = new Vector3(s, s, 1f);
+                yield return null;
+            }
+            bannerRect.localScale = Vector3.one;
+        }
+
+        private class BeeFX : MonoBehaviour
+        {
+            private Vector2 _base;
+            private float _phase;
+            private RectTransform _rt;
+
+            public void Init(Vector2 basePos, float phase)
+            {
+                _base = basePos;
+                _phase = phase;
+                _rt = (RectTransform)transform;
+            }
+
+            private void Update()
+            {
+                if (_rt == null) return;
+                float t = Time.unscaledTime;
+                float x = _base.x + Mathf.Sin(t * 1.6f + _phase) * 22f;
+                float y = _base.y + Mathf.Cos(t * 2.3f + _phase * 1.7f) * 14f;
+                _rt.anchoredPosition = new Vector2(x, y);
+                _rt.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(t * 3.1f + _phase) * 12f);
+            }
+        }
+
         private void BuildPlayButton(Transform parent)
         {
+            Sprite roundSprite = Resources.Load<Sprite>("UI/play_button");
+            bool useRound = roundSprite != null;
+
             var go = new GameObject("PlayButton");
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.5f, 0.22f);
             rect.anchorMax = new Vector2(0.5f, 0.22f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(500f, 130f);
+            rect.sizeDelta = useRound ? new Vector2(260f, 260f) : new Vector2(500f, 130f);
             rect.anchoredPosition = Vector2.zero;
 
             var img = go.AddComponent<Image>();
-            img.sprite = Resources.Load<Sprite>("UI/btn_play_green");
-            img.type = Image.Type.Sliced;
+            img.sprite = useRound ? roundSprite : Resources.Load<Sprite>("UI/btn_play_green");
+            img.type = Image.Type.Simple;
             img.pixelsPerUnitMultiplier = 1f;
-            img.preserveAspect = false;
+            img.preserveAspect = true;
             img.color = Color.white;
             img.raycastTarget = true;
+            var btnShadow = go.AddComponent<Shadow>();
+            btnShadow.effectColor = new Color(0.20f, 0.12f, 0.05f, 0.35f);
+            btnShadow.effectDistance = new Vector2(0f, -8f);
 
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
@@ -248,26 +338,87 @@ namespace Zoologic
                 SceneManager.LoadScene("LevelMap");
             });
 
-            var txtGO = new GameObject("Text");
-            txtGO.transform.SetParent(go.transform, false);
-            var txtRect = txtGO.AddComponent<RectTransform>();
-            txtRect.anchorMin = Vector2.zero;
-            txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = new Vector2(0f, 0f);
-            txtRect.offsetMax = new Vector2(0f, 0f);
-            var txt = txtGO.AddComponent<TextMeshProUGUI>();
-            txt.font = _fontTitle;
-            txt.text = "JOUER >";
-            txt.fontSize = 54;
-            txt.fontStyle = FontStyles.Bold;
-            txt.color = Color.white;
-            txt.alignment = TextAlignmentOptions.Center;
-            txt.raycastTarget = false;
-            txt.outlineWidth = 0.32f;
-            txt.outlineColor = new Color(0.18f, 0.35f, 0.18f, 1f);
-            var txtShadow = txtGO.AddComponent<Shadow>();
-            txtShadow.effectColor = new Color(0f, 0f, 0f, 0.35f);
-            txtShadow.effectDistance = new Vector2(0f, -4f);
+            if (useRound)
+            {
+                var capGO = new GameObject("Caption");
+                capGO.transform.SetParent(go.transform, false);
+                var capRect = capGO.AddComponent<RectTransform>();
+                capRect.anchorMin = new Vector2(0.5f, 0f);
+                capRect.anchorMax = new Vector2(0.5f, 0f);
+                capRect.pivot = new Vector2(0.5f, 1f);
+                capRect.sizeDelta = new Vector2(400f, 54f);
+                capRect.anchoredPosition = new Vector2(0f, -12f);
+                capGO.AddComponent<CanvasRenderer>();
+                var cap = capGO.AddComponent<TextMeshProUGUI>();
+                cap.font = _fontTitle;
+                cap.text = Zoologic.Localization.LocalizationManager.Get("menu.play");
+                Zoologic.Localization.LocalizationManager.ApplyTo(cap);
+                cap.fontSize = 38;
+                cap.fontStyle = FontStyles.Bold;
+                cap.color = new Color(0.29f, 0.157f, 0.063f, 1f);
+                cap.alignment = TextAlignmentOptions.Center;
+                cap.raycastTarget = false;
+            }
+            else
+            {
+                var txtGO = new GameObject("Text");
+                txtGO.transform.SetParent(go.transform, false);
+                var txtRect = txtGO.AddComponent<RectTransform>();
+                txtRect.anchorMin = Vector2.zero;
+                txtRect.anchorMax = Vector2.one;
+                txtRect.offsetMin = new Vector2(0f, 0f);
+                txtRect.offsetMax = new Vector2(0f, 0f);
+                var txt = txtGO.AddComponent<TextMeshProUGUI>();
+                txt.font = _fontTitle;
+                txt.text = Zoologic.Localization.LocalizationManager.Get("menu.play");
+                Zoologic.Localization.LocalizationManager.ApplyTo(txt);
+                txt.fontSize = 54;
+                txt.fontStyle = FontStyles.Bold;
+                txt.color = Color.white;
+                txt.alignment = TextAlignmentOptions.Center;
+                txt.raycastTarget = false;
+                txt.outlineWidth = 0.32f;
+                txt.outlineColor = new Color(0.18f, 0.35f, 0.18f, 1f);
+                var txtShadow = txtGO.AddComponent<Shadow>();
+                txtShadow.effectColor = new Color(0f, 0f, 0f, 0.35f);
+                txtShadow.effectDistance = new Vector2(0f, -4f);
+            }
+
+            go.AddComponent<PlayButtonFX>();
+        }
+
+        private class PlayButtonFX : MonoBehaviour
+        {
+            private bool _entered;
+
+            private void OnEnable()
+            {
+                transform.localScale = Vector3.zero;
+                StartCoroutine(Enter());
+            }
+
+            private System.Collections.IEnumerator Enter()
+            {
+                float d = 0.5f;
+                float e = 0f;
+                while (e < d)
+                {
+                    e += Time.unscaledDeltaTime;
+                    float k = Mathf.Clamp01(e / d);
+                    float s = Easing.EaseOutBack(k);
+                    transform.localScale = new Vector3(s, s, 1f);
+                    yield return null;
+                }
+                transform.localScale = Vector3.one;
+                _entered = true;
+            }
+
+            private void Update()
+            {
+                if (!_entered) return;
+                float s = 1f + Mathf.Sin(Time.unscaledTime * 2.2f) * 0.035f;
+                transform.localScale = new Vector3(s, s, 1f);
+            }
         }
 
         private void BuildSettingsButton(Transform parent)
@@ -332,7 +483,7 @@ namespace Zoologic
             txtGO.AddComponent<CanvasRenderer>();
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle != null ? _fontTitle : Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
-            txt.text = "CADEAU";
+            txt.text = Zoologic.Localization.LocalizationManager.Get("menu.gift");
             txt.fontSize = 20;
             txt.fontStyle = FontStyles.Bold;
             txt.color = new Color(0.29f, 0.157f, 0.063f, 1f);
@@ -395,7 +546,7 @@ namespace Zoologic
             txtGO.transform.SetParent(go.transform, false);
             var txt = txtGO.GetComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
-            txt.text = "Missions";
+            txt.text = Zoologic.Localization.LocalizationManager.Get("menu.missions");
             txt.fontSize = 20;
             txt.fontStyle = FontStyles.Bold;
             txt.color = hasClaim ? new Color(0.32f, 0.20f, 0.10f) : Color.white;
@@ -406,7 +557,7 @@ namespace Zoologic
             btn.targetGraphic = img;
             btn.onClick.AddListener(() =>
             {
-                SFXManager.Instance.PlayMenuOpen();
+                SFXManager.Instance?.PlayMenuOpen();
                 var canvas = FindFirstObjectByType<Canvas>();
                 if (canvas != null) MissionUI.Show(canvas);
             });
@@ -635,7 +786,7 @@ namespace Zoologic
             msgGO.transform.SetParent(panel.transform, false);
             var msgTxt = msgGO.AddComponent<TextMeshProUGUI>();
             msgTxt.font = _fontBody;
-            msgTxt.text = "Quitter l'application ?";
+            msgTxt.text = Zoologic.Localization.LocalizationManager.Get("menu.quit_title");
             msgTxt.fontSize = 30;
             msgTxt.color = new Color(0.20f, 0.22f, 0.25f);
             msgTxt.alignment = TextAlignmentOptions.Center;
@@ -653,7 +804,7 @@ namespace Zoologic
             btnHLG.childForceExpandHeight = false;
             btnRow.AddComponent<LayoutElement>().preferredHeight = 60f;
 
-            var btnOui = CreerBouton(btnRow.transform, "Oui", new Color(0.90f, 0.35f, 0.35f), 26f);
+            var btnOui = CreerBouton(btnRow.transform, Zoologic.Localization.LocalizationManager.Get("menu.yes"), new Color(0.90f, 0.35f, 0.35f), 26f);
             btnOui.onClick.AddListener(() =>
             {
 #if UNITY_EDITOR
@@ -663,7 +814,7 @@ namespace Zoologic
 #endif
             });
 
-            var btnAnnuler = CreerBouton(btnRow.transform, "Annuler", new Color(0.35f, 0.65f, 0.85f), 26f);
+            var btnAnnuler = CreerBouton(btnRow.transform, Zoologic.Localization.LocalizationManager.Get("menu.no"), new Color(0.35f, 0.65f, 0.85f), 26f);
             btnAnnuler.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();

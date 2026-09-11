@@ -6,6 +6,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
 using Zoologic.Core;
+using Zoologic.Localization;
 
 namespace Zoologic
 {
@@ -125,7 +126,7 @@ namespace Zoologic
             ConfettiHelper.Burst(this, _canvasRect.GetComponent<Canvas>(), 40);
             SFXManager.Instance.PlaySuccess();
             Haptics.VibrateStrong();
-            yield return ShowBubble("Bravo ! Prêt !", true);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.ready"), true);
             MarkCompleted();
             yield return new WaitForSecondsRealtime(1f);
             SetBubbleVisible(false);
@@ -135,69 +136,69 @@ namespace Zoologic
         private IEnumerator Step1_RowCol()
         {
             RebuildGrid(Grid3_RowCol);
-            yield return ShowBubble("Bienvenue ! Découvrons.", true);
-            yield return ShowBubble("Un par ligne !", true);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.welcome"), true);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.one_per_row"), true);
             var target = (0, 0);
             HighlightSingle(target.Item1, target.Item2);
             ShowOverlay(target.Item1, target.Item2);
             _hand.PointTo(GetCellRect(target.Item1, target.Item2));
-            yield return ShowBubble("Double tape !", false);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.double_tap"), false);
             SetInteractive(target); SetAccept(true);
             yield return WaitDoubleTap(); _hand.PlayTap(); SetAccept(false);
             PlacePiece(target.Item1, target.Item2); PunchAndConfetti(target.Item1,target.Item2); ClearHighlights(); HideOverlay(); _hand.Hide();
             yield return new WaitForSecondsRealtime(0.4f);
             var forbid = new (int,int)[] { (0,1),(0,2),(1,0),(2,0) };
-            SetHighlights(forbid); ShowMultiOverlay(forbid); yield return ShowBubble("Ligne bloquée !", true);
-            yield return ShowBubble("Double tape ici !", false);
+            SetHighlights(forbid); ShowMultiOverlay(forbid); yield return ShowBubble(LocalizationManager.Get("tutorial.row_blocked"), true);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.tap_here"), false);
             HighlightSingle(0,1); ShowOverlay(0,1); _hand.PointTo(GetCellRect(0,1)); _hand.Show();
             SetInteractive((0,1)); SetAccept(true);
             yield return WaitDoubleTap(); _hand.PlayTap(); SetAccept(false); _hand.Hide(); ClearHighlights(); HideOverlay();
-            PlacePiece(0,1); FlashAllConflicts(); yield return ShowBubble("Même ligne ! Interdit.", true);
-            SetInteractive((0,1)); SetAccept(true); yield return ShowBubble("Double tape retire !", false); _hand.PointTo(GetCellRect(0,1)); _hand.Show();
+            PlacePiece(0,1); FlashAllConflicts(); yield return ShowBubble(LocalizationManager.Get("tutorial.same_row"), true);
+            SetInteractive((0,1)); SetAccept(true); yield return ShowBubble(LocalizationManager.Get("tutorial.tap_removes"), false); _hand.PointTo(GetCellRect(0,1)); _hand.Show();
             yield return WaitDoubleTap(); SetAccept(false); RemovePiece(0,1); ClearHighlights(); HideOverlay(); _hand.Hide();
-            yield return ShowBubble("Parfait ! Retenu.", true);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.perfect"), true);
             RemovePiece(0,0);
         }
 
         private IEnumerator Step2_Zone()
         {
             RebuildGrid(Grid3_Zone);
-            yield return ShowBubble("Un par couleur !", true);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.one_per_color"), true);
             SetHighlights(new (int,int)[] { (0,0),(0,1),(1,0),(1,1) }); ShowMultiOverlay(new (int,int)[] { (0,0),(0,1),(1,0),(1,1) });
-            yield return ShowBubble("Zone pleine !", true);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.zone_full"), true);
             ClearHighlights(); HideOverlay();
             PlacePiece(0,0); PunchAndConfetti(0,0); yield return new WaitForSecondsRealtime(0.4f);
-            yield return ShowBubble("Double tape ici !", false);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.tap_here"), false);
             HighlightSingle(2,2); ShowOverlay(2,2); _hand.PointTo(GetCellRect(2,2)); _hand.Show();
             SetInteractive((2,2)); SetAccept(true);
             yield return WaitDoubleTap(); SetAccept(false); _hand.Hide(); ClearHighlights(); HideOverlay();
-            PlacePiece(2,2); PunchAndConfetti(2,2); yield return ShowBubble("Exact ! Bravo.", true);
+            PlacePiece(2,2); PunchAndConfetti(2,2); yield return ShowBubble(LocalizationManager.Get("tutorial.exact"), true);
             RemovePiece(0,0); RemovePiece(2,2);
         }
 
         private IEnumerator Step3_Adjacency()
         {
             RebuildGrid(TutorialRegions);
-            yield return ShowBubble("Pas de contact !", true);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.no_contact"), true);
             PlacePiece(1,1); PunchAndConfetti(1,1);
             var forbid = new (int,int)[] { (0,0),(0,1),(0,2),(1,0),(1,2),(2,0),(2,1),(2,2) };
             SetHighlights(forbid); ShowMultiOverlay(forbid);
-            yield return ShowBubble("8 cases bloquées.", true);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.blocked8"), true);
             ClearHighlights(); HideOverlay();
-            yield return ShowBubble("Un tap = X !", true);
-            yield return ShowBubble("Touche ici !", false);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.tap_x"), true);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.touch_here"), false);
             HighlightSingle(0,0); ShowOverlay(0,0); _hand.PointTo(GetCellRect(0,0)); _hand.Show();
             SetInteractive((0,0)); SetAccept(true);
             yield return WaitSingleTap(); SetAccept(false);
             if (_lastTap == (0,0)) { _gridView.SetX(0,0,true); _hand.PlayTap(); Haptics.VibrateLight(); }
             ClearHighlights(); HideOverlay(); _hand.Hide();
             yield return new WaitForSecondsRealtime(0.4f);
-            yield return ShowBubble("Double tap = animal !", true);
-            yield return ShowBubble("Place ici !", false);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.tap_animal"), true);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.place_here"), false);
             HighlightSingle(3,3); ShowOverlay(3,3); _hand.PointTo(GetCellRect(3,3)); _hand.Show();
             SetInteractive((3,3)); SetAccept(true);
             yield return WaitDoubleTap(); SetAccept(false); _hand.Hide(); ClearHighlights(); HideOverlay();
-            PlacePiece(3,3); PunchAndConfetti(3,3); yield return ShowBubble("Parfait ! Validé.", true);
+            PlacePiece(3,3); PunchAndConfetti(3,3); yield return ShowBubble(LocalizationManager.Get("tutorial.validated"), true);
             RemovePiece(1,1); RemovePiece(3,3); _gridView.SetX(0,0,false);
         }
 
@@ -206,14 +207,14 @@ namespace Zoologic
             RebuildGrid(TutorialRegions);
             foreach (var p in Step4Setup) { PlacePiece(p.row, p.col); PunchAndConfetti(p.row,p.col); }
             _gridView.SetX(1,1,true); _gridView.SetX(2,2,true);
-            yield return ShowBubble("X élimine !", true);
-            yield return ShowBubble("Encore X ici !", false);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.x_clears"), true);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.more_x"), false);
             HighlightSingle(1,0); ShowOverlay(1,0); _hand.PointTo(GetCellRect(1,0)); _hand.Show();
             SetInteractive((1,0)); SetAccept(true);
             yield return WaitSingleTap(); SetAccept(false);
             if (_lastTap == (1,0)) { _gridView.SetX(1,0,true); _hand.PlayTap(); }
             ClearHighlights(); HideOverlay(); _hand.Hide();
-            yield return ShowBubble("Trouve la dernière !", false);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.find_last"), false);
             SetInteractiveAll(); SetAccept(true);
             _hand.PointTo(GetCellRect(2,0)); _hand.Show();
             while (!_victory)
@@ -227,7 +228,7 @@ namespace Zoologic
                 if (TryPlaceWithValidation(row,col)) { if (RuleValidator.IsSolved(_grid)) { _victory = true; PlayVictory(); } else { _hand.PointTo(GetCellRect(2,0)); } }
             }
             SetAccept(false); _hand.Hide(); ClearHighlights(); HideOverlay();
-            yield return ShowBubble("Grille résolue ! Le X t'a aidé à voir la seule case possible.", true);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.solved"), true);
         }
 
         private bool HasX(int r, int c)
@@ -311,7 +312,7 @@ namespace Zoologic
                     yield return null;
                 }
                 if (gotSecond) yield break;
-                yield return ShowBubble("Double tape !", false);
+                yield return ShowBubble(LocalizationManager.Get("tutorial.double_tap"), false);
                 Haptics.VibrateLight();
             }
         }
@@ -377,11 +378,11 @@ namespace Zoologic
             var rt=(RectTransform)_overlayRoot.transform;
             rt.anchorMin=Vector2.zero; rt.anchorMax=Vector2.one; rt.offsetMin=Vector2.zero; rt.offsetMax=Vector2.zero;
             _overlayRoot.SetActive(false);
-            _blocker = CreateOverlayPanel(_overlayRoot.transform, "Blocker", new Color(0f,0f,0f,0.62f), true);
-            _overlayTop = CreateOverlayPanel(_overlayRoot.transform, "Top", new Color(0f,0f,0f,0.62f), true);
-            _overlayBottom = CreateOverlayPanel(_overlayRoot.transform, "Bottom", new Color(0f,0f,0f,0.62f), true);
-            _overlayLeft = CreateOverlayPanel(_overlayRoot.transform, "Left", new Color(0f,0f,0f,0.62f), true);
-            _overlayRight = CreateOverlayPanel(_overlayRoot.transform, "Right", new Color(0f,0f,0f,0.62f), true);
+            _blocker = CreateOverlayPanel(_overlayRoot.transform, "Blocker", new Color(0.12f,0.08f,0.05f,0.45f), true);
+            _overlayTop = CreateOverlayPanel(_overlayRoot.transform, "Top", new Color(0.12f,0.08f,0.05f,0.45f), true);
+            _overlayBottom = CreateOverlayPanel(_overlayRoot.transform, "Bottom", new Color(0.12f,0.08f,0.05f,0.45f), true);
+            _overlayLeft = CreateOverlayPanel(_overlayRoot.transform, "Left", new Color(0.12f,0.08f,0.05f,0.45f), true);
+            _overlayRight = CreateOverlayPanel(_overlayRoot.transform, "Right", new Color(0.12f,0.08f,0.05f,0.45f), true);
         }
 
         private Image CreateOverlayPanel(Transform parent, string name, Color col, bool raycast)
@@ -479,7 +480,7 @@ namespace Zoologic
             var txtRect = (RectTransform)txtGO.transform; txtRect.anchorMin = Vector2.zero; txtRect.anchorMax = Vector2.one; txtRect.offsetMin = new Vector2(8f, 4f); txtRect.offsetMax = new Vector2(-8f, -4f);
             var txt = txtGO.GetComponent<TextMeshProUGUI>();
             txt.font = _fontTitle != null ? _fontTitle : Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
-            txt.text = "Passer »"; txt.fontSize = 22; txt.fontStyle = FontStyles.Bold; txt.color = new Color(0.35f, 0.30f, 0.28f, 1f); txt.alignment = TextAlignmentOptions.Center;
+            txt.text = LocalizationManager.Get("tutorial.skip"); txt.fontSize = 24; txt.fontStyle = FontStyles.Bold; txt.color = new Color(0.35f, 0.30f, 0.28f, 1f); txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
             _skipRoot.transform.SetAsLastSibling();
         }
@@ -501,27 +502,39 @@ namespace Zoologic
             _bubbleRoot.transform.SetParent(canvas.transform,false);
             var rt=(RectTransform)_bubbleRoot.transform;
             rt.anchorMin=new Vector2(0.5f,1f); rt.anchorMax=new Vector2(0.5f,1f); rt.pivot=new Vector2(0.5f,1f);
-            rt.sizeDelta=new Vector2(860f,150f); rt.anchoredPosition=new Vector2(0f,-110f);
-            var img=_bubbleRoot.GetComponent<Image>(); img.sprite=_roundedSprite; img.type=Image.Type.Simple; img.color=new Color(0.10f,0.12f,0.16f,0.96f); img.raycastTarget=false;
+            rt.sizeDelta=new Vector2(900f,190f); rt.anchoredPosition=new Vector2(0f,-120f);
+            var img=_bubbleRoot.GetComponent<Image>(); img.sprite=_roundedSprite; img.type=Image.Type.Sliced; img.color=new Color(1f,0.985f,0.95f,1f); img.raycastTarget=false;
+            var bOl=_bubbleRoot.AddComponent<Outline>(); bOl.effectColor=new Color(1f,1f,1f,0.9f); bOl.effectDistance=new Vector2(3f,-3f);
+            var bSh=_bubbleRoot.AddComponent<Shadow>(); bSh.effectColor=new Color(0.25f,0.15f,0.08f,0.30f); bSh.effectDistance=new Vector2(0f,-8f);
+            var owlGO=new GameObject("Mascot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            owlGO.transform.SetParent(_bubbleRoot.transform,false);
+            var owlRect=(RectTransform)owlGO.transform;
+            owlRect.anchorMin=new Vector2(0f,0.5f); owlRect.anchorMax=new Vector2(0f,0.5f); owlRect.pivot=new Vector2(0.5f,0.5f);
+            owlRect.sizeDelta=new Vector2(110f,110f); owlRect.anchoredPosition=new Vector2(80f,0f);
+            var owlImg=owlGO.GetComponent<Image>();
+            owlImg.sprite=Resources.Load<Sprite>("Art/Animals/owl");
+            owlImg.preserveAspect=true; owlImg.raycastTarget=false;
             var txtGO=new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             txtGO.transform.SetParent(_bubbleRoot.transform,false);
             var txtRect=(RectTransform)txtGO.transform;
-            txtRect.anchorMin=Vector2.zero; txtRect.anchorMax=Vector2.one; txtRect.offsetMin=new Vector2(18f,12f); txtRect.offsetMax=new Vector2(-18f,-12f);
+            txtRect.anchorMin=Vector2.zero; txtRect.anchorMax=Vector2.one; txtRect.offsetMin=new Vector2(200f,18f); txtRect.offsetMax=new Vector2(-28f,-18f);
             _bubbleText=txtGO.GetComponent<TextMeshProUGUI>();
             _bubbleText.font=_fontTitle!=null?_fontTitle:Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
-            _bubbleText.fontSize=32; _bubbleText.fontStyle=FontStyles.Bold; _bubbleText.color=Color.white; _bubbleText.alignment=TextAlignmentOptions.Center;
-            _bubbleText.textWrappingMode=TextWrappingModes.Normal; _bubbleText.raycastTarget=false;
-            var sh=txtGO.AddComponent<Shadow>(); sh.effectColor=new Color(0f,0f,0f,0.35f); sh.effectDistance=new Vector2(0f,-3f);
+            _bubbleText.fontSize=36; _bubbleText.fontStyle=FontStyles.Bold; _bubbleText.color=new Color(0.29f,0.18f,0.10f,1f); _bubbleText.alignment=TextAlignmentOptions.MidlineLeft;
+            _bubbleText.textWrappingMode=TextWrappingModes.Normal; _bubbleText.overflowMode=TextOverflowModes.Truncate; _bubbleText.raycastTarget=false;
+            var sh=txtGO.AddComponent<Shadow>(); sh.effectColor=new Color(1f,0.98f,0.92f,0.9f); sh.effectDistance=new Vector2(0f,-2f);
             _bubbleRoot.SetActive(false);
 
             _actionRoot=new GameObject("ActionBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             _actionRoot.transform.SetParent(canvas.transform,false);
             var art=(RectTransform)_actionRoot.transform;
             art.anchorMin=new Vector2(0.5f,0f); art.anchorMax=new Vector2(0.5f,0f); art.pivot=new Vector2(0.5f,0f);
-            art.sizeDelta=new Vector2(420f,88f); art.anchoredPosition=new Vector2(0f,42f);
+            art.sizeDelta=new Vector2(480f,100f); art.anchoredPosition=new Vector2(0f,64f);
             var aImg=_actionRoot.GetComponent<Image>();
             var jellyGreen=JellyUI.ButtonGreen ?? _roundedSprite;
             aImg.sprite=jellyGreen; aImg.type=Image.Type.Sliced; aImg.pixelsPerUnitMultiplier=1f; aImg.color=Color.white; aImg.raycastTarget=true;
+            var aOl=_actionRoot.AddComponent<Outline>(); aOl.effectColor=new Color(1f,1f,1f,0.7f); aOl.effectDistance=new Vector2(2f,-2f);
+            var aSh=_actionRoot.AddComponent<Shadow>(); aSh.effectColor=new Color(0.15f,0.35f,0.15f,0.40f); aSh.effectDistance=new Vector2(0f,-6f);
             _bubbleNext=_actionRoot.GetComponent<Button>();
             JellyUI.ApplyJellyButton(_bubbleNext, aImg, JellyUI.ButtonGreen, JellyUI.ButtonYellow, JellyUI.ButtonRed, JellyUI.ButtonGrey);
             _bubbleNext.onClick.AddListener(()=>{ _nextClicked=true; SFXManager.Instance.PlayMenuClose(); });
@@ -530,7 +543,7 @@ namespace Zoologic
             var atxtRect=(RectTransform)atxtGO.transform; atxtRect.anchorMin=Vector2.zero; atxtRect.anchorMax=Vector2.one; atxtRect.offsetMin=new Vector2(18f,6f); atxtRect.offsetMax=new Vector2(-18f,-6f);
             _actionText=atxtGO.GetComponent<TextMeshProUGUI>();
             _actionText.font=_fontTitle!=null?_fontTitle:Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
-            _actionText.text="Suivant"; _actionText.fontSize=30; _actionText.fontStyle=FontStyles.Bold; _actionText.color=Color.white; _actionText.alignment=TextAlignmentOptions.Center;
+            _actionText.text=LocalizationManager.Get("tutorial.next"); _actionText.fontSize=34; _actionText.fontStyle=FontStyles.Bold; _actionText.color=Color.white; _actionText.alignment=TextAlignmentOptions.Center;
             var ash=atxtGO.AddComponent<Shadow>(); ash.effectColor=new Color(0f,0f,0f,0.35f); ash.effectDistance=new Vector2(0f,-3f);
             _actionRoot.SetActive(false);
         }
@@ -555,12 +568,12 @@ namespace Zoologic
                 _bubbleRoot.SetActive(false);
             }
         }
-        private void SetActionVisible(bool v, string label="Suivant")
+        private void SetActionVisible(bool v, string label=null)
         {
             if(_actionRoot==null) return;
             if(v)
             {
-                if(_actionText!=null) _actionText.text=label;
+                if(_actionText!=null) _actionText.text = label ?? LocalizationManager.Get("tutorial.next");
                 _actionRoot.SetActive(true);
                 _actionRoot.transform.SetAsLastSibling();
                 _actionRoot.transform.localScale = Vector3.zero;
@@ -602,7 +615,7 @@ namespace Zoologic
             SetBubbleVisible(true);
             if(showNext)
             {
-                SetActionVisible(true, "Suivant");
+                SetActionVisible(true);
                 _nextClicked=false;
                 yield return new WaitUntil(()=>_nextClicked);
                 SetActionVisible(false);

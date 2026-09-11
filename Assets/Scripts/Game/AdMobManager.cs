@@ -152,7 +152,6 @@ namespace Zoologic
                 if (err != null || ad == null) { Debug.LogWarning("[AdMob] Rewarded load failed: " + err); return; }
                 _rewardedAd = ad;
                 _rewardedAd.OnAdFullScreenContentFailed += (AdError e) => { Debug.LogWarning("[AdMob] Rewarded prefail: " + e); _rewardedAd = null; ResumeMusicAfterAd(); LoadRewarded(); };
-                _rewardedAd.OnAdFullScreenContentClosed += () => { Debug.Log("[AdMob] Rewarded closed (preload handler)"); _rewardedAd = null; ResumeMusicAfterAd(); LoadRewarded(); };
                 Debug.Log("[AdMob] Rewarded loaded: " + RewardedId + " NPA=1");
             });
         }
@@ -168,7 +167,6 @@ namespace Zoologic
                 if (err != null || ad == null) { Debug.LogWarning("[AdMob] Interstitial load failed: " + err); return; }
                 _interstitialAd = ad;
                 _interstitialAd.OnAdFullScreenContentFailed += (AdError e) => { Debug.LogWarning("[AdMob] Interstitial prefail: " + e); _interstitialAd = null; ResumeMusicAfterAd(); LoadInterstitial(); };
-                _interstitialAd.OnAdFullScreenContentClosed += () => { Debug.Log("[AdMob] Interstitial closed (preload)"); _interstitialAd = null; ResumeMusicAfterAd(); LoadInterstitial(); };
                 Debug.Log("[AdMob] Interstitial loaded: " + InterstitialId + " NPA=1");
             });
         }
@@ -185,66 +183,56 @@ namespace Zoologic
                 _appOpenAd = ad;
                 _appOpenExpire = DateTime.Now.AddHours(4);
                 _appOpenAd.OnAdFullScreenContentFailed += (AdError e) => { _appOpenAd = null; ResumeMusicAfterAd(); LoadAppOpen(); };
-                _appOpenAd.OnAdFullScreenContentClosed += () => { _appOpenAd = null; ResumeMusicAfterAd(); LoadAppOpen(); };
                 Debug.Log("[AdMob] AppOpen loaded: " + AppOpenId + " NPA=1");
             });
         }
 
-        public void ShowRewarded(Action onRewarded)
+        public void ShowRewarded(Action onRewarded, Action onClosedNoReward = null)
         {
             Debug.Log($"[AdMob] ShowRewarded IsProduction={IsProduction} ID={RewardedId} NPA=1");
             if (_rewardedAd != null && _rewardedAd.CanShowAd())
             {
                 PauseMusicForAd();
+                var ad = _rewardedAd;
+                _rewardedAd = null;
                 bool rewardEarned = false;
+                bool settled = false;
                 Action<AdValue> paidHandler = (AdValue v) => Debug.Log($"[AdMob] OnAdPaid {v.Value} {v.CurrencyCode}");
                 Action closedHandler = null;
                 Action<AdError> failedHandler = null;
-                closedHandler = () =>
+                Action unsubscribe = () =>
                 {
                     try
                     {
-                        if (_rewardedAd != null)
-                        {
-                            _rewardedAd.OnAdPaid -= paidHandler;
-                            _rewardedAd.OnAdFullScreenContentClosed -= closedHandler;
-                            _rewardedAd.OnAdFullScreenContentFailed -= failedHandler;
-                        }
+                        ad.OnAdPaid -= paidHandler;
+                        ad.OnAdFullScreenContentClosed -= closedHandler;
+                        ad.OnAdFullScreenContentFailed -= failedHandler;
                     }
                     catch { }
-                    ResumeMusicAfterAd();
-                    if (rewardEarned)
-                    {
-                        try { onRewarded?.Invoke(); } catch (Exception e) { Debug.LogError("[AdMob] onRewarded exception: " + e); }
-                    }
-                    else Debug.Log("[AdMob] Rewarded closed without reward - no grant");
-                    _rewardedAd = null;
+                };
+                closedHandler = () =>
+                {
+                    if (settled) return;
+                    settled = true;
+                    unsubscribe();
+                    StartCoroutine(RewardedCloseSequence(rewardEarned, onRewarded, onClosedNoReward));
                     LoadRewarded();
                 };
                 failedHandler = (AdError e) =>
                 {
-                    try
-                    {
-                        if (_rewardedAd != null)
-                        {
-                            _rewardedAd.OnAdPaid -= paidHandler;
-                            _rewardedAd.OnAdFullScreenContentClosed -= closedHandler;
-                            _rewardedAd.OnAdFullScreenContentFailed -= failedHandler;
-                        }
-                    }
-                    catch { }
+                    if (settled) return;
+                    settled = true;
+                    unsubscribe();
                     Debug.LogWarning("[AdMob] Rewarded show failed: " + e);
-                    ResumeMusicAfterAd();
-                    StartCoroutine(RewardedStubRoutine(onRewarded));
-                    _rewardedAd = null;
+                    StartCoroutine(RewardedCloseSequence(false, null, onClosedNoReward));
                     LoadRewarded();
                 };
-                _rewardedAd.OnAdPaid += paidHandler;
-                _rewardedAd.OnAdFullScreenContentClosed += closedHandler;
-                _rewardedAd.OnAdFullScreenContentFailed += failedHandler;
+                ad.OnAdPaid += paidHandler;
+                ad.OnAdFullScreenContentClosed += closedHandler;
+                ad.OnAdFullScreenContentFailed += failedHandler;
                 try
                 {
-                    _rewardedAd.Show((Reward r) =>
+                    ad.Show((Reward r) =>
                     {
                         rewardEarned = true;
                         Debug.Log($"[AdMob] Reward earned {r.Amount} {r.Type}");
@@ -254,13 +242,9 @@ namespace Zoologic
                 catch (Exception e)
                 {
                     Debug.LogWarning("[AdMob] Show exception: " + e.Message);
-                    try
-                    {
-                        _rewardedAd.OnAdPaid -= paidHandler;
-                        _rewardedAd.OnAdFullScreenContentClosed -= closedHandler;
-                        _rewardedAd.OnAdFullScreenContentFailed -= failedHandler;
-                    }
-                    catch { }
+                    if (settled) return;
+                    settled = true;
+                    unsubscribe();
                     ResumeMusicAfterAd();
                 }
             }
@@ -272,6 +256,22 @@ namespace Zoologic
                 ResumeMusicAfterAd();
                 try { onRewarded?.Invoke(); } catch (Exception e) { Debug.LogError("[AdMob] stub onRewarded exception: " + e); }
             }));
+        }
+
+        private IEnumerator RewardedCloseSequence(bool earned, Action onRewarded, Action onClosedNoReward)
+        {
+            yield return null;
+            yield return null;
+            ResumeMusicAfterAd();
+            if (earned)
+            {
+                try { onRewarded?.Invoke(); } catch (Exception e) { Debug.LogError("[AdMob] onRewarded exception: " + e); }
+            }
+            else
+            {
+                Debug.Log("[AdMob] Rewarded closed without reward - no grant");
+                try { onClosedNoReward?.Invoke(); } catch (Exception e) { Debug.LogError("[AdMob] onClosedNoReward exception: " + e); }
+            }
         }
 
         private IEnumerator RewardedStubRoutine(Action onRewarded)

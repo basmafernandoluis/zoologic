@@ -16,8 +16,8 @@ namespace Zoologic
         public static readonly Color BgTop    = new Color(1.00f, 0.98f, 0.94f); // #FFFBF0 beige clair cozy
         public static readonly Color BgBottom = new Color(1.00f, 0.92f, 0.82f); // #FFEACC pêche très claire
 
-        // Overlay pattern : teinte légèrement plus soutenue que le dégradé, alpha 7%
-        private static readonly Color PatternTint = new Color(0.93f, 0.82f, 0.73f, 0.07f);
+        // Overlay pattern : teinte légèrement plus soutenue que le dégradé, alpha 9%
+        private static readonly Color PatternTint = new Color(0.93f, 0.81f, 0.71f, 0.09f);
 
         // ------------------------------------------------------------------
         // Gradient

@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using Zoologic.Localization;
 
 namespace Zoologic
 {
@@ -69,7 +70,8 @@ namespace Zoologic
             titleGO.transform.SetParent(card.transform, false);
             var title = titleGO.GetComponent<TextMeshProUGUI>();
             title.font = _fontTitle;
-            title.text = "Cadeau du jour";
+            title.text = LocalizationManager.Get("daily.title");
+            LocalizationManager.ApplyTo(title);
             title.fontSize = 42;
             title.fontStyle = FontStyles.Bold;
             title.color = new Color(0.29f, 0.18f, 0.10f);
@@ -85,7 +87,8 @@ namespace Zoologic
             subGO.transform.SetParent(card.transform, false);
             var sub = subGO.GetComponent<TextMeshProUGUI>();
             sub.font = _fontBody;
-            sub.text = $"Jour {canClaimDay}/7  -  Série {streak} jours";
+            sub.text = LocalizationManager.Get("daily.streak", canClaimDay, streak);
+            LocalizationManager.ApplyTo(sub);
             sub.fontSize = 24;
             sub.color = new Color(0.50f, 0.42f, 0.35f);
             sub.alignment = TextAlignmentOptions.Center;
@@ -126,17 +129,29 @@ namespace Zoologic
             bh.childAlignment = TextAnchor.MiddleCenter;
             bh.childForceExpandWidth = false;
 
-            var claimBtn = CreateButton(btnRow.transform, canClaim ? $"Réclamer {reward}" : "Déjà réclamé", new Color(0.22f, 0.65f, 0.30f), canClaim);
+            var claimBtn = CreateButton(btnRow.transform, canClaim ? LocalizationManager.Get("daily.claim", reward) : LocalizationManager.Get("daily.claimed"), new Color(0.22f, 0.65f, 0.30f), canClaim);
             if (canClaim)
             {
                 claimBtn.onClick.AddListener(() =>
                 {
                     int r = DailyRewardManager.Claim();
-                    SFXManager.Instance.PlayUnlock();
+                    var c = Object.FindFirstObjectByType<Canvas>();
+                    Vector3 from = claimBtn.transform.position;
                     Object.Destroy(_panelRoot);
                     _panelRoot = null;
-                    var c = Object.FindFirstObjectByType<Canvas>();
-                    if (c != null) ShowCoinToast(c, $"+{r} pièces !");
+                    if (r > 0 && c != null)
+                    {
+                        CoinFlyFX.Play(c, from, 8, () =>
+                        {
+                            var c2 = Object.FindFirstObjectByType<Canvas>();
+                            if (c2 != null) ShowCoinToast(c2, LocalizationManager.Get("missions.reward_coins", r));
+                        });
+                    }
+                    else
+                    {
+                        SFXManager.Instance.PlayUnlock();
+                        if (c != null) ShowCoinToast(c, LocalizationManager.Get("missions.reward_coins", r));
+                    }
                 });
             }
 
@@ -151,16 +166,28 @@ namespace Zoologic
                     {
                         try
                         {
-                            int r = DailyRewardManager.Claim();
-                            if (r > 0) CurrencyManager.AddCoins(r);
-                            SFXManager.Instance.PlayUnlock();
-                            if (_panelRoot != null) { Object.Destroy(_panelRoot); _panelRoot = null; }
+                            int doubled = DailyRewardManager.ClaimDoubled();
                             var c = Object.FindFirstObjectByType<Canvas>();
-                            if (c != null) ShowCoinToast(c, r > 0 ? $"+{r * 2} pièces (x2) !" : "Déjà réclamé !");
+                            Vector3 from = x2Btn != null ? x2Btn.transform.position : Vector3.zero;
+                            if (_panelRoot != null) { Object.Destroy(_panelRoot); _panelRoot = null; }
+                            if (doubled > 0 && c != null)
+                            {
+                                CoinFlyFX.Play(c, from, 10, () =>
+                                {
+                                    var c2 = Object.FindFirstObjectByType<Canvas>();
+                                    if (c2 != null) ShowCoinToast(c2, LocalizationManager.Get("missions.reward_coins", doubled));
+                                });
+                            }
+                            else
+                            {
+                                SFXManager.Instance.PlayUnlock();
+                                if (c != null) ShowCoinToast(c, LocalizationManager.Get("daily.claimed"));
+                            }
                         }
                         catch (System.Exception e) { Debug.LogError("[DailyReward] x2 grant exception: " + e); if (_panelRoot != null) { Object.Destroy(_panelRoot); _panelRoot = null; } }
                     };
-                    if (admob != null) admob.ShowRewarded(grant);
+                    System.Action reactivate = () => { if (x2Btn != null) x2Btn.interactable = true; };
+                    if (admob != null) admob.ShowRewarded(grant, reactivate);
                     else grant();
                 });
             }
@@ -247,7 +274,8 @@ namespace Zoologic
             dayTxtGO.transform.SetParent(cell.transform, false);
             var dayTxt = dayTxtGO.GetComponent<TextMeshProUGUI>();
             dayTxt.font = _fontBody;
-            dayTxt.text = $"J{day}";
+            dayTxt.text = LocalizationManager.Get("daily.day", day);
+            LocalizationManager.ApplyTo(dayTxt);
             dayTxt.fontSize = 18;
             dayTxt.color = new Color(0.60f, 0.48f, 0.35f);
             dayTxt.alignment = TextAlignmentOptions.Center;
@@ -294,7 +322,8 @@ namespace Zoologic
                 statusGO.transform.SetParent(cell.transform, false);
                 var status = statusGO.GetComponent<TextMeshProUGUI>();
                 status.font = _fontBody;
-                status.text = today ? "Aujourd'hui" : "";
+                status.text = today ? LocalizationManager.Get("daily.today") : "";
+                LocalizationManager.ApplyTo(status);
                 status.fontSize = 20;
                 status.color = new Color(0.95f, 0.70f, 0.20f);
                 status.alignment = TextAlignmentOptions.Center;

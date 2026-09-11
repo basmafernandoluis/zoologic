@@ -31,23 +31,23 @@ namespace Zoologic
         /// </summary>
         public static readonly Color[] RegionPalette =
         {
-            new Color(0.96f, 0.55f, 0.65f),
-            new Color(0.99f, 0.80f, 0.25f),
-            new Color(0.45f, 0.80f, 0.99f),
-            new Color(0.78f, 0.60f, 0.97f),
-            new Color(1.00f, 0.65f, 0.45f),
-            new Color(0.60f, 0.88f, 0.55f),
-            new Color(0.55f, 0.75f, 0.98f),
-            new Color(1.00f, 0.68f, 0.78f),
+            new Color(0.97f, 0.58f, 0.66f),
+            new Color(1.00f, 0.80f, 0.28f),
+            new Color(0.47f, 0.81f, 1.00f),
+            new Color(0.79f, 0.62f, 0.98f),
+            new Color(1.00f, 0.66f, 0.44f),
+            new Color(0.61f, 0.89f, 0.56f),
+            new Color(0.56f, 0.77f, 1.00f),
+            new Color(1.00f, 0.70f, 0.79f),
         };
 
-        public const float CellGapRatio = 0.03f;
+        public const float CellGapRatio = 0.055f;
 
         /// <summary>Décalage de l'ombre portée, en fraction de la taille d'une case (x : droite, y : bas).</summary>
-        private static readonly Vector2 ShadowOffsetRatio = new Vector2(0.02f, -0.04f);
+        private static readonly Vector2 ShadowOffsetRatio = new Vector2(0.0f, -0.05f);
 
         /// <summary>Couleur de l'ombre portée douce sous chaque case.</summary>
-        private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.10f);
+        private static readonly Color ShadowColor = new Color(0.25f, 0.15f, 0.08f, 0.16f);
 
         /// <summary>Appelé quand une case est tapée (paramètres : ligne, colonne).</summary>
         public Action<int, int> OnCellTapped;
@@ -75,7 +75,7 @@ namespace Zoologic
         private static Font _builtinFont;
 
         // Indice / highlight
-        private static readonly Color HighlightColor = new Color(1f, 0.85f, 0.2f, 0.45f);
+        private static readonly Color HighlightColor = new Color(1f, 0.82f, 0.18f, 0.55f);
         private const float HighlightDuration = 3f;
         private const float HighlightPulseSpeed = 3f;
         private GameObject _highlightRoot;
@@ -120,8 +120,9 @@ namespace Zoologic
             _boardContainer.anchorMin = new Vector2(0.5f, 0.5f);
             _boardContainer.anchorMax = new Vector2(0.5f, 0.5f);
             _boardContainer.pivot = new Vector2(0.5f, 0.5f);
-            _boardContainer.anchoredPosition = Vector2.zero;
+            _boardContainer.anchoredPosition = new Vector2(0f, -30f);
             _boardContainer.sizeDelta = new Vector2(slotSize * n, slotSize * n);
+            _boardContainer.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
 
             var boardBg = new GameObject("BoardBg", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             boardBg.transform.SetParent(_boardContainer, false);
@@ -129,12 +130,12 @@ namespace Zoologic
             bgRect.anchorMin = new Vector2(0.5f, 0.5f);
             bgRect.anchorMax = new Vector2(0.5f, 0.5f);
             bgRect.pivot = new Vector2(0.5f, 0.5f);
-            bgRect.sizeDelta = new Vector2(slotSize * n + 32f, slotSize * n + 32f);
+            bgRect.sizeDelta = new Vector2(slotSize * n + 40f, slotSize * n + 40f);
             bgRect.anchoredPosition = Vector2.zero;
             var bgImg = boardBg.GetComponent<Image>();
             bgImg.sprite = GetRoundedRectSprite();
             bgImg.type = Image.Type.Simple;
-            bgImg.color = new Color(1f, 1f, 1f, 0.98f);
+            bgImg.color = new Color(1f, 0.985f, 0.95f, 1f);
             bgImg.raycastTarget = false;
             boardBg.transform.SetAsFirstSibling();
 
@@ -144,12 +145,12 @@ namespace Zoologic
             bsRect.anchorMin = new Vector2(0.5f, 0.5f);
             bsRect.anchorMax = new Vector2(0.5f, 0.5f);
             bsRect.pivot = new Vector2(0.5f, 0.5f);
-            bsRect.sizeDelta = new Vector2(slotSize * n + 32f, slotSize * n + 32f);
-            bsRect.anchoredPosition = new Vector2(5f, -8f);
+            bsRect.sizeDelta = new Vector2(slotSize * n + 40f, slotSize * n + 40f);
+            bsRect.anchoredPosition = new Vector2(0f, -14f);
             var bsImg = boardShadow.GetComponent<Image>();
             bsImg.sprite = GetRoundedRectSprite();
             bsImg.type = Image.Type.Simple;
-            bsImg.color = new Color(0f, 0f, 0f, 0.14f);
+            bsImg.color = new Color(0.35f, 0.22f, 0.12f, 0.18f);
             bsImg.raycastTarget = false;
             boardShadow.transform.SetAsFirstSibling();
 
@@ -528,8 +529,10 @@ namespace Zoologic
 
             Color baseColor = GetRegionColor(_grid.GetRegionId(row, col));
             Sprite pionSprite = GetRegionIcon(_grid.GetRegionId(row, col));
-            if (pionSprite == null)
-                pionSprite = GetPionSprite(); // secours : cercle blanc si pas d'icônes
+            if (pionSprite == null || pionSprite.name.StartsWith("bak_"))
+                pionSprite = GetPionSprite();
+            else if (!pionSprite.name.StartsWith("sp1_"))
+                pionSprite = GetPionSprite();
 
             var cell = gameObject.GetComponent<CellView>();
             cell.Init(baseColor, image, pionSprite, GetFont(), visualSize, PionRatio);
@@ -587,8 +590,16 @@ namespace Zoologic
             Sprite icon = null;
             if (_levelIcons != null && _levelIcons.Length > 0)
             {
-                icon = _levelIcons[_iconIndex % _levelIcons.Length];
-                _iconIndex++;
+                for (int tries = 0; tries < _levelIcons.Length; tries++)
+                {
+                    Sprite candidate = _levelIcons[_iconIndex % _levelIcons.Length];
+                    _iconIndex++;
+                    if (candidate != null && candidate.name.StartsWith("sp1_"))
+                    {
+                        icon = candidate;
+                        break;
+                    }
+                }
             }
 
             _regionIcons.Add(regionId, icon);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Zoologic.Localization;
 
 namespace Zoologic
 {
@@ -29,12 +30,12 @@ namespace Zoologic
             {
                 switch (type)
                 {
-                    case MissionType.PlaceAnimals: return $"Place {target} animaux";
-                    case MissionType.CompleteLevels: return $"Termine {target} niveaux";
-                    case MissionType.UseHints: return $"Utilise {target} indices";
-                    case MissionType.EarnStars: return $"Gagne {target} étoiles";
-                    case MissionType.UseEraser: return $"Utilise la gomme {target} fois";
-                    default: return "Mission";
+                    case MissionType.PlaceAnimals: return LocalizationManager.Get("mission.place", target);
+                    case MissionType.CompleteLevels: return LocalizationManager.Get("mission.levels", target);
+                    case MissionType.UseHints: return LocalizationManager.Get("mission.hints", target);
+                    case MissionType.EarnStars: return LocalizationManager.Get("mission.stars", target);
+                    case MissionType.UseEraser: return LocalizationManager.Get("mission.eraser", target);
+                    default: return LocalizationManager.Get("missions.title");
                 }
             }
         }

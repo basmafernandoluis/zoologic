@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -38,7 +39,7 @@ namespace Zoologic
         private const float SeparatorHeight = 68f;
         private const float SeparatorMargin = 12f;
         private const float SimulatedTopNotch = 70f;
-        private const float FixedDailyHeight = 122f;
+        private const float FixedDailyHeight = 142f;
 
         // ------------------------------------------------------------------
         // Palette Pastel Pop chaude - dynamique et douce.
@@ -282,7 +283,8 @@ namespace Zoologic
 
             var titleText = titleGO.AddComponent<TextMeshProUGUI>();
             titleText.font = _fontTitle;
-            titleText.text = "Niveaux";
+            titleText.text = Zoologic.Localization.LocalizationManager.Get("levelmap.title");
+            Zoologic.Localization.LocalizationManager.ApplyTo(titleText);
             titleText.fontSize = 44;
             titleText.fontStyle = FontStyles.Bold;
             titleText.color = TitleColor;
@@ -300,62 +302,25 @@ namespace Zoologic
             btnRect.anchorMin = new Vector2(0f, 0.5f);
             btnRect.anchorMax = new Vector2(0f, 0.5f);
             btnRect.pivot = new Vector2(0f, 0.5f);
-            btnRect.sizeDelta = new Vector2(64f, 64f);
+            btnRect.sizeDelta = new Vector2(72f, 72f);
             btnRect.anchoredPosition = new Vector2(18f, 0f);
 
-            var shadowGO = new GameObject("Shadow");
-            shadowGO.transform.SetParent(btnGO.transform, false);
-            var shadowRect = shadowGO.AddComponent<RectTransform>();
-            shadowRect.anchorMin = new Vector2(0.5f, 0.5f);
-            shadowRect.anchorMax = new Vector2(0.5f, 0.5f);
-            shadowRect.pivot = new Vector2(0.5f, 0.5f);
-            shadowRect.sizeDelta = new Vector2(64f, 64f);
-            shadowRect.anchoredPosition = new Vector2(0f, -4f);
-            var shadowImg = shadowGO.AddComponent<Image>();
-            shadowImg.sprite = CreerSpriteArrondi(128, 0.5f);
-            shadowImg.color = new Color(0f, 0f, 0f, 0.16f);
-            shadowImg.raycastTarget = false;
-            shadowGO.transform.SetAsFirstSibling();
-
             var bgImg = btnGO.AddComponent<Image>();
-            bgImg.sprite = CreerSpriteArrondi(128, 0.5f);
-            bgImg.type = Image.Type.Simple;
-            bgImg.color = Color.white;
-            bgImg.raycastTarget = true;
-
-            var iconGO = new GameObject("Icon");
-            iconGO.transform.SetParent(btnGO.transform, false);
-            var iconRect = iconGO.AddComponent<RectTransform>();
-            iconRect.anchorMin = new Vector2(0.5f, 0.5f);
-            iconRect.anchorMax = new Vector2(0.5f, 0.5f);
-            iconRect.pivot = new Vector2(0.5f, 0.5f);
-            iconRect.sizeDelta = new Vector2(36f, 36f);
-            iconRect.anchoredPosition = Vector2.zero;
-            var iconImg = iconGO.AddComponent<Image>();
-            var backIcon = GetBackIconSprite();
-            iconImg.sprite = backIcon;
-            iconImg.preserveAspect = true;
-            iconImg.color = Color.white;
-            iconImg.raycastTarget = false;
-            if (backIcon == null || backIcon.texture == null)
+            Sprite backTile = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_13") ?? Resources.Load<Sprite>("Sprites/b_13");
+            if (backTile != null)
             {
-                iconImg.sprite = CreerFlecheRetourSprite();
-                iconImg.color = TitleColor;
+                bgImg.sprite = backTile;
+                bgImg.type = Image.Type.Simple;
+                bgImg.preserveAspect = true;
+                bgImg.color = Color.white;
             }
-            var iconShadow = new GameObject("IconShadow");
-            iconShadow.transform.SetParent(iconGO.transform, false);
-            var iconShadowRect = iconShadow.AddComponent<RectTransform>();
-            iconShadowRect.anchorMin = new Vector2(0.5f, 0.5f);
-            iconShadowRect.anchorMax = new Vector2(0.5f, 0.5f);
-            iconShadowRect.pivot = new Vector2(0.5f, 0.5f);
-            iconShadowRect.sizeDelta = new Vector2(36f, 36f);
-            iconShadowRect.anchoredPosition = new Vector2(0f, -1.5f);
-            var iconShadowImg = iconShadow.AddComponent<Image>();
-            iconShadowImg.sprite = iconImg.sprite;
-            iconShadowImg.preserveAspect = true;
-            iconShadowImg.color = new Color(0f, 0f, 0f, 0.12f);
-            iconShadowImg.raycastTarget = false;
-            iconShadow.transform.SetAsFirstSibling();
+            else
+            {
+                bgImg.sprite = CreerSpriteArrondi(128, 0.5f);
+                bgImg.type = Image.Type.Simple;
+                bgImg.color = Color.white;
+            }
+            bgImg.raycastTarget = true;
 
             var btn = btnGO.AddComponent<Button>();
             btn.targetGraphic = bgImg;
@@ -708,7 +673,8 @@ namespace Zoologic
 
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
-            txt.text = "Grilles " + gridSize + "\u00D7" + gridSize;
+            txt.text = Zoologic.Localization.LocalizationManager.Get("levelmap.grids", gridSize);
+            Zoologic.Localization.LocalizationManager.ApplyTo(txt);
             txt.fontSize = 34;
             txt.fontStyle = FontStyles.Bold;
             txt.color = Color.white;
@@ -748,15 +714,48 @@ namespace Zoologic
             else { le.preferredHeight = 110f; le.flexibleWidth = 1f; }
 
             var bg = go.AddComponent<Image>();
-            bg.sprite = CreerSpriteGradientArrondi(128, 0.28f, new Color(0.96f, 0.78f, 0.22f), new Color(1f, 0.92f, 0.45f));
+            bg.sprite = CreerSpriteGradientArrondi(128, 0.30f,
+                done ? new Color(0.82f, 0.79f, 0.74f) : new Color(1f, 0.60f, 0.10f),
+                done ? new Color(0.90f, 0.88f, 0.84f) : new Color(1f, 0.80f, 0.28f));
+            bg.type = Image.Type.Sliced;
             bg.raycastTarget = false;
+            var cardOl = go.AddComponent<Outline>();
+            cardOl.effectColor = done ? new Color(1f, 1f, 1f, 0.5f) : new Color(1f, 1f, 1f, 0.85f);
+            cardOl.effectDistance = new Vector2(2.5f, -2.5f);
+            var cardSh = go.AddComponent<Shadow>();
+            cardSh.effectColor = done ? new Color(0f, 0f, 0f, 0.12f) : new Color(0.55f, 0.28f, 0.05f, 0.35f);
+            cardSh.effectDistance = new Vector2(0f, -6f);
 
             var hlg = go.AddComponent<HorizontalLayoutGroup>();
-            hlg.padding = new RectOffset(22, 22, 12, 12);
-            hlg.spacing = 12f;
+            hlg.padding = new RectOffset(20, 20, 14, 14);
+            hlg.spacing = 14f;
             hlg.childAlignment = TextAnchor.MiddleLeft;
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = true;
+
+            // Icône trophée dans pastille blanche
+            var iconGO = new GameObject("Trophy", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconGO.transform.SetParent(go.transform, false);
+            var iconRect = iconGO.GetComponent<RectTransform>();
+            iconRect.sizeDelta = new Vector2(72f, 72f);
+            var iconBg = iconGO.GetComponent<Image>();
+            iconBg.sprite = CreerSpriteArrondi(64, 0.5f);
+            iconBg.color = done ? new Color(1f, 1f, 1f, 0.6f) : Color.white;
+            var iconLE = iconGO.AddComponent<LayoutElement>();
+            iconLE.preferredWidth = 72f; iconLE.preferredHeight = 72f;
+            iconLE.flexibleWidth = 0f; iconLE.flexibleHeight = 0f;
+            var starGO = new GameObject("Star", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            starGO.transform.SetParent(iconGO.transform, false);
+            var starRect = starGO.GetComponent<RectTransform>();
+            starRect.anchorMin = Vector2.zero; starRect.anchorMax = Vector2.one;
+            starRect.offsetMin = new Vector2(12f, 12f); starRect.offsetMax = new Vector2(-12f, -12f);
+            var starImg = starGO.GetComponent<Image>();
+            starImg.sprite = done
+                ? (KenneyUI.Checkmark() ?? Resources.Load<Sprite>("UI/star"))
+                : (Resources.Load<Sprite>("UI/star") ?? KenneyUI.Checkmark());
+            starImg.preserveAspect = true;
+            starImg.color = done ? new Color(0.55f, 0.52f, 0.48f) : Color.white;
+            starImg.raycastTarget = false;
 
             var leftGO = new GameObject("Left", typeof(RectTransform));
             leftGO.transform.SetParent(go.transform, false);
@@ -771,39 +770,52 @@ namespace Zoologic
             titleGO.transform.SetParent(leftGO.transform, false);
             var title = titleGO.GetComponent<TextMeshProUGUI>();
             title.font = _fontTitle;
-            title.text = done ? "Défi du jour — Terminé" : "Défi du jour";
-            title.fontSize = 26;
+            title.text = done ? Zoologic.Localization.LocalizationManager.Get("daily.daily_done") : Zoologic.Localization.LocalizationManager.Get("daily.challenge");
+            Zoologic.Localization.LocalizationManager.ApplyTo(title);
+            title.fontSize = 30;
             title.fontStyle = FontStyles.Bold;
-            title.color = done ? new Color(0.40f, 0.38f, 0.34f) : new Color(0.29f, 0.18f, 0.10f);
+            title.color = done ? new Color(0.45f, 0.42f, 0.38f) : Color.white;
+            title.outlineWidth = done ? 0f : 0.18f;
+            title.outlineColor = new Color(0.45f, 0.20f, 0.02f, 0.55f);
             title.alignment = TextAlignmentOptions.MidlineLeft;
+            title.raycastTarget = false;
             var titleLE2 = titleGO.AddComponent<LayoutElement>();
-            titleLE2.preferredHeight = 30f;
+            titleLE2.preferredHeight = 34f;
 
             var subGO = new GameObject("Sub", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             subGO.transform.SetParent(leftGO.transform, false);
             var sub = subGO.GetComponent<TextMeshProUGUI>();
-            sub.font = _fontBody;
-            sub.text = done ? "Reviens demain" : $"Grille {DailyPuzzleManager.GetTodaySize()}×{DailyPuzzleManager.GetTodaySize()}  •  +{DailyPuzzleManager.RewardCoins} pièces";
-            sub.fontSize = 20;
-            sub.color = new Color(0.50f, 0.42f, 0.35f);
+            sub.font = _fontTitle;
+            sub.text = done ? Zoologic.Localization.LocalizationManager.Get("daily.reward_tomorrow") : Zoologic.Localization.LocalizationManager.Get("daily.grid_reward", DailyPuzzleManager.GetTodaySize(), DailyPuzzleManager.RewardCoins);
+            Zoologic.Localization.LocalizationManager.ApplyTo(sub);
+            sub.fontSize = 22;
+            sub.fontStyle = FontStyles.Bold;
+            sub.color = done ? new Color(0.55f, 0.52f, 0.48f) : new Color(0.45f, 0.22f, 0.03f);
             sub.alignment = TextAlignmentOptions.MidlineLeft;
+            sub.raycastTarget = false;
             var subLE = subGO.AddComponent<LayoutElement>();
-            subLE.preferredHeight = 24f;
+            subLE.preferredHeight = 28f;
 
             var btnGO = new GameObject("BtnDaily", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             btnGO.transform.SetParent(go.transform, false);
             var btnRect = btnGO.GetComponent<RectTransform>();
-            btnRect.sizeDelta = new Vector2(160f, 52f);
+            btnRect.sizeDelta = new Vector2(190f, 64f);
             var btnImg = btnGO.GetComponent<Image>();
-            btnImg.sprite = KenneyUI.Button(done ? "Grey" : "Green") ?? CreerSpriteArrondi(128, 0.35f);
-            btnImg.type = Image.Type.Simple;
-            btnImg.color = done ? new Color(0.75f, 0.75f, 0.78f) : new Color(0.22f, 0.65f, 0.30f);
+            btnImg.sprite = KenneyUI.Button(done ? "Grey" : "Green") ?? CreerSpriteArrondi(128, 0.4f);
+            btnImg.type = Image.Type.Sliced;
+            btnImg.color = done ? new Color(0.72f, 0.72f, 0.75f) : new Color(0.16f, 0.72f, 0.30f);
+            var btnOl = btnGO.AddComponent<Outline>();
+            btnOl.effectColor = new Color(1f, 1f, 1f, 0.7f);
+            btnOl.effectDistance = new Vector2(2f, -2f);
+            var btnSh = btnGO.AddComponent<Shadow>();
+            btnSh.effectColor = new Color(0.30f, 0.15f, 0.02f, 0.35f);
+            btnSh.effectDistance = new Vector2(0f, -4f);
             var btn = btnGO.GetComponent<Button>();
             btn.targetGraphic = btnImg;
             btn.interactable = !done;
             var btnLE = btnGO.AddComponent<LayoutElement>();
-            btnLE.preferredWidth = 160f;
-            btnLE.preferredHeight = 52f;
+            btnLE.preferredWidth = 190f;
+            btnLE.preferredHeight = 64f;
             var btnTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             btnTxtGO.transform.SetParent(btnGO.transform, false);
             var btnTxtRect = btnTxtGO.GetComponent<RectTransform>();
@@ -813,11 +825,15 @@ namespace Zoologic
             btnTxtRect.offsetMax = Vector2.zero;
             var btnTxt = btnTxtGO.GetComponent<TextMeshProUGUI>();
             btnTxt.font = _fontTitle;
-            btnTxt.text = done ? "Fait" : "Jouer";
-            btnTxt.fontSize = 22;
+            btnTxt.text = done ? Zoologic.Localization.LocalizationManager.Get("daily.done") : Zoologic.Localization.LocalizationManager.Get("daily.play");
+            btnTxt.fontSize = 25;
             btnTxt.fontStyle = FontStyles.Bold;
             btnTxt.color = Color.white;
+            btnTxt.outlineWidth = 0.12f;
+            btnTxt.outlineColor = new Color(0f, 0f, 0f, 0.30f);
             btnTxt.alignment = TextAlignmentOptions.Center;
+            btnTxt.raycastTarget = false;
+            if (!done) go.AddComponent<DailyPulse>();
             if (!done)
             {
                 btn.onClick.AddListener(() =>
@@ -842,6 +858,18 @@ namespace Zoologic
                 Mathf.Clamp01(c.g + amount),
                 Mathf.Clamp01(c.b + amount),
                 c.a);
+        }
+
+        private class DailyPulse : MonoBehaviour
+        {
+            private Vector3 _base;
+            private void Awake() { _base = transform.localScale; }
+            private void Update()
+            {
+                if (transform == null) return;
+                float s = 1f + Mathf.Sin(Time.unscaledTime * 3.2f) * 0.025f;
+                transform.localScale = _base * s;
+            }
         }
 
         private static Sprite CreerSpriteGradientArrondi(int resolution, float coinRatio,
@@ -1263,7 +1291,7 @@ namespace Zoologic
             titleGO.transform.SetParent(card.transform, false);
             var title = titleGO.GetComponent<TextMeshProUGUI>();
             title.font = _fontTitle;
-            title.text = "Plus de vies !";
+            title.text = Zoologic.Localization.LocalizationManager.Get("levelmap.no_lives");
             title.fontSize = 32;
             title.fontStyle = FontStyles.Bold;
             title.color = new Color(0.29f, 0.18f, 0.10f);
@@ -1275,7 +1303,7 @@ namespace Zoologic
             var timer = timerGO.GetComponent<TextMeshProUGUI>();
             timer.font = _fontBody;
             int secs = LivesManager.GetSecondsUntilNextLife();
-            timer.text = secs > 0 ? $"Prochaine vie dans {secs / 60:00}:{secs % 60:00}" : "Vies pleines !";
+            timer.text = secs > 0 ? Zoologic.Localization.LocalizationManager.Get("levelmap.next_life", secs / 60, secs % 60) : Zoologic.Localization.LocalizationManager.Get("levelmap.full_lives");
             timer.fontSize = 20;
             timer.color = new Color(0.60f, 0.48f, 0.35f);
             timer.alignment = TextAlignmentOptions.Center;
