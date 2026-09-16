@@ -15,6 +15,7 @@ namespace Zoologic
         private Coroutine _bobRoutine;
         private Coroutine _tapRoutine;
         private Coroutine _showRoutine;
+        private Coroutine _dragRoutine;
 
         public static UIHandPointer Create(Canvas canvas)
         {
@@ -79,6 +80,7 @@ namespace Zoologic
         {
             if (!gameObject.activeSelf) { _target = null; return; }
             if (_bobRoutine != null) { StopCoroutine(_bobRoutine); _bobRoutine = null; }
+            StopDragAnim();
             if (_showRoutine != null) StopCoroutine(_showRoutine);
             _showRoutine = StartCoroutine(HideRoutine());
         }
@@ -88,6 +90,71 @@ namespace Zoologic
             if (!gameObject.activeSelf) return;
             if (_tapRoutine != null) StopCoroutine(_tapRoutine);
             _tapRoutine = StartCoroutine(TapRoutine());
+        }
+
+        /// <summary>
+        /// Boucle de démo drag : la main glisse de `from` vers `to` (pressé au
+        /// départ, relâché à l'arrivée). Pour enseigner le drag &amp; drop.
+        /// </summary>
+        public void PlayDragFromTo(RectTransform from, RectTransform to, float duration = 1.4f)
+        {
+            if (from == null || to == null || _canvas == null) return;
+            if (_bobRoutine != null) { StopCoroutine(_bobRoutine); _bobRoutine = null; }
+            _target = null;
+            transform.SetAsLastSibling();
+            Show();
+            if (_dragRoutine != null) StopCoroutine(_dragRoutine);
+            _dragRoutine = StartCoroutine(DragRoutine(() => CanvasLocalPos(from), () => CanvasLocalPos(to), duration));
+        }
+
+        /// <summary>Variante vers un point local explicite (ex. hors plateau).</summary>
+        public void PlayDragToLocal(RectTransform from, Vector2 toLocal, float duration = 1.4f)
+        {
+            if (from == null || _canvas == null) return;
+            if (_bobRoutine != null) { StopCoroutine(_bobRoutine); _bobRoutine = null; }
+            _target = null;
+            transform.SetAsLastSibling();
+            Show();
+            if (_dragRoutine != null) StopCoroutine(_dragRoutine);
+            _dragRoutine = StartCoroutine(DragRoutine(() => CanvasLocalPos(from), () => toLocal, duration));
+        }
+
+        public void StopDragAnim()
+        {
+            if (_dragRoutine != null) { StopCoroutine(_dragRoutine); _dragRoutine = null; }
+        }
+
+        private Vector2 CanvasLocalPos(RectTransform rt)
+        {
+            if (rt == null || _canvas == null) return Vector2.zero;
+            Vector3 world = rt.TransformPoint(rt.rect.center);
+            Vector2 screen = RectTransformUtility.WorldToScreenPoint(_canvas.worldCamera, world);
+            Vector2 local;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)_canvas.transform, screen, _canvas.worldCamera, out local);
+            return local;
+        }
+
+        private System.Collections.IEnumerator DragRoutine(System.Func<Vector2> fromFn, System.Func<Vector2> toFn, float duration)
+        {
+            while (true)
+            {
+                Vector2 from = fromFn() + _offset;
+                Vector2 to = toFn() + _offset;
+                float e = 0f;
+                while (e < duration)
+                {
+                    e += Time.unscaledDeltaTime;
+                    float t = Mathf.Clamp01(e / duration);
+                    float move = t < 0.85f ? Easing.EaseInOutQuad(t / 0.85f) : 1f;
+                    _rect.anchoredPosition = Vector2.Lerp(from, to, move);
+                    float press = t < 0.15f ? Mathf.Lerp(1f, 0.85f, t / 0.15f)
+                        : t > 0.85f ? Mathf.Lerp(0.85f, 1f, (t - 0.85f) / 0.15f) : 0.85f;
+                    _rect.localScale = new Vector3(press, press, press);
+                    yield return null;
+                }
+                _rect.localScale = Vector3.one;
+                yield return new WaitForSecondsRealtime(0.35f);
+            }
         }
 
         private System.Collections.IEnumerator ShowRoutine()

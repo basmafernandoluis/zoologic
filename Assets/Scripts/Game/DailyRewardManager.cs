@@ -9,7 +9,7 @@ namespace Zoologic
         private const string StreakKey = "daily_streak";
         private const string LastStreakResetKey = "daily_last_streak_reset";
 
-        private static readonly int[] CoinRewards = { 20, 30, 40, 50, 60, 80, 100 };
+        private static readonly int[] CoinRewards = { 10, 15, 20, 25, 30, 40, 50 };
 
         public static int GetStreak()
         {

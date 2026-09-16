@@ -129,7 +129,7 @@ namespace Zoologic
             bh.childAlignment = TextAnchor.MiddleCenter;
             bh.childForceExpandWidth = false;
 
-            var claimBtn = CreateButton(btnRow.transform, canClaim ? LocalizationManager.Get("daily.claim", reward) : LocalizationManager.Get("daily.claimed"), new Color(0.22f, 0.65f, 0.30f), canClaim);
+            var claimBtn = CreateButton(btnRow.transform, canClaim ? LocalizationManager.Get("daily.claim", reward) : LocalizationManager.Get("daily.claimed"), new Color(0.22f, 0.65f, 0.30f), canClaim, "UI/coin");
             if (canClaim)
             {
                 claimBtn.onClick.AddListener(() =>
@@ -155,7 +155,8 @@ namespace Zoologic
                 });
             }
 
-            var x2Btn = CreateButton(btnRow.transform, "x2 Pub", new Color(0.22f, 0.50f, 0.85f), canClaim);
+            var x2Btn = CreateButton(btnRow.transform, LocalizationManager.Get("daily.x2_ad"), new Color(0.22f, 0.50f, 0.85f), canClaim, "UI/play_button");
+            x2Btn.gameObject.SetActive(AdMobManager.AreAdsAllowed());
             if (canClaim)
             {
                 x2Btn.onClick.AddListener(() =>
@@ -187,8 +188,9 @@ namespace Zoologic
                         catch (System.Exception e) { Debug.LogError("[DailyReward] x2 grant exception: " + e); if (_panelRoot != null) { Object.Destroy(_panelRoot); _panelRoot = null; } }
                     };
                     System.Action reactivate = () => { if (x2Btn != null) x2Btn.interactable = true; };
-                    if (admob != null) admob.ShowRewarded(grant, reactivate);
-                    else grant();
+                    // Families: no reward without a real ad view.
+                    if (admob != null && admob.IsRewardedReady()) admob.ShowRewarded(grant, reactivate);
+                    else reactivate();
                 });
             }
 
@@ -223,11 +225,59 @@ namespace Zoologic
             closeT.color = new Color(0.40f, 0.40f, 0.42f);
             closeT.alignment = TextAlignmentOptions.Center;
             closeT.raycastTarget = false;
+            LocalizationManager.ApplyFontsToScene();
         }
 
         public static void Close()
         {
             if (_panelRoot != null) { Object.Destroy(_panelRoot); _panelRoot = null; }
+        }
+
+        /// <summary>Pop d'entrée d'une cellule jour (cascade).</summary>
+        private class CellPop : MonoBehaviour
+        {
+            public float Delay;
+            private void OnEnable()
+            {
+                StartCoroutine(PopRoutine());
+            }
+            private System.Collections.IEnumerator PopRoutine()
+            {
+                transform.localScale = Vector3.zero;
+                if (Delay > 0f)
+                    yield return new WaitForSecondsRealtime(Delay);
+                if (this == null) yield break;
+                float d = 0.26f;
+                float e = 0f;
+                while (e < d)
+                {
+                    e += Time.unscaledDeltaTime;
+                    float s = Easing.EaseOutBack(Mathf.Clamp01(e / d));
+                    transform.localScale = new Vector3(s, s, s);
+                    yield return null;
+                }
+                transform.localScale = Vector3.one;
+                Destroy(this);
+            }
+        }
+
+        /// <summary>Pulse doux de la cellule du jour (après la cascade d'entrée).</summary>
+        private class TodayPulse : MonoBehaviour
+        {
+            private float _startTime;
+
+            private void OnEnable()
+            {
+                _startTime = Time.unscaledTime;
+            }
+
+            private void Update()
+            {
+                if (this == null) return;
+                if (Time.unscaledTime - _startTime < 0.7f) return;
+                float s = 1f + Mathf.Sin(Time.unscaledTime * 3f) * 0.035f;
+                transform.localScale = new Vector3(s, s, s);
+            }
         }
 
         private class CloseHandler : MonoBehaviour, IPointerDownHandler
@@ -261,8 +311,13 @@ namespace Zoologic
             {
                 var outline = cell.AddComponent<Outline>();
                 outline.effectColor = new Color(0.95f, 0.70f, 0.20f);
-                outline.effectDistance = new Vector2(3f, -3f);
+                outline.effectDistance = new Vector2(4f, -4f);
+                cell.AddComponent<TodayPulse>();
             }
+            // Pop d'entrée en cascade (jour 1 → 7).
+            cell.transform.localScale = Vector3.zero;
+            var popper = cell.AddComponent<CellPop>();
+            popper.Delay = day * 0.05f;
 
             var vlg = cell.AddComponent<VerticalLayoutGroup>();
             vlg.padding = new RectOffset(6, 6, 12, 12);
@@ -285,7 +340,7 @@ namespace Zoologic
             var coinGO = new GameObject("Coin", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             coinGO.transform.SetParent(cell.transform, false);
             var coinRect = coinGO.GetComponent<RectTransform>();
-            coinRect.sizeDelta = new Vector2(36f, 36f);
+            coinRect.sizeDelta = today ? new Vector2(48f, 48f) : new Vector2(40f, 40f);
             var coinImg = coinGO.GetComponent<Image>();
             coinImg.sprite = Resources.Load<Sprite>("UI/coin");
             coinImg.preserveAspect = true;
@@ -297,9 +352,9 @@ namespace Zoologic
             var amt = amtGO.GetComponent<TextMeshProUGUI>();
             amt.font = _fontTitle;
             amt.text = DailyRewardManager.GetRewardForDay(day).ToString();
-            amt.fontSize = 22;
+            amt.fontSize = today ? 30 : 25;
             amt.fontStyle = FontStyles.Bold;
-            amt.color = new Color(0.22f, 0.19f, 0.16f);
+            amt.color = today ? new Color(0.75f, 0.45f, 0.05f) : new Color(0.22f, 0.19f, 0.16f);
             amt.alignment = TextAlignmentOptions.Center;
             var amtLE = amtGO.AddComponent<LayoutElement>();
             amtLE.preferredHeight = 24f;
@@ -309,7 +364,7 @@ namespace Zoologic
                 var checkGO = new GameObject("Check", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 checkGO.transform.SetParent(cell.transform, false);
                 var checkRect = checkGO.GetComponent<RectTransform>();
-                checkRect.sizeDelta = new Vector2(24f, 24f);
+                checkRect.sizeDelta = new Vector2(34f, 34f);
                 var checkImg = checkGO.GetComponent<Image>();
                 checkImg.sprite = KenneyUI.Checkmark();
                 checkImg.preserveAspect = true;
@@ -332,12 +387,12 @@ namespace Zoologic
             }
         }
 
-        private static Button CreateButton(Transform parent, string label, Color bg, bool enabled)
+        private static Button CreateButton(Transform parent, string label, Color bg, bool enabled, string iconPath = null)
         {
             var go = new GameObject("Btn_" + label, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             go.transform.SetParent(parent, false);
             var rect = go.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(240f, 62f);
+            rect.sizeDelta = new Vector2(280f, 72f);
             var img = go.GetComponent<Image>();
             img.sprite = KenneyUI.Button(enabled ? "Green" : "Grey") ?? CreateRoundedSprite(128, 0.35f);
             img.color = enabled ? bg : new Color(0.78f, 0.74f, 0.69f);
@@ -347,23 +402,48 @@ namespace Zoologic
             var btn = go.GetComponent<Button>();
             btn.targetGraphic = img;
             btn.interactable = enabled;
+            var contentGO = new GameObject("Content", typeof(RectTransform));
+            contentGO.transform.SetParent(go.transform, false);
+            var contentRect = contentGO.GetComponent<RectTransform>();
+            contentRect.anchorMin = Vector2.zero;
+            contentRect.anchorMax = Vector2.one;
+            contentRect.offsetMin = new Vector2(12f, 6f);
+            contentRect.offsetMax = new Vector2(-12f, -6f);
+            var hlg = contentGO.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 8f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childForceExpandWidth = false;
+            hlg.childControlWidth = false;
+            if (!string.IsNullOrEmpty(iconPath) && enabled)
+            {
+                var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                iconGO.transform.SetParent(contentGO.transform, false);
+                var iconImg = iconGO.GetComponent<Image>();
+                iconImg.sprite = Resources.Load<Sprite>(iconPath);
+                iconImg.preserveAspect = true;
+                iconImg.raycastTarget = false;
+                var iconLE = iconGO.AddComponent<LayoutElement>();
+                iconLE.preferredWidth = 32f;
+                iconLE.preferredHeight = 32f;
+            }
             var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            txtGO.transform.SetParent(go.transform, false);
-            var txtRect = txtGO.GetComponent<RectTransform>();
-            txtRect.anchorMin = Vector2.zero;
-            txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = Vector2.zero;
-            txtRect.offsetMax = Vector2.zero;
+            txtGO.transform.SetParent(contentGO.transform, false);
             var txt = txtGO.GetComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = label;
-            txt.fontSize = 24;
+            txt.fontSize = 28;
             txt.fontStyle = FontStyles.Bold;
             txt.color = enabled ? Color.white : new Color(0.45f, 0.38f, 0.32f);
             txt.alignment = TextAlignmentOptions.Center;
+            txt.raycastTarget = false;
+            txt.enableAutoSizing = true;
+            txt.fontSizeMin = 18;
+            txt.fontSizeMax = 28;
+            var txtLE = txtGO.AddComponent<LayoutElement>();
+            txtLE.flexibleWidth = 1f;
             var le = go.AddComponent<LayoutElement>();
-            le.preferredWidth = 240f;
-            le.preferredHeight = 62f;
+            le.preferredWidth = 280f;
+            le.preferredHeight = 72f;
             return btn;
         }
 
@@ -393,6 +473,7 @@ namespace Zoologic
             txt.fontSize = 26;
             txt.color = Color.white;
             txt.alignment = TextAlignmentOptions.Center;
+            LocalizationManager.ApplyTo(txt);
             Object.Destroy(toast, 1.6f);
         }
 

@@ -44,6 +44,27 @@ namespace Zoologic
         public static string AppOpenId => IsProduction ? ProdAppOpenId : TestAppOpenId;
         public static string RewardedId => IsProduction ? ProdRewardedId : TestRewardedId;
 
+        public static bool Under5Mode { get; private set; } = true;
+        public static bool AreAdsAllowed() => !Under5Mode;
+
+        public void OnAgeBandChosen(bool under5) => ApplyAgeBand(under5);
+
+        public void ApplyAgeBand(bool under5)
+        {
+            bool wasAllowed = !Under5Mode;
+            Under5Mode = under5;
+            Debug.Log($"[AdMob] Age band applied Under5={under5} AdsAllowed={!under5}");
+            if (!under5 && !wasAllowed) TryInitializeAds();
+            if (under5)
+            {
+                _rewardedAd = null;
+                _interstitialAd = null;
+                try { _bannerView?.Destroy(); } catch { }
+                _bannerView = null;
+            }
+        }
+
+        private bool _adsInitialized;
         private int _victoryCount;
         private GameObject _bannerGO;
 
@@ -71,6 +92,8 @@ namespace Zoologic
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            try { Under5Mode = !AgeGateManager.HasChosen || AgeGateManager.IsUnder5; }
+            catch { Under5Mode = true; }
             ConfigureAndInitialize();
         }
 
@@ -92,6 +115,31 @@ namespace Zoologic
             }
             catch (Exception e) { Debug.LogWarning("[AdMob] RequestConfiguration failed: " + e.Message); }
 
+            TryInitializeAds();
+        }
+
+        private bool _consentResolved;
+
+        private void TryInitializeAds()
+        {
+            if (Under5Mode)
+            {
+                Debug.Log("[AdMob] Under-5 mode: SDK init skipped (zero ads for young children)");
+                return;
+            }
+            // GDPR/TTCF : le SDK ne s'initialise qu'après résolution UMP (6+ uniquement).
+            if (!_consentResolved)
+            {
+                Debug.Log("[AdMob] Waiting for UMP consent before init");
+                UmpConsent.RequestConsent(() =>
+                {
+                    _consentResolved = true;
+                    TryInitializeAds();
+                });
+                return;
+            }
+            if (_adsInitialized) return;
+            _adsInitialized = true;
             try
             {
                 MobileAds.Initialize(initStatus =>
@@ -99,7 +147,7 @@ namespace Zoologic
                     Debug.Log("[AdMob] MobileAds Initialized: " + initStatus);
                     LoadRewarded();
                     LoadInterstitial();
-                    LoadAppOpen();
+                    // Families: no AppOpen — interstitial on launch is prohibited.
                 });
             }
             catch (Exception e) { Debug.LogWarning("[AdMob] Initialize failed: " + e.Message); }
@@ -143,6 +191,7 @@ namespace Zoologic
 
         private void LoadRewarded()
         {
+            if (Under5Mode) return;
             if (_rewardedLoading) return;
             _rewardedLoading = true;
             var req = CreateNpaRequest();
@@ -158,6 +207,7 @@ namespace Zoologic
 
         private void LoadInterstitial()
         {
+            if (Under5Mode) return;
             if (_interstitialLoading) return;
             _interstitialLoading = true;
             var req = CreateNpaRequest();
@@ -173,22 +223,18 @@ namespace Zoologic
 
         private void LoadAppOpen()
         {
-            if (_appOpenLoading) return;
-            _appOpenLoading = true;
-            var req = CreateNpaRequest();
-            AppOpenAd.Load(AppOpenId, req, (ad, err) =>
-            {
-                _appOpenLoading = false;
-                if (err != null || ad == null) { Debug.LogWarning("[AdMob] AppOpen load failed: " + err); return; }
-                _appOpenAd = ad;
-                _appOpenExpire = DateTime.Now.AddHours(4);
-                _appOpenAd.OnAdFullScreenContentFailed += (AdError e) => { _appOpenAd = null; ResumeMusicAfterAd(); LoadAppOpen(); };
-                Debug.Log("[AdMob] AppOpen loaded: " + AppOpenId + " NPA=1");
-            });
+            // Families: disabled — AppOpen at launch = policy violation.
+            return;
         }
 
         public void ShowRewarded(Action onRewarded, Action onClosedNoReward = null)
         {
+            if (Under5Mode)
+            {
+                Debug.Log("[AdMob] ShowRewarded blocked: under-5 mode (zero ads)");
+                try { onClosedNoReward?.Invoke(); } catch { }
+                return;
+            }
             Debug.Log($"[AdMob] ShowRewarded IsProduction={IsProduction} ID={RewardedId} NPA=1");
             if (_rewardedAd != null && _rewardedAd.CanShowAd())
             {
@@ -248,14 +294,11 @@ namespace Zoologic
                     ResumeMusicAfterAd();
                 }
             }
-            Debug.LogWarning("[AdMob] Rewarded not ready -> fallback stub");
-            PauseMusicForAd();
+            Debug.LogWarning("[AdMob] Rewarded not ready -> no grant (Families: no fake ad)");
+            ResumeMusicAfterAd();
             LoadRewarded();
-            StartCoroutine(RewardedStubRoutine(() =>
-            {
-                ResumeMusicAfterAd();
-                try { onRewarded?.Invoke(); } catch (Exception e) { Debug.LogError("[AdMob] stub onRewarded exception: " + e); }
-            }));
+            try { onClosedNoReward?.Invoke(); } catch (Exception e) { Debug.LogError("[AdMob] onClosedNoReward exception: " + e); }
+            return;
         }
 
         private IEnumerator RewardedCloseSequence(bool earned, Action onRewarded, Action onClosedNoReward)
@@ -274,49 +317,12 @@ namespace Zoologic
             }
         }
 
-        private IEnumerator RewardedStubRoutine(Action onRewarded)
-        {
-            var canvas = FindFirstObjectByType<Canvas>();
-            if (canvas != null)
-            {
-                var overlay = new GameObject("TestAdOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
-                overlay.transform.SetParent(canvas.transform, false);
-                var rt = overlay.GetComponent<RectTransform>();
-                rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
-                var img = overlay.GetComponent<UnityEngine.UI.Image>();
-                img.color = new Color(0f, 0f, 0f, 0.85f); img.raycastTarget = true;
-                var card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
-                card.transform.SetParent(overlay.transform, false);
-                var cr = card.GetComponent<RectTransform>();
-                cr.anchorMin = new Vector2(0.5f, 0.5f); cr.anchorMax = new Vector2(0.5f, 0.5f); cr.pivot = new Vector2(0.5f, 0.5f);
-                cr.sizeDelta = new Vector2(560f, 360f); cr.anchoredPosition = Vector2.zero;
-                var ci = card.GetComponent<UnityEngine.UI.Image>();
-                ci.sprite = null; ci.color = Color.white;
-                var vlg = card.AddComponent<UnityEngine.UI.VerticalLayoutGroup>();
-                vlg.padding = new UnityEngine.RectOffset(24, 24, 24, 24); vlg.spacing = 18f; vlg.childAlignment = TextAnchor.MiddleCenter;
-                var titleGO = new GameObject("Title", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-                titleGO.transform.SetParent(card.transform, false);
-                var title = titleGO.GetComponent<TMPro.TextMeshProUGUI>();
-                title.font = Resources.Load<TMPro.TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
-                title.text = IsProduction ? "Publicité" : "Publicité test (simulée)";
-                title.fontSize = 30; title.fontStyle = TMPro.FontStyles.Bold; title.color = new Color(0.20f, 0.13f, 0.08f);
-                title.alignment = TMPro.TextAlignmentOptions.Center;
-                var subGO = new GameObject("Sub", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-                subGO.transform.SetParent(card.transform, false);
-                var sub = subGO.GetComponent<TMPro.TextMeshProUGUI>();
-                sub.font = Resources.Load<TMPro.TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF");
-                sub.text = "Récompense sera accordée dans 1s…";
-                sub.fontSize = 20; sub.color = new Color(0.45f, 0.38f, 0.32f); sub.alignment = TMPro.TextAlignmentOptions.Center;
-                yield return new WaitForSecondsRealtime(1f);
-                if (overlay != null) Destroy(overlay);
-            }
-            else yield return new WaitForSecondsRealtime(0.4f);
-            onRewarded?.Invoke();
-        }
+        public bool IsRewardedReady() => !Under5Mode && _rewardedAd != null && _rewardedAd.CanShowAd();
 
         public void ShowInterstitialIfNeeded()
         {
             _victoryCount++;
+            if (Under5Mode) return;
             if (_victoryCount % 4 != 0) return;
             Debug.Log($"[AdMob] Interstitial trigger 4th victory IsProduction={IsProduction} ID={InterstitialId} NPA=1");
             if (_interstitialAd != null && _interstitialAd.CanShowAd())
@@ -370,6 +376,7 @@ namespace Zoologic
 
         public void ShowBanner()
         {
+            if (Under5Mode) return;
             Debug.Log($"[AdMob] ShowBanner IsProduction={IsProduction} ID={BannerId} NPA=1");
             try
             {
@@ -381,24 +388,7 @@ namespace Zoologic
                 return;
             }
             catch (Exception e) { Debug.LogWarning("[AdMob] Banner failed: " + e.Message); }
-            if (_bannerGO != null) return;
-            var canvas = FindFirstObjectByType<Canvas>();
-            if (canvas == null) return;
-            _bannerGO = new GameObject("AdBannerStub", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
-            _bannerGO.transform.SetParent(canvas.transform, false);
-            var rect = _bannerGO.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, 0f); rect.anchorMax = new Vector2(1f, 0f); rect.pivot = new Vector2(0.5f, 0f);
-            rect.sizeDelta = new Vector2(0f, 90f); rect.anchoredPosition = Vector2.zero;
-            var img = _bannerGO.GetComponent<UnityEngine.UI.Image>();
-            img.color = new Color(0.92f, 0.89f, 0.86f, 1f); img.raycastTarget = false;
-            var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-            txtGO.transform.SetParent(_bannerGO.transform, false);
-            var txtRect = txtGO.GetComponent<RectTransform>();
-            txtRect.anchorMin = Vector2.zero; txtRect.anchorMax = Vector2.one; txtRect.offsetMin = Vector2.zero; txtRect.offsetMax = Vector2.zero;
-            var txt = txtGO.GetComponent<TMPro.TextMeshProUGUI>();
-            txt.font = Resources.Load<TMPro.TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF");
-            txt.text = IsProduction ? "Publicité — bannière" : "Publicité — bannière (test)";
-            txt.fontSize = 20; txt.color = new Color(0.50f, 0.42f, 0.35f); txt.alignment = TMPro.TextAlignmentOptions.Center;
+            // Families: no custom stub banner — unlabeled house banner = "unclear ads" rejection.
         }
 
         public void HideBanner()
@@ -411,15 +401,8 @@ namespace Zoologic
 
         public void ShowAppOpenIfNeeded()
         {
-            if (_appOpenAd == null || !_appOpenAd.CanShowAd() || DateTime.Now > _appOpenExpire) { LoadAppOpen(); return; }
-            PauseMusicForAd();
-            Action closedHandler = null;
-            Action<AdError> failedHandler = null;
-            closedHandler = () => { try { if (_appOpenAd != null) { _appOpenAd.OnAdFullScreenContentClosed -= closedHandler; _appOpenAd.OnAdFullScreenContentFailed -= failedHandler; } } catch { } ResumeMusicAfterAd(); _appOpenAd = null; LoadAppOpen(); };
-            failedHandler = (AdError e) => { try { if (_appOpenAd != null) { _appOpenAd.OnAdFullScreenContentClosed -= closedHandler; _appOpenAd.OnAdFullScreenContentFailed -= failedHandler; } } catch { } Debug.LogWarning("[AdMob] AppOpen failed: " + e); ResumeMusicAfterAd(); _appOpenAd = null; LoadAppOpen(); };
-            _appOpenAd.OnAdFullScreenContentClosed += closedHandler;
-            _appOpenAd.OnAdFullScreenContentFailed += failedHandler;
-            try { _appOpenAd.Show(); Debug.Log("[AdMob] AppOpen shown NPA"); } catch (Exception e) { Debug.LogWarning("[AdMob] AppOpen show failed: " + e.Message); ResumeMusicAfterAd(); _appOpenAd = null; LoadAppOpen(); try { _appOpenAd.OnAdFullScreenContentClosed -= closedHandler; _appOpenAd.OnAdFullScreenContentFailed -= failedHandler; } catch { } }
+            // Families: disabled — never show ad immediately on launch.
+            return;
         }
     }
 }

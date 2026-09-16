@@ -64,7 +64,7 @@ namespace Zoologic
             var titleGO = new GameObject("Title", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             titleGO.transform.SetParent(card.transform, false);
             var title = titleGO.GetComponent<TextMeshProUGUI>();
-            title.font = _fontTitle; title.text = LocalizationManager.Get("missions.title"); title.fontSize = 36; title.fontStyle = FontStyles.Bold;
+            title.font = _fontTitle; title.text = LocalizationManager.Get("missions.title"); title.fontSize = 42; title.fontStyle = FontStyles.Bold;
             LocalizationManager.ApplyTo(title);
             title.color = new Color(0.29f, 0.18f, 0.10f); title.alignment = TextAlignmentOptions.Center;
             title.outlineWidth = 0.18f; title.outlineColor = new Color(1f, 0.98f, 0.92f, 0.85f);
@@ -84,6 +84,8 @@ namespace Zoologic
                 rowImg.sprite = CreateRounded(128, 0.22f);
                 rowImg.type = Image.Type.Simple;
                 rowImg.color = m.IsCompleted && !m.claimed ? new Color(1f, 0.96f, 0.86f, 1f) : new Color(1f, 0.97f, 0.92f, 1f);
+                if (m.claimed)
+                    rowImg.color = new Color(1f, 1f, 1f, 0.55f);
                 var rowShadow = row.AddComponent<Shadow>();
                 rowShadow.effectColor = new Color(0.18f, 0.11f, 0.06f, 0.16f);
                 rowShadow.effectDistance = new Vector2(0f, -4f);
@@ -99,6 +101,35 @@ namespace Zoologic
                 hlg.spacing = 16f;
                 hlg.childAlignment = TextAnchor.MiddleCenter;
                 hlg.childControlWidth = true;
+
+                // Pastille icône du type de mission (repère visuel immédiat).
+                var badgeGO = new GameObject("TypeIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                badgeGO.transform.SetParent(row.transform, false);
+                var badgeImg = badgeGO.GetComponent<Image>();
+                badgeImg.sprite = CreateRounded(64, 0.5f);
+                badgeImg.type = Image.Type.Simple;
+                badgeImg.color = m.IsCompleted && !m.claimed
+                    ? new Color(1f, 0.85f, 0.35f, 1f)
+                    : new Color(0.55f, 0.70f, 0.95f, 1f);
+                badgeImg.raycastTarget = false;
+                var badgeLE = badgeGO.AddComponent<LayoutElement>();
+                badgeLE.preferredWidth = 64f; badgeLE.preferredHeight = 64f;
+                badgeLE.flexibleWidth = 0f; badgeLE.flexibleHeight = 0f;
+                var glyphGO = new GameObject("Glyph", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                glyphGO.transform.SetParent(badgeGO.transform, false);
+                var glyphRect = glyphGO.GetComponent<RectTransform>();
+                glyphRect.anchorMin = Vector2.zero; glyphRect.anchorMax = Vector2.one;
+                glyphRect.offsetMin = new Vector2(12f, 12f); glyphRect.offsetMax = new Vector2(-12f, -12f);
+                var glyphImg = glyphGO.GetComponent<Image>();
+                glyphImg.sprite = MissionGlyph(m.type);
+                glyphImg.preserveAspect = true;
+                glyphImg.color = Color.white;
+                glyphImg.raycastTarget = false;
+
+                // Pop d'entrée en cascade (rangée i).
+                row.transform.localScale = Vector3.zero;
+                var popRunner = row.AddComponent<RowPopRunner>();
+                popRunner.Delay = i * 0.06f;
                 hlg.childControlHeight = true;
                 hlg.childForceExpandWidth = false;
                 hlg.childForceExpandHeight = false;
@@ -185,7 +216,7 @@ namespace Zoologic
                 var btnGO = new GameObject("Btn", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
                 btnGO.transform.SetParent(row.transform, false);
                 var btnRect = btnGO.GetComponent<RectTransform>();
-                btnRect.sizeDelta = new Vector2(160f, 54f);
+                btnRect.sizeDelta = canClaim ? new Vector2(170f, 62f) : new Vector2(160f, 54f);
                 var btnImg = btnGO.GetComponent<Image>();
                 btnImg.type = Image.Type.Sliced;
 
@@ -224,6 +255,22 @@ namespace Zoologic
                 bHlg.spacing = 6f; bHlg.childAlignment = TextAnchor.MiddleCenter;
                 bHlg.childForceExpandWidth = false; bHlg.childForceExpandHeight = false;
 
+                // Icône pièce aussi sur CLAIM (récompense explicite).
+                if (canClaim)
+                {
+                    var claimCoinGO = new GameObject("Coin", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                    claimCoinGO.transform.SetParent(bContent.transform, false);
+                    claimCoinGO.transform.SetAsFirstSibling();
+                    var claimCoinRect = claimCoinGO.GetComponent<RectTransform>();
+                    claimCoinRect.sizeDelta = new Vector2(24f, 24f);
+                    var claimCoinLE = claimCoinGO.AddComponent<LayoutElement>();
+                    claimCoinLE.preferredWidth = 24f; claimCoinLE.preferredHeight = 24f;
+                    var claimCoinImg = claimCoinGO.GetComponent<Image>();
+                    claimCoinImg.sprite = Resources.Load<Sprite>("UI/coin");
+                    claimCoinImg.preserveAspect = true;
+                    claimCoinImg.raycastTarget = false;
+                }
+
                 if (!canClaim || isClaimed)
                 {
                     if (!isClaimed)
@@ -253,7 +300,7 @@ namespace Zoologic
                 btxt.outlineWidth = 0.15f; btxt.outlineColor = new Color(0f, 0f, 0f, 0.35f);
                 btxt.alignment = TextAlignmentOptions.Center;
                 btxt.raycastTarget = false;
-                var ble = btnGO.AddComponent<LayoutElement>(); ble.preferredWidth = canClaim ? 148f : 128f; ble.preferredHeight = 54f; ble.flexibleWidth = 0f;
+                var ble = btnGO.AddComponent<LayoutElement>(); ble.preferredWidth = canClaim ? 170f : 128f; ble.preferredHeight = 62f; ble.flexibleWidth = 0f;
 
                 if (canClaim)
                 {
@@ -323,6 +370,7 @@ namespace Zoologic
             closeT.color = Color.white; closeT.alignment = TextAlignmentOptions.Center;
             closeT.outlineWidth = 0.10f; closeT.outlineColor = new Color(0f, 0f, 0f, 0.25f);
             _root.AddComponent<ClickOutsideCloser>().Init(_root);
+            LocalizationManager.ApplyFontsToScene();
             }
             catch (System.Exception ex)
             {
@@ -364,6 +412,49 @@ namespace Zoologic
                     _t.localScale = _base * s;
                 }
             }
+        }
+
+        /// <summary>Pop d'entrée d'une rangée (cascade).</summary>
+        private class RowPopRunner : MonoBehaviour
+        {
+            public float Delay;
+            private void OnEnable()
+            {
+                StartCoroutine(PopRoutine());
+            }
+            private System.Collections.IEnumerator PopRoutine()
+            {
+                transform.localScale = Vector3.zero;
+                if (Delay > 0f)
+                    yield return new WaitForSecondsRealtime(Delay);
+                if (this == null) yield break;
+                float d = 0.26f;
+                float e = 0f;
+                while (e < d)
+                {
+                    e += Time.unscaledDeltaTime;
+                    float s = Easing.EaseOutBack(Mathf.Clamp01(e / d));
+                    transform.localScale = new Vector3(s, s, s);
+                    yield return null;
+                }
+                transform.localScale = Vector3.one;
+                Destroy(this);
+            }
+        }
+
+        /// <summary>Icône du type de mission (pastille).</summary>
+        private static Sprite MissionGlyph(MissionType type)
+        {
+            string path;
+            switch (type)
+            {
+                case MissionType.PlaceAnimals: path = "UI/hand"; break;
+                case MissionType.CompleteLevels: path = "UI/play_button"; break;
+                case MissionType.UseHints: path = "UI/potion"; break;
+                case MissionType.EarnStars: path = "UI/star"; break;
+                default: path = "UI/X"; break;
+            }
+            return Resources.Load<Sprite>(path);
         }
 
         private static class ClaimJuice
@@ -533,6 +624,7 @@ namespace Zoologic
                 tt.fontSize = 26; tt.fontStyle = FontStyles.Bold;
                 tt.color = Color.white; tt.alignment = TextAlignmentOptions.Center;
                 tt.raycastTarget = false;
+                LocalizationManager.ApplyTo(tt);
                 var runner = SFXManager.Instance;
                 if (runner != null) Punch.Scale(runner, tr, 1.12f, 0.25f);
                 Object.Destroy(t, 1.4f);

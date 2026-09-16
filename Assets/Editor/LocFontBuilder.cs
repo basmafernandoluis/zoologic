@@ -1,113 +1,144 @@
-#if UNITY_EDITOR
-using TMPro;
+using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
+using TMPro;
 
 namespace Zoologic.EditorTools
 {
-    /// <summary>
-    /// Génère les polices SDF pour les langues à script complexe (ar/zh/ja/hi)
-    /// à partir des polices OS. Exécuter via Tools > Zoologic > Build Localization Fonts.
-    /// Les assets sont sauvés dans Assets/Resources/Fonts/Loc_{code}.asset
-    /// et chargés au runtime par LocalizationManager (aucune dépendance OS sur device).
-    /// </summary>
     public static class LocFontBuilder
     {
-        private static readonly (string code, string[] families, char probe)[] Targets =
+        private struct LocFontJob
         {
-            ("ar-SA", new[] { "Noto Naskh Arabic", "Noto Sans Arabic", "Tahoma", "Arial", "Geeza Pro" }, 'ا'),
-            ("zh-CN", new[] { "Noto Sans CJK SC", "Noto Sans SC", "Microsoft YaHei", "SimSun", "PingFang SC" }, '中'),
-            ("ja-JP", new[] { "Noto Sans JP", "Yu Gothic", "Meiryo", "Hiragino Sans" }, 'あ'),
-            ("hi-IN", new[] { "Noto Sans Devanagari", "Nirmala UI", "Mangal", "Kohinoor Devanagari", "Arial" }, 'अ'),
-        };
+            public string Code;
+            public string Ttf;
+            public int Sampling;
+            public LocFontJob(string code, string ttf, int sampling) { Code = code; Ttf = ttf; Sampling = sampling; }
+        }
 
-        [MenuItem("Tools/Zoologic/Build Localization Fonts")]
-        public static void BuildAll()
+        // Sources (OFL) : google/fonts
+        //  ar: ofl/almarai/Almarai-Regular.ttf
+        //  hi: ofl/mukta/Mukta-Regular.ttf
+        //  zh: ofl/zcoolkuaile/ZCOOLKuaiLe-Regular.ttf
+        //  ja: ofl/mplusrounded1c/MPLUSRounded1c-Regular.ttf
+        [MenuItem("Tools/Zoo Logic/Build Loc Fonts (ar/hi/zh/ja)")]
+        public static void BuildLocFontsMenu() => BuildLocFonts();
+
+        public static void BuildLocFonts()
         {
-            int ok = 0;
-            foreach (var (code, families, probe) in Targets)
-                if (BuildOne(code, families, probe)) ok++;
+            var jobs = new[]
+            {
+                new LocFontJob("ar-SA", "Assets/Editor/LocFontSrc/ar.ttf", 48),
+                new LocFontJob("hi-IN", "Assets/Editor/LocFontSrc/hi.ttf", 48),
+                new LocFontJob("zh-CN", "Assets/Editor/LocFontSrc/zh.ttf", 48),
+                new LocFontJob("ja-JP", "Assets/Editor/LocFontSrc/ja.ttf", 48),
+            };
+            Directory.CreateDirectory("Assets/Resources/Fonts");
+            foreach (var job in jobs)
+            {
+                try { BuildOne(job); }
+                catch (System.Exception e) { Debug.LogError($"[LocFont] {job.Code} FAILED: {e}"); }
+            }
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log($"[Loc] fonts built: {ok}/{Targets.Length}. Relancez Play pour tester.");
+            Debug.Log("[LocFont] Done.");
+        }
+
+        private static void BuildOne(LocFontJob job)
+        {
+            var srcFont = AssetDatabase.LoadAssetAtPath<Font>(job.Ttf);
+            if (srcFont == null) { Debug.LogError($"[LocFont] {job.Code}: TTF introuvable {job.Ttf}"); return; }
+
+            string charset = CollectCharset(job.Code);
+            Debug.Log($"[LocFont] {job.Code}: {charset.Length} glyphes uniques.");
+
+            int padding = 5;
+            int atlas = PickAtlas(job.Code, charset.Length, job.Sampling, padding);
+            var fa = TMP_FontAsset.CreateFontAsset(
+                srcFont, job.Sampling, padding,
+                UnityEngine.TextCore.LowLevel.GlyphRenderMode.SDFAA,
+                atlas, atlas, AtlasPopulationMode.Dynamic, false);
+            if (fa == null) { Debug.LogError($"[LocFont] {job.Code}: CreateFontAsset a retourné null"); return; }
+
+            if (!fa.TryAddCharacters(charset, out string missing, true))
+                Debug.LogWarning($"[LocFont] {job.Code}: TryAddCharacters partiel, manquants={missing?.Length ?? 0}");
+            if (!string.IsNullOrEmpty(missing))
+                Debug.LogWarning($"[LocFont] {job.Code}: glyphes manquants: {missing}");
+
+            fa.atlasPopulationMode = AtlasPopulationMode.Static;
+
+            fa.name = $"Loc_{job.Code}";
+            string assetPath = $"Assets/Resources/Fonts/Loc_{job.Code}.asset";
+            var existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(assetPath);
+            if (existing != null) AssetDatabase.DeleteAsset(assetPath);
+
+            AssetDatabase.CreateAsset(fa, assetPath);
+            if (fa.atlasTextures != null && fa.atlasTextures.Length > 0 && fa.atlasTextures[0] != null)
+                AssetDatabase.AddObjectToAsset(fa.atlasTextures[0], fa);
+            if (fa.material != null)
+                AssetDatabase.AddObjectToAsset(fa.material, fa);
+            EditorUtility.SetDirty(fa);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[LocFont] {job.Code}: OK -> {assetPath} (atlas {atlas}, {fa.characterTable?.Count ?? 0} caracteres)");
+        }
+
+        private static int PickAtlas(string code, int glyphCount, int sampling, int padding)
+        {
+            if (code == "zh-CN" || code == "ja-JP") return 4096;
+            if (code == "ar-SA" || code == "hi-IN") return 2048;
+            int cell = sampling + padding * 2;
+            foreach (int size in new[] { 1024, 2048, 4096 })
+            {
+                int perRow = (size - 8) / cell;
+                if ((long)perRow * perRow >= (long)(glyphCount * 1.3)) return size;
+            }
+            return 4096;
+        }
+
+        private static int PickAtlas(int glyphCount, int sampling, int padding)
+        {
+            int cell = sampling + padding * 2;
+            foreach (int size in new[] { 1024, 2048, 4096 })
+            {
+                int perRow = (size - 8) / cell;
+                if ((long)perRow * perRow >= (long)(glyphCount * 1.3)) return size;
+            }
+            return 4096;
+        }
+
+        private static string CollectCharset(string code)
+        {
+            var set = new HashSet<uint>();
+            for (uint c = 32; c < 127; c++) set.Add(c);
+            foreach (char c in "•♥—–…’«»「」？！：；×→") set.Add(c);
+            foreach (char c in "FrançaisEnglishPortuguêsРусскийالعربية中文日本語हिन्दी") set.Add(c);
+            string dir = "Assets/Resources/Localization";
+            string[] files;
+            try { files = Directory.GetFiles(dir, "*.json"); }
+            catch { files = new[] { $"Assets/Resources/Localization/{code}.json" }; }
+            foreach (var path in files)
+            {
+                if (!File.Exists(path)) continue;
+                try
+                {
+                    string json = File.ReadAllText(path);
+                    var table = JsonUtility.FromJson<LocTable>("{\"entries\":" + json + "}");
+                    if (table?.entries != null)
+                        foreach (var e in table.entries)
+                        {
+                            if (e?.v == null) continue;
+                            foreach (char c in e.v) set.Add(c);
+                        }
+                }
+                catch (System.Exception e) { Debug.LogWarning($"[LocFont] parse {path}: {e.Message}"); }
+            }
+            var chars = new char[set.Count];
+            int i = 0;
+            foreach (uint c in set) chars[i++] = (char)c;
+            return new string(chars);
         }
 
         [System.Serializable] private class LocTable { public LocEntry[] entries; }
         [System.Serializable] private class LocEntry { public string k; public string v; }
-
-        private static void Prepopulate(TMP_FontAsset asset, string code)
-        {
-            try
-            {
-                var chars = new System.Collections.Generic.HashSet<uint>();
-                for (char c = (char)32; c < (char)127; c++) chars.Add(c);
-                foreach (var lang in new[] { code, "en-US" })
-                {
-                    var ta = Resources.Load<TextAsset>($"Localization/{lang}");
-                    if (ta == null) continue;
-                    var dict = JsonUtility.FromJson<LocTable>("{\"entries\":" + ta.text + "}");
-                    if (dict?.entries == null) continue;
-                    foreach (var e in dict.entries)
-                    {
-                        if (string.IsNullOrEmpty(e.v)) continue;
-                        foreach (char c in e.v) chars.Add(c);
-                    }
-                }
-                var arr = new uint[chars.Count];
-                int i = 0;
-                foreach (var c in chars) arr[i++] = c;
-                if (asset.TryAddCharacters(arr, out uint[] missing))
-                    Debug.Log($"[Loc] {code}: {arr.Length - missing.Length}/{arr.Length} glyphs baked" +
-                        (missing.Length > 0 ? $", missing {missing.Length}" : ""));
-                else
-                    Debug.LogWarning($"[Loc] {code}: TryAddCharacters failed");
-            }
-            catch (System.Exception e) { Debug.LogWarning($"[Loc] prepopulate {code}: {e.Message}"); }
-        }
-
-        private static bool BuildOne(string code, string[] families, char probe)
-        {
-            foreach (var family in families)
-            {
-                Font src;
-                try { src = Font.CreateDynamicFontFromOSFont(family, 64); }
-                catch { continue; }
-                if (src == null) continue;
-                bool covers;
-                try { covers = src.HasCharacter(probe); }
-                catch { covers = false; }
-                if (!covers) continue;
-                try
-                {
-                    var asset = TMP_FontAsset.CreateFontAsset(src, 90, 5,
-                        UnityEngine.TextCore.LowLevel.GlyphRenderMode.SDF32, 1024, 1024,
-                        AtlasPopulationMode.Dynamic, true);
-                    if (asset == null) continue;
-                    asset.name = $"Loc_{code}";
-                    Prepopulate(asset, code);
-                    string path = $"Assets/Resources/Fonts/Loc_{code}.asset";
-                    var existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
-                    if (existing != null)
-                    {
-                        EditorUtility.CopySerialized(asset, existing);
-                        Object.DestroyImmediate(asset);
-                        asset = existing;
-                    }
-                    else
-                    {
-                        AssetDatabase.CreateAsset(asset, path);
-                    }
-                    Debug.Log($"[Loc] font {code} <- {family} : {path}");
-                    return true;
-                }
-                catch (System.Exception e)
-                {
-                    Debug.LogWarning($"[Loc] build {code} ({family}): {e.Message}");
-                }
-            }
-            Debug.LogError($"[Loc] no OS font found for {code} (tried: {string.Join(", ", families)})");
-            return false;
-        }
     }
 }
-#endif

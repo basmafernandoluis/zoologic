@@ -18,7 +18,7 @@ namespace Zoologic
     /// Les coroutines ne sont utilisées qu'en play mode (le mode édition sert aux
     /// tests de fumée, où l'on applique directement l'état final).
     /// </summary>
-    public sealed class CellView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
+    public sealed class CellView : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
         private static readonly Color ConflictColor = new Color(0.85f, 0.12f, 0.12f, 1f);
         private static readonly Color XTintColor = new Color(0.55f, 0.55f, 0.60f, 0.7f);
@@ -33,6 +33,91 @@ namespace Zoologic
         /// <summary>Appelé lors d'un tap sur la case.</summary>
         public Action OnTap;
 
+        /// <summary>Appelé quand un drag commence depuis un pion posé.</summary>
+        public Action<PointerEventData> OnPawnDragStart;
+
+        /// <summary>Relai du drag en cours (position du doigt).</summary>
+        public Action<PointerEventData> OnPawnDrag;
+
+        /// <summary>Relai de fin de drag (drop).</summary>
+        public Action<PointerEventData> OnPawnDragEnd;
+
+        /// <summary>Un pion est-il visuellement présent ?</summary>
+        public bool HasPionVisual => _pion != null && _pion.gameObject.activeSelf;
+
+        /// <summary>Sprite du pion (pour le fantôme de drag).</summary>
+        public Sprite PawnSprite => _pion != null ? _pion.sprite : null;
+
+        /// <summary>
+        /// Marque durablement le pion en conflit (anneau rouge pulsé) jusqu'à
+        /// résolution. Distinct du flash d'impact (transitoire).
+        /// </summary>
+        public void SetConflictMarked(bool marked)
+        {
+            if (marked && _pion != null && !_pion.gameObject.activeSelf)
+                marked = false;
+            if (marked && _conflictRing == null)
+            {
+                var ringGO = new GameObject("ConflictRing", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                ringGO.transform.SetParent(transform, false);
+                var ringRect = (RectTransform)ringGO.transform;
+                ringRect.anchorMin = new Vector2(0.5f, 0.5f);
+                ringRect.anchorMax = new Vector2(0.5f, 0.5f);
+                ringRect.pivot = new Vector2(0.5f, 0.5f);
+                float s = _pionRect != null ? _pionRect.sizeDelta.x * 1.18f : 100f;
+                ringRect.sizeDelta = new Vector2(s, s);
+                ringRect.anchoredPosition = Vector2.zero;
+                _conflictRing = ringGO.GetComponent<Image>();
+                _conflictRing.sprite = GridView.SharedRing;
+                _conflictRing.type = Image.Type.Simple;
+                _conflictRing.preserveAspect = true;
+                _conflictRing.color = ConflictRingColor;
+                _conflictRing.raycastTarget = false;
+            }
+            if (_conflictRing != null)
+                _conflictRing.gameObject.SetActive(marked);
+            if (marked)
+            {
+                if (_conflictPulseRoutine == null && Application.isPlaying)
+                    _conflictPulseRoutine = StartCoroutine(ConflictPulseRoutine());
+            }
+            else
+            {
+                if (_conflictPulseRoutine != null)
+                {
+                    StopCoroutine(_conflictPulseRoutine);
+                    _conflictPulseRoutine = null;
+                }
+            }
+        }
+
+        private IEnumerator ConflictPulseRoutine()
+        {
+            while (true)
+            {
+                if (_conflictRing == null || !_conflictRing.gameObject.activeSelf)
+                {
+                    _conflictPulseRoutine = null;
+                    yield break;
+                }
+                float t = (Mathf.Sin(Time.unscaledTime * 4f) + 1f) * 0.5f;
+                float a = Mathf.Lerp(0.55f, 1f, t);
+                _conflictRing.color = new Color(ConflictRingColor.r, ConflictRingColor.g, ConflictRingColor.b, a);
+                float s = 1f + Mathf.Sin(Time.unscaledTime * 4f) * 0.03f;
+                _conflictRing.transform.localScale = new Vector3(s, s, s);
+                yield return null;
+            }
+        }
+
+        /// <summary>Atténue/restaure le pion pendant un drag (origine).</summary>
+        public void SetDimmed(bool dimmed)
+        {
+            if (_pion == null)
+                return;
+            Color tint = SkinManager.SelectedTint;
+            _pion.color = dimmed ? new Color(tint.r, tint.g, tint.b, 0.35f) : tint;
+        }
+
         private Image _background;
         private Image _pion;
         private Image _xMark;
@@ -40,8 +125,15 @@ namespace Zoologic
         private Vector3 _basePosition;
         private Color _baseColor;
         private float _shakeAmplitude;
+        private float _cellSize;
 
         private bool _pointerDown;
+        private int _downPointerId = -1;
+        private bool _draggedThisTouch;
+
+        private Image _conflictRing;
+        private Coroutine _conflictPulseRoutine;
+        private static readonly Color ConflictRingColor = new Color(0.90f, 0.20f, 0.20f, 1f);
 
         private Coroutine _pionLifeRoutine;
         private Coroutine _feedbackRoutine;
@@ -68,6 +160,7 @@ namespace Zoologic
             _background = background;
             _background.color = baseColor;
             _shakeAmplitude = cellSize * 0.03f;
+            _cellSize = cellSize;
 
             // Pion : l'icône d'animal de la zone (ou cercle blanc de secours), centrée
             // dans la case et dimensionnée à ~62 % de la case → marge garantie partout.
@@ -85,7 +178,7 @@ namespace Zoologic
             _pion.sprite = pionSprite;
             _pion.type = Image.Type.Simple;
             _pion.preserveAspect = true;
-            _pion.color = Color.white;
+            _pion.color = SkinManager.SelectedTint;
             _pion.raycastTarget = false;
             pionGameObject.SetActive(false);
 
@@ -97,7 +190,7 @@ namespace Zoologic
             xRect.anchorMin = new Vector2(0.5f, 0.5f);
             xRect.anchorMax = new Vector2(0.5f, 0.5f);
             xRect.pivot = new Vector2(0.5f, 0.5f);
-            xRect.sizeDelta = new Vector2(cellSize * 0.55f, cellSize * 0.55f);
+            xRect.sizeDelta = new Vector2(cellSize * 0.62f, cellSize * 0.62f);
             xRect.anchoredPosition = Vector2.zero;
 
             _xMark = xGameObject.GetComponent<Image>();
@@ -125,13 +218,15 @@ namespace Zoologic
                 if (_xMark != null)
                     HideXInstant();
 
+                _pionRect.anchoredPosition = Vector2.zero;
+                _pionRect.localRotation = Quaternion.identity;
                 _pion.gameObject.SetActive(true);
 
                 if (Application.isPlaying)
                 {
                     if (_pionLifeRoutine != null)
                         StopCoroutine(_pionLifeRoutine);
-                    _pionLifeRoutine = StartCoroutine(PionAppearThenIdleRoutine());
+                    _pionLifeRoutine = StartCoroutine(PionFallThenIdleRoutine());
                 }
                 else
                 {
@@ -140,6 +235,7 @@ namespace Zoologic
             }
             else
             {
+                SetConflictMarked(false);
                 if (_pionLifeRoutine != null)
                 {
                     StopCoroutine(_pionLifeRoutine);
@@ -151,6 +247,8 @@ namespace Zoologic
                     if (_pion.gameObject.activeSelf)
                     {
                         _pionRect.localScale = Vector3.one;
+                        _pionRect.anchoredPosition = Vector2.zero;
+                        _pionRect.localRotation = Quaternion.identity;
                         _pionLifeRoutine = StartCoroutine(PionShrinkOutRoutine());
                     }
                     else
@@ -187,25 +285,73 @@ namespace Zoologic
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// Apparition expressive : squash (large) puis étirement + overshoot, et
-        /// transition vers la respiration continue. Une seule coroutine pilote
-        /// l'échelle du pion pour éviter tout conflit entre animations.
+        /// Arrivée du pion : chute depuis le haut de la case, squash à
+        /// l'atterrissage puis retour à la respiration continue. Une seule
+        /// coroutine pilote le pion pour éviter tout conflit entre animations.
         /// </summary>
-        private IEnumerator PionAppearThenIdleRoutine()
+        private IEnumerator PionFallThenIdleRoutine()
         {
+            const float fallDuration = 0.45f;
+            const float squashDuration = 0.16f;
+            // Haut de l'écran : 1400px canvas = hors champ sur tous les formats
+            // (16:9 comme 19.5:9), le pion traverse la scène en tombant.
+            const float fallHeight = 1400f;
+
+            _pionRect.anchoredPosition = new Vector2(0f, fallHeight);
+            _pionRect.localScale = new Vector3(1.05f, 1.05f, 1.05f);
+            _pionRect.localRotation = Quaternion.identity;
+
+            // 1) Chute visible + léger balancement.
             float elapsed = 0f;
-            while (elapsed < PopDuration)
+            while (elapsed < fallDuration)
             {
-                float t = Mathf.Clamp01(elapsed / PopDuration);
-                float s = Easing.EaseOutBack(t);
-                // Légère respiration décalée pour un départ déjà vivant.
-                float breath = 1f + Mathf.Sin(elapsed * 4f) * 0.02f;
-                _pionRect.localScale = new Vector3(s * breath, s * breath, s * breath);
+                float t = Mathf.Clamp01(elapsed / fallDuration);
+                float fall = Easing.EaseInQuad(t);
+                _pionRect.anchoredPosition = new Vector2(0f, fallHeight * (1f - fall));
+                _pionRect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(t * Mathf.PI * 2f) * 8f);
                 elapsed += Time.unscaledDeltaTime;
                 yield return null;
             }
+            _pionRect.anchoredPosition = Vector2.zero;
+
+            // 2) Rebonds amortis : 2 sauts visibles avec squash à chaque impact.
+            float[] bounceHeights = { 70f, 28f };
+            float[] bounceDurations = { 0.18f, 0.14f };
+            for (int b = 0; b < bounceHeights.Length; b++)
+            {
+                float h = bounceHeights[b];
+                float dur = bounceDurations[b];
+                elapsed = 0f;
+                while (elapsed < dur)
+                {
+                    float t = Mathf.Clamp01(elapsed / dur);
+                    float jump = Mathf.Sin(t * Mathf.PI);
+                    _pionRect.anchoredPosition = new Vector2(0f, h * jump);
+                    float stretch = 1f + 0.10f * jump;
+                    float squash = 1f - 0.06f * jump;
+                    _pionRect.localScale = new Vector3(squash, stretch, 1f);
+                    elapsed += Time.unscaledDeltaTime;
+                    yield return null;
+                }
+                // Impact : écrasement bref.
+                _pionRect.anchoredPosition = Vector2.zero;
+                _pionRect.localScale = new Vector3(1.18f, 0.72f, 1f);
+                Haptics.VibrateLight();
+                float impact = 0f;
+                while (impact < squashDuration * 0.6f)
+                {
+                    float t = Mathf.Clamp01(impact / (squashDuration * 0.6f));
+                    float sy = Mathf.Lerp(0.72f, 1f, Easing.EaseOutCubic(t));
+                    float sx = Mathf.Lerp(1.18f, 1f, Easing.EaseOutCubic(t));
+                    _pionRect.localScale = new Vector3(sx, sy, 1f);
+                    impact += Time.unscaledDeltaTime;
+                    yield return null;
+                }
+            }
 
             _pionRect.localScale = Vector3.one;
+            _pionRect.anchoredPosition = Vector2.zero;
+            _pionRect.localRotation = Quaternion.identity;
             yield return PionIdleBreathRoutine();
         }
 
@@ -217,8 +363,10 @@ namespace Zoologic
         {
             const float hiDuration = 0.28f;
             float elapsed = 0f;
-            Vector3 startPos = _pionRect.anchoredPosition;
 
+            // Base zéro absolue : la respiration continue a pu être interrompue
+            // en plein flottement, et re-basée dessus le pion "marchait" vers
+            // le haut à chaque tap (dérive accumulée).
             while (elapsed < hiDuration)
             {
                 float t = Mathf.Clamp01(elapsed / hiDuration);
@@ -233,14 +381,14 @@ namespace Zoologic
                 float tilt = Mathf.Sin(t * Mathf.PI) * 8f;
 
                 _pionRect.localScale = new Vector3(scaleX, scaleY, 1f);
-                _pionRect.anchoredPosition = startPos + new Vector3(0f, bob, 0f);
+                _pionRect.anchoredPosition = new Vector3(0f, bob, 0f);
                 _pionRect.localRotation = Quaternion.Euler(0f, 0f, tilt);
                 elapsed += Time.unscaledDeltaTime;
                 yield return null;
             }
 
             _pionRect.localScale = Vector3.one;
-            _pionRect.anchoredPosition = startPos;
+            _pionRect.anchoredPosition = Vector2.zero;
             _pionRect.localRotation = Quaternion.identity;
             yield return PionIdleBreathRoutine();
         }
@@ -275,7 +423,6 @@ namespace Zoologic
         private IEnumerator PionIdleBreathRoutine()
         {
             float elapsed = 0f;
-            Vector3 basePos = _pionRect.anchoredPosition;
 
             while (true)
             {
@@ -287,7 +434,7 @@ namespace Zoologic
                 float bob = Mathf.Sin(ph) * BreathBobAmplitude;
 
                 _pionRect.localScale = new Vector3(breathFactor, breathFactor, breathFactor);
-                _pionRect.anchoredPosition = basePos + new Vector3(0f, bob, 0f);
+                _pionRect.anchoredPosition = new Vector3(0f, bob, 0f);
                 elapsed += Time.unscaledDeltaTime;
                 yield return null;
             }
@@ -460,6 +607,8 @@ namespace Zoologic
         public void OnPointerDown(PointerEventData eventData)
         {
             _pointerDown = true;
+            _downPointerId = eventData.pointerId;
+            _draggedThisTouch = false;
             StartPressSquish();
         }
 
@@ -467,9 +616,46 @@ namespace Zoologic
         {
             if (!_pointerDown)
                 return;
+            // Geste d'un autre doigt (ex. drop d'un drag parti d'ailleurs) : ignoré.
+            if (eventData.pointerId != _downPointerId)
+            {
+                _pointerDown = false;
+                StopPressSquish();
+                return;
+            }
+            _pointerDown = false;
+            _downPointerId = -1;
+            StopPressSquish();
+            // Un drop de drag qui se termine sur cette case ne doit pas
+            // déclencher un tap (ex. marque X parasite).
+            if (_draggedThisTouch || BoardDragController.SuppressTap())
+            {
+                _draggedThisTouch = false;
+                return;
+            }
+            OnTap?.Invoke();
+        }
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            if (!HasPionVisual)
+                return;
             _pointerDown = false;
             StopPressSquish();
-            OnTap?.Invoke();
+            OnPawnDragStart?.Invoke(eventData);
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            if (!HasPionVisual)
+                return;
+            _draggedThisTouch = true;
+            OnPawnDrag?.Invoke(eventData);
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            OnPawnDragEnd?.Invoke(eventData);
         }
 
         /// <summary>Écrase légèrement la case au toucher (feedback tactile).</summary>

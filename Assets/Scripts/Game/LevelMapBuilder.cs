@@ -120,6 +120,7 @@ namespace Zoologic
 
             PuzzleGameController.IsDailyPuzzle = false;
             BuildScene();
+            Zoologic.Localization.LocalizationManager.ApplyFontsToScene();
             LoadBubbles(40);
             StartCoroutine(ScrollToCurrentLevel());
             if (DailyRewardManager.CanClaimToday())
@@ -278,14 +279,15 @@ namespace Zoologic
             var titleRect = titleGO.AddComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0f, 0f);
             titleRect.anchorMax = new Vector2(1f, 1f);
-            titleRect.offsetMin = new Vector2(90f, 0f);
-            titleRect.offsetMax = new Vector2(-140f, 0f);
+            float contentShift = _topInset * 0.5f;
+            titleRect.offsetMin = new Vector2(140f, -contentShift);
+            titleRect.offsetMax = new Vector2(-210f, -contentShift);
 
             var titleText = titleGO.AddComponent<TextMeshProUGUI>();
             titleText.font = _fontTitle;
             titleText.text = Zoologic.Localization.LocalizationManager.Get("levelmap.title");
             Zoologic.Localization.LocalizationManager.ApplyTo(titleText);
-            titleText.fontSize = 44;
+            titleText.fontSize = 48;
             titleText.fontStyle = FontStyles.Bold;
             titleText.color = TitleColor;
             titleText.alignment = TextAlignmentOptions.Center;
@@ -302,8 +304,8 @@ namespace Zoologic
             btnRect.anchorMin = new Vector2(0f, 0.5f);
             btnRect.anchorMax = new Vector2(0f, 0.5f);
             btnRect.pivot = new Vector2(0f, 0.5f);
-            btnRect.sizeDelta = new Vector2(72f, 72f);
-            btnRect.anchoredPosition = new Vector2(18f, 0f);
+            btnRect.sizeDelta = new Vector2(96f, 96f);
+            btnRect.anchoredPosition = new Vector2(24f, -_topInset * 0.5f);
 
             var bgImg = btnGO.AddComponent<Image>();
             Sprite backTile = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_13") ?? Resources.Load<Sprite>("Sprites/b_13");
@@ -343,8 +345,8 @@ namespace Zoologic
             pillRect.anchorMin = new Vector2(1f, 0.5f);
             pillRect.anchorMax = new Vector2(1f, 0.5f);
             pillRect.pivot = new Vector2(1f, 0.5f);
-            pillRect.sizeDelta = new Vector2(128f, 56f);
-            pillRect.anchoredPosition = new Vector2(-18f, 0f);
+            pillRect.sizeDelta = new Vector2(168f, 64f);
+            pillRect.anchoredPosition = new Vector2(-24f, -_topInset * 0.5f);
 
             var pillImg = pill.AddComponent<Image>();
             pillImg.sprite = KenneyUI.FlatButton("Grey") ?? CreerSpriteArrondi(128, 0.5f);
@@ -362,8 +364,8 @@ namespace Zoologic
             heartRect.anchorMin = new Vector2(0f, 0.5f);
             heartRect.anchorMax = new Vector2(0f, 0.5f);
             heartRect.pivot = new Vector2(0.5f, 0.5f);
-            heartRect.sizeDelta = new Vector2(32f, 32f);
-            heartRect.anchoredPosition = new Vector2(28f, 1.5f);
+            heartRect.sizeDelta = new Vector2(42f, 42f);
+            heartRect.anchoredPosition = new Vector2(32f, 1.5f);
             var heartImg = heartObj.AddComponent<Image>();
             heartImg.sprite = heart;
             heartImg.preserveAspect = true;
@@ -376,12 +378,12 @@ namespace Zoologic
             var txtRect = txtObj.AddComponent<RectTransform>();
             txtRect.anchorMin = Vector2.zero;
             txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = new Vector2(52f, 0f);
+            txtRect.offsetMin = new Vector2(64f, 0f);
             txtRect.offsetMax = new Vector2(-12f, 0f);
             var txt = txtObj.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = LivesManager.GetStoredLives().ToString();
-            txt.fontSize = 34;
+            txt.fontSize = 38;
             txt.fontStyle = FontStyles.Bold;
             txt.color = NumberColor;
             txt.alignment = TextAlignmentOptions.MidlineRight;
@@ -397,11 +399,11 @@ namespace Zoologic
             timerRect.anchorMin = new Vector2(0.5f, 0f);
             timerRect.anchorMax = new Vector2(0.5f, 0f);
             timerRect.pivot = new Vector2(0.5f, 1f);
-            timerRect.sizeDelta = new Vector2(120f, 18f);
+            timerRect.sizeDelta = new Vector2(140f, 20f);
             timerRect.anchoredPosition = new Vector2(0f, -2f);
             _livesTimerText = timerObj.AddComponent<TextMeshProUGUI>();
             _livesTimerText.font = _fontBody;
-            _livesTimerText.fontSize = 14;
+            _livesTimerText.fontSize = 18;
             _livesTimerText.color = new Color(0.60f, 0.48f, 0.35f);
             _livesTimerText.alignment = TextAlignmentOptions.Center;
             _livesTimerText.raycastTarget = false;
@@ -711,7 +713,7 @@ namespace Zoologic
             go.transform.SetParent(overrideParent != null ? overrideParent : _content, false);
             var le = go.AddComponent<LayoutElement>();
             if (overrideParent != null) { le.flexibleHeight = 1f; le.flexibleWidth = 1f; }
-            else { le.preferredHeight = 110f; le.flexibleWidth = 1f; }
+            else { le.preferredHeight = 150f; le.flexibleWidth = 1f; }
 
             var bg = go.AddComponent<Image>();
             bg.sprite = CreerSpriteGradientArrondi(128, 0.30f,
@@ -727,7 +729,7 @@ namespace Zoologic
             cardSh.effectDistance = new Vector2(0f, -6f);
 
             var hlg = go.AddComponent<HorizontalLayoutGroup>();
-            hlg.padding = new RectOffset(20, 20, 14, 14);
+            hlg.padding = new RectOffset(20, 20, 18, 18);
             hlg.spacing = 14f;
             hlg.childAlignment = TextAnchor.MiddleLeft;
             hlg.childForceExpandWidth = false;
@@ -737,12 +739,12 @@ namespace Zoologic
             var iconGO = new GameObject("Trophy", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             iconGO.transform.SetParent(go.transform, false);
             var iconRect = iconGO.GetComponent<RectTransform>();
-            iconRect.sizeDelta = new Vector2(72f, 72f);
+            iconRect.sizeDelta = new Vector2(88f, 88f);
             var iconBg = iconGO.GetComponent<Image>();
             iconBg.sprite = CreerSpriteArrondi(64, 0.5f);
             iconBg.color = done ? new Color(1f, 1f, 1f, 0.6f) : Color.white;
             var iconLE = iconGO.AddComponent<LayoutElement>();
-            iconLE.preferredWidth = 72f; iconLE.preferredHeight = 72f;
+            iconLE.preferredWidth = 88f; iconLE.preferredHeight = 88f;
             iconLE.flexibleWidth = 0f; iconLE.flexibleHeight = 0f;
             var starGO = new GameObject("Star", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             starGO.transform.SetParent(iconGO.transform, false);
@@ -772,7 +774,7 @@ namespace Zoologic
             title.font = _fontTitle;
             title.text = done ? Zoologic.Localization.LocalizationManager.Get("daily.daily_done") : Zoologic.Localization.LocalizationManager.Get("daily.challenge");
             Zoologic.Localization.LocalizationManager.ApplyTo(title);
-            title.fontSize = 30;
+            title.fontSize = 32;
             title.fontStyle = FontStyles.Bold;
             title.color = done ? new Color(0.45f, 0.42f, 0.38f) : Color.white;
             title.outlineWidth = done ? 0f : 0.18f;
@@ -780,26 +782,90 @@ namespace Zoologic
             title.alignment = TextAlignmentOptions.MidlineLeft;
             title.raycastTarget = false;
             var titleLE2 = titleGO.AddComponent<LayoutElement>();
-            titleLE2.preferredHeight = 34f;
+            titleLE2.preferredHeight = 38f;
 
             var subGO = new GameObject("Sub", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             subGO.transform.SetParent(leftGO.transform, false);
             var sub = subGO.GetComponent<TextMeshProUGUI>();
             sub.font = _fontTitle;
-            sub.text = done ? Zoologic.Localization.LocalizationManager.Get("daily.reward_tomorrow") : Zoologic.Localization.LocalizationManager.Get("daily.grid_reward", DailyPuzzleManager.GetTodaySize(), DailyPuzzleManager.RewardCoins);
+            sub.text = done ? Zoologic.Localization.LocalizationManager.Get("daily.reward_tomorrow") : Zoologic.Localization.LocalizationManager.Get("daily.blurb", DailyPuzzleManager.GetTodaySize());
             Zoologic.Localization.LocalizationManager.ApplyTo(sub);
-            sub.fontSize = 22;
+            sub.fontSize = 24;
             sub.fontStyle = FontStyles.Bold;
             sub.color = done ? new Color(0.55f, 0.52f, 0.48f) : new Color(0.45f, 0.22f, 0.03f);
             sub.alignment = TextAlignmentOptions.MidlineLeft;
             sub.raycastTarget = false;
             var subLE = subGO.AddComponent<LayoutElement>();
-            subLE.preferredHeight = 28f;
+            subLE.preferredHeight = 32f;
+
+            // Ligne série du défi : visible si une série est en cours ou vient
+            // d'être prolongée (0 si premier jour : on ne l'affiche pas).
+            int puzzleStreak = DailyPuzzleManager.GetPuzzleStreak();
+            bool streakAlive = DailyPuzzleManager.IsStreakAlive();
+            string streakText = "";
+            if (done && puzzleStreak > 1)
+                streakText = Zoologic.Localization.LocalizationManager.Get("daily.puzzle_streak", puzzleStreak);
+            else if (!done && streakAlive && puzzleStreak > 0)
+                streakText = Zoologic.Localization.LocalizationManager.Get("daily.puzzle_streak_bonus", puzzleStreak + 1, DailyPuzzleManager.GetUpcomingBonus());
+            var streakGO = new GameObject("Streak", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            streakGO.transform.SetParent(leftGO.transform, false);
+            var streak = streakGO.GetComponent<TextMeshProUGUI>();
+            streak.font = _fontTitle;
+            streak.text = streakText;
+            streak.fontSize = 22;
+            streak.fontStyle = FontStyles.Bold;
+            streak.color = new Color(0.85f, 0.45f, 0.10f);
+            streak.alignment = TextAlignmentOptions.MidlineLeft;
+            streak.raycastTarget = false;
+            var streakLE = streakGO.AddComponent<LayoutElement>();
+            streakLE.preferredHeight = string.IsNullOrEmpty(streakText) ? 0f : 28f;
+
+            // Pilule récompense : pièce + montant, explicite d'un coup d'œil.
+            var rewardGO = new GameObject("RewardPill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            rewardGO.transform.SetParent(go.transform, false);
+            var rewardImg = rewardGO.GetComponent<Image>();
+            rewardImg.sprite = CreerSpriteArrondi(64, 0.5f);
+            rewardImg.color = new Color(1f, 1f, 1f, 0.92f);
+            rewardImg.raycastTarget = false;
+            var rewardLE = rewardGO.AddComponent<LayoutElement>();
+            rewardLE.preferredWidth = 150f;
+            rewardLE.preferredHeight = 60f;
+            rewardLE.flexibleWidth = 0f;
+            rewardLE.flexibleHeight = 0f;
+            var rewardHLG = rewardGO.AddComponent<HorizontalLayoutGroup>();
+            rewardHLG.padding = new RectOffset(12, 12, 6, 6);
+            rewardHLG.spacing = 8f;
+            rewardHLG.childAlignment = TextAnchor.MiddleCenter;
+            rewardHLG.childForceExpandWidth = false;
+            var rewardCoinGO = new GameObject("Coin", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            rewardCoinGO.transform.SetParent(rewardGO.transform, false);
+            var rewardCoinImg = rewardCoinGO.GetComponent<Image>();
+            rewardCoinImg.sprite = Resources.Load<Sprite>("UI/coin");
+            rewardCoinImg.preserveAspect = true;
+            rewardCoinImg.raycastTarget = false;
+            var rewardCoinLE = rewardCoinGO.AddComponent<LayoutElement>();
+            rewardCoinLE.preferredWidth = 34f;
+            rewardCoinLE.preferredHeight = 34f;
+            var rewardTxtGO = new GameObject("Amount", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            rewardTxtGO.transform.SetParent(rewardGO.transform, false);
+            var rewardTxt = rewardTxtGO.GetComponent<TextMeshProUGUI>();
+            rewardTxt.font = _fontTitle;
+            rewardTxt.text = "+" + (DailyPuzzleManager.IsCompletedToday()
+                ? DailyPuzzleManager.RewardCoins
+                : DailyPuzzleManager.RewardCoins + DailyPuzzleManager.GetUpcomingBonus());
+            Zoologic.Localization.LocalizationManager.ApplyTo(rewardTxt);
+            rewardTxt.fontSize = 28;
+            rewardTxt.fontStyle = FontStyles.Bold;
+            rewardTxt.color = new Color(0.45f, 0.22f, 0.03f);
+            rewardTxt.alignment = TextAlignmentOptions.MidlineLeft;
+            rewardTxt.raycastTarget = false;
+            var rewardTxtLE = rewardTxtGO.AddComponent<LayoutElement>();
+            rewardTxtLE.flexibleWidth = 1f;
 
             var btnGO = new GameObject("BtnDaily", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             btnGO.transform.SetParent(go.transform, false);
             var btnRect = btnGO.GetComponent<RectTransform>();
-            btnRect.sizeDelta = new Vector2(190f, 64f);
+            btnRect.sizeDelta = new Vector2(220f, 80f);
             var btnImg = btnGO.GetComponent<Image>();
             btnImg.sprite = KenneyUI.Button(done ? "Grey" : "Green") ?? CreerSpriteArrondi(128, 0.4f);
             btnImg.type = Image.Type.Sliced;
@@ -814,8 +880,8 @@ namespace Zoologic
             btn.targetGraphic = btnImg;
             btn.interactable = !done;
             var btnLE = btnGO.AddComponent<LayoutElement>();
-            btnLE.preferredWidth = 190f;
-            btnLE.preferredHeight = 64f;
+            btnLE.preferredWidth = 220f;
+            btnLE.preferredHeight = 80f;
             var btnTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             btnTxtGO.transform.SetParent(btnGO.transform, false);
             var btnTxtRect = btnTxtGO.GetComponent<RectTransform>();
@@ -826,7 +892,7 @@ namespace Zoologic
             var btnTxt = btnTxtGO.GetComponent<TextMeshProUGUI>();
             btnTxt.font = _fontTitle;
             btnTxt.text = done ? Zoologic.Localization.LocalizationManager.Get("daily.done") : Zoologic.Localization.LocalizationManager.Get("daily.play");
-            btnTxt.fontSize = 25;
+            btnTxt.fontSize = 28;
             btnTxt.fontStyle = FontStyles.Bold;
             btnTxt.color = Color.white;
             btnTxt.outlineWidth = 0.12f;
@@ -1129,9 +1195,10 @@ namespace Zoologic
                 var starGO = new GameObject("Star_" + i);
                 starGO.transform.SetParent(starsGO.transform, false);
                 var starImg = starGO.AddComponent<Image>();
-                starImg.sprite = starSprite;
+                bool earned = i < starCount;
+                starImg.sprite = earned ? starSprite : GridView.StarGrey;
                 starImg.preserveAspect = true;
-                starImg.color = i < starCount ? GoldStar : EmptyStar;
+                starImg.color = earned ? GoldStar : Color.white;
                 starImg.raycastTarget = false;
 
                 var starLE = starGO.AddComponent<LayoutElement>();
@@ -1273,7 +1340,7 @@ namespace Zoologic
             cRect.anchorMin = new Vector2(0.5f, 0.5f);
             cRect.anchorMax = new Vector2(0.5f, 0.5f);
             cRect.pivot = new Vector2(0.5f, 0.5f);
-            cRect.sizeDelta = new Vector2(560f, 320f);
+            cRect.sizeDelta = new Vector2(600f, 360f);
             cRect.anchoredPosition = Vector2.zero;
             var cImg = card.GetComponent<Image>();
             cImg.sprite = CreerSpriteArrondi(128, 0.22f);
@@ -1292,19 +1359,19 @@ namespace Zoologic
             var title = titleGO.GetComponent<TextMeshProUGUI>();
             title.font = _fontTitle;
             title.text = Zoologic.Localization.LocalizationManager.Get("levelmap.no_lives");
-            title.fontSize = 32;
+            title.fontSize = 36;
             title.fontStyle = FontStyles.Bold;
             title.color = new Color(0.29f, 0.18f, 0.10f);
             title.alignment = TextAlignmentOptions.Center;
             var titleLE = titleGO.AddComponent<LayoutElement>();
-            titleLE.preferredHeight = 40f;
+            titleLE.preferredHeight = 46f;
             var timerGO = new GameObject("Timer", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             timerGO.transform.SetParent(card.transform, false);
             var timer = timerGO.GetComponent<TextMeshProUGUI>();
             timer.font = _fontBody;
             int secs = LivesManager.GetSecondsUntilNextLife();
             timer.text = secs > 0 ? Zoologic.Localization.LocalizationManager.Get("levelmap.next_life", secs / 60, secs % 60) : Zoologic.Localization.LocalizationManager.Get("levelmap.full_lives");
-            timer.fontSize = 20;
+            timer.fontSize = 22;
             timer.color = new Color(0.60f, 0.48f, 0.35f);
             timer.alignment = TextAlignmentOptions.Center;
             var timerLE = timerGO.AddComponent<LayoutElement>();
@@ -1312,12 +1379,12 @@ namespace Zoologic
             var btnRow = new GameObject("BtnRow", typeof(RectTransform));
             btnRow.transform.SetParent(card.transform, false);
             var rowLE = btnRow.AddComponent<LayoutElement>();
-            rowLE.preferredHeight = 60f;
+            rowLE.preferredHeight = 72f;
             var hlg = btnRow.AddComponent<HorizontalLayoutGroup>();
             hlg.spacing = 12f;
             hlg.childAlignment = TextAnchor.MiddleCenter;
             hlg.childForceExpandWidth = false;
-            var pubBtn = CreateLivesButton(btnRow.transform, "Pub (+3 ♥)", new Color(0.22f, 0.65f, 0.30f), () =>
+            var pubBtn = CreateLivesButton(btnRow.transform, Zoologic.Localization.LocalizationManager.Get("levelmap.watch_ad"), new Color(0.22f, 0.65f, 0.30f), () =>
             {
                 var admob2 = AdMobManager.Instance;
                 System.Action grant2 = () =>
@@ -1328,11 +1395,14 @@ namespace Zoologic
                     Destroy(root);
                     if (_livesCountText != null) _livesCountText.text = LivesManager.GetStoredLives().ToString();
                 };
-                if (admob2 != null) admob2.ShowRewarded(grant2);
-                else grant2();
+                // Families: no reward without a real ad view.
+                if (admob2 != null && admob2.IsRewardedReady()) admob2.ShowRewarded(grant2, () => SFXManager.Instance.PlayFailure());
+                else SFXManager.Instance.PlayFailure();
             });
+            pubBtn.gameObject.SetActive(AdMobManager.AreAdsAllowed());
             var closeBtn = CreateLivesButton(btnRow.transform, "Fermer", new Color(0.75f, 0.75f, 0.78f), () => Destroy(root));
             root.AddComponent<PopupCloser>().Init(root);
+            Zoologic.Localization.LocalizationManager.ApplyFontsToScene();
         }
 
         private Button CreateLivesButton(Transform parent, string label, Color bg, System.Action onClick)
@@ -1340,7 +1410,7 @@ namespace Zoologic
             var go = new GameObject("Btn_" + label, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             go.transform.SetParent(parent, false);
             var rect = go.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(220f, 52f);
+            rect.sizeDelta = new Vector2(240f, 64f);
             var img = go.GetComponent<Image>();
             img.sprite = KenneyUI.Button(bg.g > bg.r ? "Green" : "Grey") ?? CreerSpriteArrondi(128, 0.35f);
             img.type = Image.Type.Simple;
@@ -1361,13 +1431,13 @@ namespace Zoologic
             var txt = txtGO.GetComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = label;
-            txt.fontSize = 20;
+            txt.fontSize = 24;
             txt.fontStyle = FontStyles.Bold;
             txt.color = Color.white;
             txt.alignment = TextAlignmentOptions.Center;
             var le = go.AddComponent<LayoutElement>();
-            le.preferredWidth = 220f;
-            le.preferredHeight = 52f;
+            le.preferredWidth = 240f;
+            le.preferredHeight = 64f;
             return btn;
         }
 

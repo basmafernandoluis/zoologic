@@ -71,6 +71,7 @@ namespace Zoologic.Localization
             PlayerPrefs.Save();
             LoadTable(code);
             if (code != DefaultLang) MergeFallback();
+            try { WireStaticFallbacks(); } catch { }
             if (NeedsComplexFont(code))
             {
                 try { GetComplexFont(code); } catch { }
@@ -124,27 +125,96 @@ namespace Zoologic.Localization
         public static void ApplyTo(TMP_Text tmp)
         {
             if (tmp == null) return;
-            tmp.isRightToLeftText = IsRTL;
             if (tmp.font == null) return;
-            if (NeedsComplexFont(Current))
+            tmp.isRightToLeftText = IsRTL && ContainsRtl(tmp.text);
+            try { WireStaticFallbacks(); } catch { }
+            if (_originals.TryGetValue(tmp.GetInstanceID(), out var orig) && orig != null)
             {
-                var complex = GetComplexFont(Current);
-                if (complex != null)
+                if (tmp.font != orig && orig.name.Contains("Fredoka"))
                 {
-                    if (_originals.Count > 2000) _originals.Clear();
-                    if (IsLatinFont(tmp.font) && !_originals.ContainsKey(tmp.GetInstanceID()))
-                        _originals[tmp.GetInstanceID()] = tmp.font;
-                    tmp.font = complex;
-                    return;
+                    tmp.font = orig;
                 }
-                Debug.LogWarning($"[Loc] no system font for {Current}: import Noto SDF to Resources/Fonts/ (see docs).");
-            }
-            else if (_originals.TryGetValue(tmp.GetInstanceID(), out var orig) && orig != null)
-            {
-                tmp.font = orig;
                 _originals.Remove(tmp.GetInstanceID());
             }
+            var cur = GetComplexFont(Current);
+            if (cur != null && tmp.font != cur) AddFallback(tmp.font, cur);
             EnsureFallback(tmp.font);
+            if (cur != null) EnsureFallback(cur);
+            // Filet système (Noto/Roboto…) : couvre les glyphes absents des
+            // atlas préfabriqués, y compris les futures clés. No-op éditeur.
+            try { AttachSystemFallback(tmp.font, Current); } catch { }
+        }
+
+        private static TMP_FontAsset[] _locCache;
+        private static void WireStaticFallbacks()
+        {
+            try
+            {
+                if (_locCache == null)
+                {
+                    _locCache = new[]
+                    {
+                        Resources.Load<TMP_FontAsset>("Fonts/Loc_ar-SA"),
+                        Resources.Load<TMP_FontAsset>("Fonts/Loc_zh-CN"),
+                        Resources.Load<TMP_FontAsset>("Fonts/Loc_ja-JP"),
+                        Resources.Load<TMP_FontAsset>("Fonts/Loc_hi-IN"),
+                    };
+                }
+                var latin = new[]
+                {
+                    Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF"),
+                    Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF"),
+                };
+                var all = new System.Collections.Generic.List<TMP_FontAsset>();
+                foreach (var l in latin) if (l != null) all.Add(l);
+                foreach (var loc in _locCache) if (loc != null) all.Add(loc);
+                foreach (var a in all)
+                {
+                    foreach (var b in all)
+                    {
+                        if (a == b) continue;
+                        AddFallback(a, b);
+                    }
+                    EnsureFallback(a);
+                }
+            }
+            catch { }
+        }
+
+        private static string LangOf(TMP_FontAsset f)
+        {
+            if (f == null) return null;
+            if (f.name.Contains("ar-SA")) return "ar-SA";
+            if (f.name.Contains("zh-CN")) return "zh-CN";
+            if (f.name.Contains("ja-JP")) return "ja-JP";
+            if (f.name.Contains("hi-IN")) return "hi-IN";
+            return null;
+        }
+
+        private static bool ContainsRtl(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            foreach (char c in text)
+            {
+                if ((c >= '\u0590' && c <= '\u08FF')
+                    || (c >= '\uFB1D' && c <= '\uFDFF')
+                    || (c >= '\uFE70' && c <= '\uFEFC'))
+                    return true;
+            }
+            return false;
+        }
+
+        private static void AddFallback(TMP_FontAsset font, TMP_FontAsset fallback)
+        {
+            if (font == null || fallback == null || font == fallback) return;
+            try
+            {
+                if (font.fallbackFontAssetTable == null)
+                    font.fallbackFontAssetTable = new System.Collections.Generic.List<TMP_FontAsset>();
+                var list = font.fallbackFontAssetTable;
+                if (!list.Contains(fallback)) list.Add(fallback);
+            }
+            catch { }
         }
 
         private static readonly Dictionary<int, TMP_FontAsset> _originals = new Dictionary<int, TMP_FontAsset>();
@@ -197,6 +267,67 @@ namespace Zoologic.Localization
             _ => 0x41,
         };
 
+        private static readonly Dictionary<string, TMP_FontAsset> _sysFallbackCache = new Dictionary<string, TMP_FontAsset>(StringComparer.Ordinal);
+        private static readonly HashSet<string> _sysAttempted = new HashSet<string>(StringComparer.Ordinal);
+
+        private static void AttachSystemFallback(TMP_FontAsset target, string code)
+        {
+            if (target == null || string.IsNullOrEmpty(code)) return;
+            if (Application.isEditor) return;
+            if (Application.platform != RuntimePlatform.Android && Application.platform != RuntimePlatform.IPhonePlayer) return;
+            try
+            {
+                if (_sysFallbackCache.TryGetValue(code, out var sys) && sys != null)
+                {
+                    AddFallback(target, sys);
+                    return;
+                }
+                if (_sysAttempted.Contains(code)) return;
+                _sysAttempted.Add(code);
+                var created = CreateSystemFont(code);
+                if (created != null)
+                {
+                    _sysFallbackCache[code] = created;
+                    AddFallback(target, created);
+                }
+            }
+            catch { }
+        }
+
+        private static TMP_FontAsset CreateSystemFont(string code)
+        {
+            if (Application.isEditor) return null;
+            try
+            {
+                var candidates = CandidatesFor(code);
+                int probe = ProbeFor(code);
+                foreach (var family in candidates)
+                {
+                    Font sysFont = null;
+                    try { sysFont = Font.CreateDynamicFontFromOSFont(family, 64); }
+                    catch { continue; }
+                    if (sysFont == null) continue;
+                    bool covers;
+                    try { covers = sysFont.HasCharacter((char)probe); }
+                    catch { covers = false; }
+                    if (!covers) continue;
+                    try
+                    {
+                        var tmpFont = TMP_FontAsset.CreateFontAsset(sysFont, 90, 5,
+                            UnityEngine.TextCore.LowLevel.GlyphRenderMode.SMOOTH, 1024, 1024,
+                            AtlasPopulationMode.Dynamic, true);
+                        if (tmpFont == null) continue;
+                        tmpFont.name = $"Sys_{code}";
+                        EnsureFallback(tmpFont);
+                        return tmpFont;
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+            return null;
+        }
+
         private static TMP_FontAsset GetComplexFont(string code)
         {
             if (_complexCache.TryGetValue(code, out var cached) && cached != null) return cached;
@@ -206,60 +337,10 @@ namespace Zoologic.Localization
                 if (prebuilt != null)
                 {
                     _complexCache[code] = prebuilt;
-                    Debug.Log($"[Loc] prebuilt font for {code}");
                     return prebuilt;
                 }
             }
             catch { }
-            try
-            {
-                var candidates = CandidatesFor(code);
-                var installed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                try
-                {
-                    foreach (var n in Font.GetOSInstalledFontNames()) installed.Add(n);
-                }
-                catch { }
-                int probe = ProbeFor(code);
-                for (int pass = 0; pass < 2 && candidates.Length > 0; pass++)
-                {
-                    foreach (var family in candidates)
-                    {
-                        if (pass == 0 && installed.Count > 0 && !installed.Contains(family)) continue;
-                        Font sysFont = null;
-                        try { sysFont = Font.CreateDynamicFontFromOSFont(family, 64); }
-                        catch { continue; }
-                        if (sysFont == null) continue;
-                        bool covers;
-                        try { covers = sysFont.HasCharacter((char)probe); }
-                        catch { covers = false; }
-                        if (!covers) { try { UnityEngine.Object.Destroy(sysFont); } catch { } continue; }
-                        try
-                        {
-                            var tmpFont = TMP_FontAsset.CreateFontAsset(sysFont, 90, 5,
-                                UnityEngine.TextCore.LowLevel.GlyphRenderMode.SMOOTH, 1024, 1024,
-                                AtlasPopulationMode.Dynamic, true);
-                            if (tmpFont == null) continue;
-                            tmpFont.name = $"Loc_{code}";
-                            EnsureFallback(tmpFont);
-                            try
-                            {
-                                if (tmpFont.fallbackFontAssetTable == null)
-                                    tmpFont.fallbackFontAssetTable = new System.Collections.Generic.List<TMP_FontAsset>();
-                                if (_liberationFallback != null && !tmpFont.fallbackFontAssetTable.Contains(_liberationFallback))
-                                    tmpFont.fallbackFontAssetTable.Add(_liberationFallback);
-                            }
-                            catch { }
-                            _complexCache[code] = tmpFont;
-                            Debug.Log($"[Loc] complex font for {code}: {family}");
-                            return tmpFont;
-                        }
-                        catch { }
-                    }
-                }
-                Debug.LogWarning($"[Loc] no OS font covers {code}; squares expected. Import Noto SDF to Resources/Fonts/.");
-            }
-            catch (Exception e) { Debug.LogWarning($"[Loc] complex font failed ({code}): {e.Message}"); }
             return null;
         }
 
@@ -336,8 +417,9 @@ namespace Zoologic.Localization
                     _liberationFallback = Resources.Load<TMP_FontAsset>("Fonts/LiberationSans SDF")
                         ?? TMP_Settings.defaultFontAsset;
                 if (_liberationFallback == null || font == _liberationFallback) return;
+                if (font.fallbackFontAssetTable == null)
+                    font.fallbackFontAssetTable = new System.Collections.Generic.List<TMP_FontAsset>();
                 var list = font.fallbackFontAssetTable;
-                if (list == null) return;
                 if (!list.Contains(_liberationFallback)) list.Add(_liberationFallback);
             }
             catch { }

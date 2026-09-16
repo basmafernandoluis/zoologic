@@ -26,7 +26,7 @@ namespace Zoologic
         // Constantes de layout (reference 1080x1920).
         // ------------------------------------------------------------------
 
-        private const float HeaderPadding = 22f;
+        private const float HeaderPadding = 28f;
         private const float RuleBarHeight = 104f;
 
         // Encoche simulee (px ref 1080x1920) utilisee quand la safe area reelle
@@ -93,6 +93,8 @@ namespace Zoologic
         private Image _progressionIconImage;
         private TextMeshProUGUI _progressionText;
         private int _progressionTotal = 5;
+        private int _progressionPlaced;
+        private int _moveCount;
 
         // Ceurs (images, pas de texte)
         private readonly Image[] _heartImages = new Image[LivesManager.ViesDepart];
@@ -106,6 +108,17 @@ namespace Zoologic
         private GameObject _gameOverRoot;
         private GameObject _overlay;
         private Image _defeatOwl;
+        private TextMeshProUGUI _defaiteTitreText;
+        private TextMeshProUGUI _defaiteBadgeText;
+        private Button _defaiteRetryBtn;
+        private TextMeshProUGUI _defaiteRetryText;
+        private Button _defaiteBuyBtn;
+        private TextMeshProUGUI _defaiteBuyText;
+        private GameObject _defaitePubGO;
+        private readonly Image[] _defaiteHearts = new Image[LivesManager.ViesDepart];
+        private Image _defaiteRegenFill;
+        private Coroutine _defaitePopRoutine;
+        private Coroutine _defaitePubPulseRoutine;
 
         // Indice
         private TextMeshProUGUI _indiceCountText;
@@ -129,6 +142,10 @@ namespace Zoologic
 
         // Interactions bloquees
         private bool _interactionsBloquees;
+
+        // Barre d'animaux (drag & drop) dans le dock du bas
+        private Transform _trayHolder;
+        private AnimalTray _tray;
 
         // Indice button components for graying out
         private Button _indiceButton;
@@ -194,6 +211,7 @@ namespace Zoologic
             BuildBarreRegle(canvas);
             BuildFooterWave(canvas);
             BuildGommeBouton(canvas);
+            LocalizationManager.ApplyFontsToScene();
         }
 
         // ------------------------------------------------------------------
@@ -205,11 +223,12 @@ namespace Zoologic
             float inset = TopInset;
 
             // Distances (px ref) depuis le haut de l'ecran : row1 = pilule niveau,
-            // row2 = stats. Les deux sont placees sous l'encoche (inset).
-            float dRow1 = inset + 28f;
-            float dRow2 = inset + 108f;
-            // Hauteur du header = bas du contenu (row2 + 28 pilule + marge).
-            float H = dRow2 + 42f;
+            // row2 = stats. Les deux sont placees sous l'encoche (inset) avec une
+            // marge de 8px sous la zone de statut (S22 : poinçon + icones systeme).
+            float dRow1 = inset + 60f;
+            float dRow2 = inset + 154f;
+            // Hauteur du header = bas du contenu (row2 + demi-pilule 32 + marge 8).
+            float H = dRow2 + 40f;
             _headerBottom = H;
 
             // --- Header background (white bar) ---
@@ -232,7 +251,7 @@ namespace Zoologic
             btnRetourRect.anchorMin = new Vector2(0f, 0.5f);
             btnRetourRect.anchorMax = new Vector2(0f, 0.5f);
             btnRetourRect.pivot = new Vector2(0f, 0.5f);
-            btnRetourRect.sizeDelta = new Vector2(88f, 88f);
+            btnRetourRect.sizeDelta = new Vector2(104f, 104f);
             btnRetourRect.anchoredPosition = new Vector2(HeaderPadding, row1Y);
             var btnRetourBg = btnRetourObj.AddComponent<Image>();
             btnRetourBg.sprite = backSprite;
@@ -258,7 +277,7 @@ namespace Zoologic
             btnReglagesRect.anchorMin = new Vector2(1f, 0.5f);
             btnReglagesRect.anchorMax = new Vector2(1f, 0.5f);
             btnReglagesRect.pivot = new Vector2(1f, 0.5f);
-            btnReglagesRect.sizeDelta = new Vector2(88f, 88f);
+            btnReglagesRect.sizeDelta = new Vector2(104f, 104f);
             btnReglagesRect.anchoredPosition = new Vector2(-HeaderPadding, row1Y);
             var btnReglagesBg = btnReglagesObj.AddComponent<Image>();
             btnReglagesBg.sprite = gearSprite;
@@ -285,10 +304,10 @@ namespace Zoologic
 
         private void BuildStatsRow(Transform header, float y)
         {
-            float pillH = 56f;
+            float pillH = 64f;
 
             // --- Progression pill (left) : ?? 1/5 e remplace le score technique par un feedback jeu ---
-            float progW = 150f;
+            float progW = 250f;
             float progX = HeaderPadding;
 
             var progPill = CreerObjetUI("ProgressionPill", header);
@@ -296,7 +315,7 @@ namespace Zoologic
             progRect.anchorMin = new Vector2(0f, 0.5f);
             progRect.anchorMax = new Vector2(0f, 0.5f);
             progRect.pivot = new Vector2(0f, 0.5f);
-            progRect.sizeDelta = new Vector2(progW, 52f);
+            progRect.sizeDelta = new Vector2(progW, 64f);
             progRect.anchoredPosition = new Vector2(progX, y);
             AjouterOmbre(progRect, header, 3f, -5f);
 
@@ -313,7 +332,7 @@ namespace Zoologic
             progIconRect.anchorMin = new Vector2(0f, 0.5f);
             progIconRect.anchorMax = new Vector2(0f, 0.5f);
             progIconRect.pivot = new Vector2(0.5f, 0.5f);
-            progIconRect.sizeDelta = new Vector2(34f, 34f);
+            progIconRect.sizeDelta = new Vector2(42f, 42f);
             progIconRect.anchoredPosition = new Vector2(22f, 0f);
             _progressionIconImage = progIconGO.AddComponent<Image>();
             _progressionIconImage.sprite = Resources.Load<Sprite>("Art/Animals/cat") ?? Resources.Load<Sprite>("Art/Animals/bear");
@@ -335,7 +354,7 @@ namespace Zoologic
             _progressionText = progTxtGO.AddComponent<TextMeshProUGUI>();
             _progressionText.font = _fontTitle;
             _progressionText.text = $"<color=#22C55E>0</color><color=#4A2C12>/{Mathf.Max(_progressionTotal, 5)}</color>";
-            _progressionText.fontSize = 30;
+            _progressionText.fontSize = 34;
             _progressionText.alignment = TextAlignmentOptions.MidlineLeft;
             _progressionText.fontStyle = FontStyles.Bold;
             _progressionText.raycastTarget = false;
@@ -343,14 +362,14 @@ namespace Zoologic
             // --- Hearts pill (center) ---
             Sprite heartSprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_9") ?? Resources.Load<Sprite>("Sprites/b_9");
             if (heartSprite == null) heartSprite = Resources.Load<Sprite>("UI/heart");
-            float heartSize = 38f;
-            float heartSpacing = 6f;
+            float heartSize = 46f;
+            float heartSpacing = 8f;
             float totalHeartsW = LivesManager.ViesDepart * heartSize + (LivesManager.ViesDepart - 1) * heartSpacing;
             float headerWidth = header is RectTransform hrt && hrt.rect.width > 0f ? hrt.rect.width : 1080f;
             float pillPadX = 16f;
             float heartsLeftOffset = 84f;
             float heartsPillW = totalHeartsW + heartsLeftOffset + pillPadX;
-            float heartsPillH = 56f;
+            float heartsPillH = 64f;
 
             // Conteneur pilule coherent avec score (gauche) et indice (droite).
             var heartsPill = CreerObjetUI("HeartsPill", header);
@@ -401,7 +420,7 @@ namespace Zoologic
 
             // --- Pilule pieces gagnees (fond barre b_32, piece integree) ---
             _coinSprite = Resources.Load<Sprite>("UI/coin");
-            float coinsW = 150f;
+            float coinsW = 168f;
 
             var coinsPill = CreerObjetUI("CoinsPill", header);
             var cpRect = coinsPill.GetComponent<RectTransform>();
@@ -433,13 +452,18 @@ namespace Zoologic
             coinCountRect.anchorMin = new Vector2(0f, 0.5f);
             coinCountRect.anchorMax = new Vector2(0f, 0.5f);
             coinCountRect.pivot = new Vector2(0f, 0.5f);
-            coinCountRect.sizeDelta = new Vector2(58f, pillH);
-            coinCountRect.anchoredPosition = new Vector2(80f, 0f);
+            coinCountRect.sizeDelta = new Vector2(88f, pillH);
+            coinCountRect.anchoredPosition = new Vector2(76f, 0f);
 
             _coinsValueText = coinCountObj.AddComponent<TextMeshProUGUI>();
             _coinsValueText.font = _fontTitle;
             _coinsValueText.text = CurrencyManager.GetCoins().ToString();
-            _coinsValueText.fontSize = 30;
+            _coinsValueText.fontSize = 34;
+            _coinsValueText.enableAutoSizing = true;
+            _coinsValueText.fontSizeMin = 20;
+            _coinsValueText.fontSizeMax = 34;
+            _coinsValueText.textWrappingMode = TextWrappingModes.NoWrap;
+            _coinsValueText.overflowMode = TextOverflowModes.Ellipsis;
             _coinsValueText.alignment = TextAlignmentOptions.MidlineLeft;
             _coinsValueText.color = Color.white;
             _coinsValueText.fontStyle = FontStyles.Bold;
@@ -451,7 +475,7 @@ namespace Zoologic
             coinSh.effectDistance = new Vector2(0f, -2f);
 
             // --- Pilule indices (fond barre b_44, loupe integree) ---
-            float hintW = 170f;
+            float hintW = 188f;
 
             var economyPill = CreerObjetUI("EconomyPill", header);
             var epRect = economyPill.GetComponent<RectTransform>();
@@ -488,7 +512,7 @@ namespace Zoologic
             hintIconRect.anchorMin = new Vector2(0f, 0.5f);
             hintIconRect.anchorMax = new Vector2(0f, 0.5f);
             hintIconRect.pivot = new Vector2(0.5f, 0.5f);
-            hintIconRect.sizeDelta = new Vector2(32f, 32f);
+            hintIconRect.sizeDelta = new Vector2(40f, 40f);
             hintIconRect.anchoredPosition = new Vector2(118f, 0f);
 
             _indiceIconImage = hintIconObj.AddComponent<Image>();
@@ -510,7 +534,7 @@ namespace Zoologic
             _indiceCountText = hintCountObj.AddComponent<TextMeshProUGUI>();
             _indiceCountText.font = _fontTitle;
             _indiceCountText.text = _indiceCount.ToString();
-            _indiceCountText.fontSize = 30;
+            _indiceCountText.fontSize = 34;
             _indiceCountText.alignment = TextAlignmentOptions.MidlineLeft;
             _indiceCountText.color = Color.white;
             _indiceCountText.fontStyle = FontStyles.Bold;
@@ -550,7 +574,7 @@ namespace Zoologic
             _indiceCostText = costObj.AddComponent<TextMeshProUGUI>();
             _indiceCostText.font = _fontTitle;
             _indiceCostText.text = PuzzleGameController.IndiceCout.ToString();
-            _indiceCostText.fontSize = 24;
+            _indiceCostText.fontSize = 26;
             _indiceCostText.alignment = TextAlignmentOptions.MidlineLeft;
             _indiceCostText.color = CoinPillTextColor;
             _indiceCostText.fontStyle = FontStyles.Bold;
@@ -568,14 +592,14 @@ namespace Zoologic
             textRect.anchorMin = new Vector2(0.5f, 0.5f);
             textRect.anchorMax = new Vector2(0.5f, 0.5f);
             textRect.pivot = new Vector2(0.5f, 0.5f);
-            textRect.sizeDelta = new Vector2(400f, 54f);
+            textRect.sizeDelta = new Vector2(440f, 60f);
             textRect.anchoredPosition = new Vector2(0f, y);
 
             var text = texte.AddComponent<TextMeshProUGUI>();
             text.font = _fontTitle;
             text.text = PuzzleGameController.IsDailyPuzzle ? LocalizationManager.Get("hud.daily") : LocalizationManager.Get("hud.level", numero);
             LocalizationManager.ApplyTo(text);
-            text.fontSize = 48;
+            text.fontSize = 52;
             text.alignment = TextAlignmentOptions.Center;
             text.color = TitleBrown;
             text.fontStyle = FontStyles.Bold;
@@ -753,7 +777,9 @@ namespace Zoologic
 
         private void BuildGommeBouton(Canvas canvas)
         {
-            float size = 72f;
+            // 96px ref ~= 37dp sur S22 : cible tactile suffisante, degagee de la
+            // barre de gestes Android via Max(BottomInset, 48).
+            float size = 96f;
 
             var btnObj = CreerObjetUI("GommeBouton", canvas.transform);
             btnObj.name = "ResetButton";
@@ -762,7 +788,7 @@ namespace Zoologic
             btnRect.anchorMax = new Vector2(1f, 0f);
             btnRect.pivot = new Vector2(1f, 0f);
             btnRect.sizeDelta = new Vector2(size, size);
-            btnRect.anchoredPosition = new Vector2(-56f, Mathf.Max(BottomInset, 30f) + 22f);
+            btnRect.anchoredPosition = new Vector2(-48f, Mathf.Max(BottomInset, 48f) + 24f);
             btnObj.transform.SetAsLastSibling();
 
             _gommeButtonBg = btnObj.AddComponent<Image>();
@@ -799,7 +825,7 @@ namespace Zoologic
             badgeRect.anchorMin = new Vector2(1f, 1f);
             badgeRect.anchorMax = new Vector2(1f, 1f);
             badgeRect.pivot = new Vector2(0.5f, 0.5f);
-            badgeRect.sizeDelta = new Vector2(48f, 28f);
+            badgeRect.sizeDelta = new Vector2(56f, 32f);
             badgeRect.anchoredPosition = new Vector2(4f, 6f);
             var badgeImg = badgeGO.AddComponent<Image>();
             badgeImg.sprite = GetPiluleSprite();
@@ -813,7 +839,7 @@ namespace Zoologic
             var badgeTxt = badgeTxtGO.AddComponent<TextMeshProUGUI>();
             badgeTxt.font = _fontTitle;
             badgeTxt.text = PuzzleGameController.GommeCout.ToString();
-            badgeTxt.fontSize = 20;
+            badgeTxt.fontSize = 24;
             badgeTxt.alignment = TextAlignmentOptions.Center;
             badgeTxt.color = TitleBrown;
             badgeTxt.fontStyle = FontStyles.Bold;
@@ -834,25 +860,47 @@ namespace Zoologic
             rect.sizeDelta = new Vector2(0f, 70f);
             rect.anchoredPosition = new Vector2(0f, Mathf.Max(BottomInset, 48f));
             footer.transform.SetAsLastSibling();
+            var bgGO = CreerObjetUI("FooterBg", footer.transform);
+            var bgRect = bgGO.GetComponent<RectTransform>();
+            bgRect.anchorMin = new Vector2(0.5f, 0f);
+            bgRect.anchorMax = new Vector2(0.5f, 0f);
+            bgRect.pivot = new Vector2(0.5f, 0f);
+            bgRect.sizeDelta = new Vector2(780f, 116f);
+            bgRect.anchoredPosition = new Vector2(0f, -8f);
+            var bgImg = bgGO.AddComponent<Image>();
+            bgImg.sprite = B1UI.Bubble ?? GetPiluleSprite();
+            bgImg.type = Image.Type.Sliced;
+            bgImg.color = new Color(1f, 1f, 1f, 0.98f);
+            bgImg.raycastTarget = false;
+            var trayHolderGO = CreerObjetUI("TrayHolder", footer.transform);
+            var trayHolderRect = trayHolderGO.GetComponent<RectTransform>();
+            trayHolderRect.anchorMin = new Vector2(0.5f, 0f);
+            trayHolderRect.anchorMax = new Vector2(0.5f, 0f);
+            trayHolderRect.pivot = new Vector2(0.5f, 0f);
+            trayHolderRect.sizeDelta = new Vector2(800f, 100f);
+            trayHolderRect.anchoredPosition = new Vector2(0f, 8f);
+            _trayHolder = trayHolderGO.transform;
             var labelGO = CreerObjetUI("FooterLabel", footer.transform);
             var labelRect = labelGO.GetComponent<RectTransform>();
             labelRect.anchorMin = new Vector2(0.5f, 0f);
             labelRect.anchorMax = new Vector2(0.5f, 0f);
             labelRect.pivot = new Vector2(0.5f, 0f);
-            labelRect.sizeDelta = new Vector2(700f, 64f);
-            labelRect.anchoredPosition = Vector2.zero;
+            labelRect.sizeDelta = new Vector2(760f, 96f);
+            labelRect.anchoredPosition = new Vector2(0f, 4f);
             var label = labelGO.AddComponent<TextMeshProUGUI>();
             label.font = _fontTitle;
             label.text = LocalizationManager.Get("hud.place_animals");
             LocalizationManager.ApplyTo(label);
-            label.fontSize = 40;
-            label.enableAutoSizing = false;
+            label.fontSize = 54;
+            label.enableAutoSizing = true;
+            label.fontSizeMin = 40;
+            label.fontSizeMax = 58;
             label.alignment = TextAlignmentOptions.Center;
             label.fontStyle = FontStyles.Bold;
-            label.color = new Color(0.29f, 0.18f, 0.10f, 1f);
-            label.outlineWidth = 0.32f;
-            label.outlineColor = Color.white;
-            label.characterSpacing = 2f;
+            label.color = new Color(0.35f, 0.20f, 0.08f, 1f);
+            label.outlineWidth = 0.22f;
+            label.outlineColor = new Color(1f, 0.98f, 0.92f, 1f);
+            label.characterSpacing = 1f;
             label.raycastTarget = false;
             try
             {
@@ -872,6 +920,40 @@ namespace Zoologic
             labelGO.transform.SetAsLastSibling();
         }
 
+        /// <summary>
+        /// (Re)construit la barre d'animaux du niveau dans le dock.
+        /// À appeler après GridView.Build (icônes mélangées par niveau).
+        /// </summary>
+        public void RebuildAnimalTray(System.Collections.Generic.IReadOnlyList<Sprite> sprites, BoardDragController drag)
+        {
+            if (_trayHolder == null)
+                return;
+            // La barre remplace le label texte du dock.
+            var footerLabel = _trayHolder.parent != null
+                ? _trayHolder.parent.Find("FooterLabel")
+                : null;
+            if (footerLabel != null)
+                footerLabel.gameObject.SetActive(false);
+            if (_tray == null)
+                _tray = AnimalTray.Build(_trayHolder, drag);
+            else
+                _tray.SetDrag(drag);
+            _tray.SetSprites(sprites);
+        }
+
+        /// <summary>
+        /// Inventaire du dock : jetons restants = cases à remplir.
+        /// Poser consomme, retirer (y compris retour au dock) rend.
+        /// </summary>
+        public void UpdateTrayCount(int remaining)
+        {
+            if (_tray != null)
+                _tray.SetRemaining(remaining);
+        }
+
+        /// <summary>Barre d'animaux (pour la main du tutoriel / tests).</summary>
+        public AnimalTray AnimalTray => _tray;
+
         // ------------------------------------------------------------------
         // 4) CeURS : animations.
         // ------------------------------------------------------------------
@@ -884,10 +966,27 @@ namespace Zoologic
         public void SetProgression(int placed, int total)
         {
             _progressionTotal = Mathf.Max(1, total);
-            if (_progressionText != null)
-                _progressionText.text = $"<color=#22C55E>{placed}</color><color=#4A2C12>/{_progressionTotal}</color>";
+            _progressionPlaced = placed;
+            RefreshProgressionText();
             if (_progressionIconImage != null && placed > 0)
                 Punch.Scale(this, _progressionIconImage.rectTransform, 1.18f, 0.22f);
+        }
+
+        /// <summary>Met à jour le compteur de coups (objectif : autant que de cases).</summary>
+        public void SetMoves(int moves)
+        {
+            _moveCount = Mathf.Max(0, moves);
+            RefreshProgressionText();
+        }
+
+        private void RefreshProgressionText()
+        {
+            if (_progressionText == null)
+                return;
+            string word = LocalizationManager.Get("hud.moves");
+            _progressionText.text = $"<color=#22C55E>{_progressionPlaced}</color>" +
+                $"<color=#4A2C12>/{_progressionTotal}</color>" +
+                $"<color=#8A7968><size=62%> · {_moveCount} {word}</size></color>";
         }
 
         /// <summary>Petit punch rouge sur la pilule de score quand le score diminue.</summary>
@@ -1228,6 +1327,7 @@ namespace Zoologic
             toastText.alignment = TextAlignmentOptions.Center;
             toastText.color = Color.white;
             toastText.raycastTarget = false;
+            LocalizationManager.ApplyTo(toastText);
 
             if (_toastRoutine != null)
                 StopCoroutine(_toastRoutine);
@@ -1279,7 +1379,7 @@ namespace Zoologic
             overlayRect.offsetMin = Vector2.zero;
             overlayRect.offsetMax = Vector2.zero;
             var overlayImg = _overlay.AddComponent<Image>();
-            overlayImg.color = new Color(0.15f, 0.12f, 0.10f, 0.48f);
+            overlayImg.color = new Color(0f, 0f, 0f, 0.55f);
             overlayImg.raycastTarget = true;
 
             _defaitePanel = CreerObjetUI("DefaitePanel", _gameOverRoot.transform);
@@ -1299,7 +1399,7 @@ namespace Zoologic
             panelShadow.effectDistance = new Vector2(0f, -10f);
 
             var vlg = _defaitePanel.AddComponent<VerticalLayoutGroup>();
-            vlg.spacing = 18f;
+            vlg.spacing = 14f;
             vlg.childAlignment = TextAnchor.MiddleCenter;
             vlg.childControlWidth = true;
             vlg.childControlHeight = true;
@@ -1310,16 +1410,16 @@ namespace Zoologic
             var fitter = _defaitePanel.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            // Hibou mascotte e layout-driven, -12e
+            // Hibou mascotte e layout-driven, -12e, taille victoire
             Sprite owlSprite = Resources.Load<Sprite>("Art/Animals/owl");
             if (owlSprite != null)
             {
                 var owlObj = CreerObjetUI("DefeatOwl", _defaitePanel.transform);
                 var owlLE = owlObj.AddComponent<LayoutElement>();
-                owlLE.preferredHeight = 110f;
+                owlLE.preferredHeight = 130f;
                 owlLE.flexibleWidth = 1f;
                 var owlRect = owlObj.GetComponent<RectTransform>();
-                owlRect.sizeDelta = new Vector2(110f, 110f);
+                owlRect.sizeDelta = new Vector2(130f, 130f);
                 owlRect.localRotation = Quaternion.Euler(0f, 0f, -12f);
 
                 _defeatOwl = owlObj.AddComponent<Image>();
@@ -1329,55 +1429,144 @@ namespace Zoologic
                 _defeatOwl.raycastTarget = false;
             }
 
-            // Titre e Niveau echoue e - jelly style, layout-driven
+            // Badge niveau (symetrie victoire) e rempli via SetDefaiteNiveau
+            var badgeObj = CreerObjetUI("BadgeNiveau", _defaitePanel.transform);
+            var badgeLE = badgeObj.AddComponent<LayoutElement>();
+            badgeLE.preferredHeight = 40f;
+            badgeLE.flexibleWidth = 1f;
+            var badgeText = badgeObj.AddComponent<TextMeshProUGUI>();
+            _defaiteBadgeText = badgeText;
+            badgeText.font = _fontTitle;
+            badgeText.text = "";
+            badgeText.fontSize = 30;
+            badgeText.fontStyle = FontStyles.Bold;
+            badgeText.alignment = TextAlignmentOptions.Center;
+            badgeText.color = new Color(0.95f, 0.55f, 0.15f, 1f);
+            badgeText.raycastTarget = false;
+            badgeText.enableAutoSizing = false;
+
+            // Titre encourageant (ton jeu, pas utilitaire)
             var titreObj = CreerObjetUI("Titre", _defaitePanel.transform);
             var titreLE = titreObj.AddComponent<LayoutElement>();
             titreLE.preferredHeight = 62f;
             titreLE.flexibleWidth = 1f;
             var titreText = titreObj.AddComponent<TextMeshProUGUI>();
+            _defaiteTitreText = titreText;
             titreText.font = _fontTitle;
-            titreText.text = LocalizationManager.Get("hud.level_failed");
-            titreText.fontSize = 54;
+            titreText.text = LocalizationManager.Get("hud.fail_cheer");
+            titreText.fontSize = 46;
             titreText.alignment = TextAlignmentOptions.Center;
             titreText.color = new Color(0.18f, 0.12f, 0.08f, 1f);
             titreText.fontStyle = FontStyles.Bold;
             titreText.raycastTarget = false;
-            titreText.enableAutoSizing = false;
+            titreText.enableAutoSizing = true;
+            titreText.fontSizeMin = 34;
+            titreText.fontSizeMax = 46;
             var titreSh = titreObj.AddComponent<Shadow>();
             titreSh.effectColor = new Color(1f, 0.92f, 0.75f, 0.55f);
             titreSh.effectDistance = new Vector2(0f, -3f);
 
-            // Sous-titre e Plus de vies ! e
+            // Sous-titre : astuce de jeu
             var sousObj = CreerObjetUI("SousTitre", _defaitePanel.transform);
             var sousLE = sousObj.AddComponent<LayoutElement>();
-            sousLE.preferredHeight = 42f;
+            sousLE.preferredHeight = 40f;
             sousLE.flexibleWidth = 1f;
             var sousText = sousObj.AddComponent<TextMeshProUGUI>();
             sousText.font = _fontTitle;
-            sousText.text = LocalizationManager.Get("hud.no_lives_title");
-            sousText.fontSize = 32;
+            sousText.text = LocalizationManager.Get("hud.fail_hint");
+            sousText.fontSize = 24;
             sousText.fontStyle = FontStyles.Bold;
             sousText.alignment = TextAlignmentOptions.Center;
             sousText.color = new Color(0.62f, 0.32f, 0.22f, 1f);
             sousText.raycastTarget = false;
+            sousText.enableAutoSizing = true;
+            sousText.fontSizeMin = 18;
+            sousText.fontSizeMax = 24;
 
-            var timerGO = CreerObjetUI("TimerVies", _defaitePanel.transform);
+            // Jauge jeu : 3 coeurs visuels au lieu d'un compteur texte
+            var gaugeGO = CreerObjetUI("JaugeCoeurs", _defaitePanel.transform);
+            var gaugeLE = gaugeGO.AddComponent<LayoutElement>();
+            gaugeLE.preferredHeight = 52f;
+            gaugeLE.flexibleWidth = 1f;
+            var gaugeHLG = gaugeGO.AddComponent<HorizontalLayoutGroup>();
+            gaugeHLG.spacing = 8f;
+            gaugeHLG.childAlignment = TextAnchor.MiddleCenter;
+            gaugeHLG.childControlWidth = false;
+            gaugeHLG.childControlHeight = false;
+            gaugeHLG.childForceExpandWidth = false;
+            gaugeHLG.childForceExpandHeight = false;
+            Sprite gaugeHeart = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_9")
+                ?? Resources.Load<Sprite>("Sprites/b_9")
+                ?? Resources.Load<Sprite>("UI/heart");
+            for (int hi = 0; hi < LivesManager.ViesDepart; hi++)
+            {
+                var heartGO = CreerObjetUI($"CoeurDefaite{hi}", gaugeGO.transform);
+                var heartLE = heartGO.AddComponent<LayoutElement>();
+                heartLE.preferredWidth = 44f;
+                heartLE.preferredHeight = 44f;
+                var heartImg = heartGO.AddComponent<Image>();
+                heartImg.sprite = gaugeHeart ?? GetPiluleSprite();
+                heartImg.preserveAspect = true;
+                heartImg.color = HeartEmptyColor;
+                heartImg.raycastTarget = false;
+                _defaiteHearts[hi] = heartImg;
+            }
+
+            // Barre de regen + timer gamifie ("+1 coeur dans ...")
+            var regenGO = CreerObjetUI("RegenVies", _defaitePanel.transform);
+            var regenLE = regenGO.AddComponent<LayoutElement>();
+            regenLE.preferredHeight = 30f;
+            regenLE.flexibleWidth = 1f;
+            var regenHLG = regenGO.AddComponent<HorizontalLayoutGroup>();
+            regenHLG.spacing = 10f;
+            regenHLG.childAlignment = TextAnchor.MiddleCenter;
+            regenHLG.childControlWidth = true;
+            regenHLG.childControlHeight = true;
+            regenHLG.childForceExpandWidth = false;
+            regenHLG.childForceExpandHeight = false;
+            var barGO = CreerObjetUI("Barre", regenGO.transform);
+            var barLE = barGO.AddComponent<LayoutElement>();
+            barLE.flexibleWidth = 1f;
+            barLE.preferredHeight = 18f;
+            var barBg = barGO.AddComponent<Image>();
+            barBg.sprite = GetPiluleSprite();
+            barBg.type = Image.Type.Sliced;
+            barBg.color = new Color(0.35f, 0.25f, 0.15f, 0.30f);
+            barBg.raycastTarget = false;
+            var fillGO = CreerObjetUI("Remplissage", barGO.transform);
+            var fillRect = fillGO.GetComponent<RectTransform>();
+            fillRect.anchorMin = new Vector2(0f, 0f);
+            fillRect.anchorMax = new Vector2(0f, 1f);
+            fillRect.offsetMin = Vector2.zero;
+            fillRect.offsetMax = Vector2.zero;
+            fillRect.pivot = new Vector2(0f, 0.5f);
+            var fillImg = fillGO.AddComponent<Image>();
+            fillImg.sprite = GetPiluleSprite();
+            fillImg.type = Image.Type.Sliced;
+            fillImg.color = new Color(0.20f, 0.78f, 0.42f, 1f);
+            fillImg.raycastTarget = false;
+            _defaiteRegenFill = fillImg;
+            var timerGO = CreerObjetUI("TimerVies", regenGO.transform);
             var timerLE = timerGO.AddComponent<LayoutElement>();
-            timerLE.preferredHeight = 36f;
-            timerLE.flexibleWidth = 1f;
+            timerLE.preferredWidth = 210f;
+            timerLE.preferredHeight = 30f;
             _livesTimerText = timerGO.AddComponent<TextMeshProUGUI>();
             _livesTimerText.font = _fontTitle;
             _livesTimerText.text = "";
-            _livesTimerText.fontSize = 26;
+            _livesTimerText.fontSize = 22;
             _livesTimerText.fontStyle = FontStyles.Bold;
             _livesTimerText.alignment = TextAlignmentOptions.Center;
             _livesTimerText.color = new Color(0.24f, 0.15f, 0.14f, 1f);
             _livesTimerText.raycastTarget = false;
-            _livesTimerText.enableAutoSizing = false;
+            _livesTimerText.enableAutoSizing = true;
+            _livesTimerText.fontSizeMin = 16;
+            _livesTimerText.fontSizeMax = 22;
 
+            // Bouton pub VEDETTE : plus grand + icone play + pulse dore
             var pubGO = CreerObjetUI("BtnPubVies", _defaitePanel.transform);
+            _defaitePubGO = pubGO;
             var pubLE = pubGO.AddComponent<LayoutElement>();
-            pubLE.preferredHeight = 62f;
+            pubLE.preferredHeight = 76f;
             pubLE.flexibleWidth = 1f;
             var pubImg = pubGO.AddComponent<Image>();
             var pubNormal = JellyUI.ButtonYellow ?? GetCarteSprite();
@@ -1390,23 +1579,91 @@ namespace Zoologic
             var pubBtn = pubGO.AddComponent<Button>();
             JellyUI.ApplyJellyButton(pubBtn, pubImg, pubNormal, pubHover, pubPressed, pubDisabled);
             pubBtn.onClick.AddListener(() => OnPubViesDemande?.Invoke());
-            var pubTxtGO = CreerObjetUI("Text", pubGO.transform);
-            var pubTxtRect = pubTxtGO.GetComponent<RectTransform>();
-            pubTxtRect.anchorMin = Vector2.zero;
-            pubTxtRect.anchorMax = Vector2.one;
-            pubTxtRect.offsetMin = new Vector2(12f, 6f);
-            pubTxtRect.offsetMax = new Vector2(-12f, -6f);
+            var pubContentGO = CreerObjetUI("Content", pubGO.transform);
+            var pubContentRect = pubContentGO.GetComponent<RectTransform>();
+            pubContentRect.anchorMin = Vector2.zero;
+            pubContentRect.anchorMax = Vector2.one;
+            pubContentRect.offsetMin = new Vector2(14f, 6f);
+            pubContentRect.offsetMax = new Vector2(-14f, -6f);
+            var pubHLG = pubContentGO.AddComponent<HorizontalLayoutGroup>();
+            pubHLG.spacing = 10f;
+            pubHLG.childAlignment = TextAnchor.MiddleCenter;
+            pubHLG.childForceExpandWidth = false;
+            pubHLG.childControlWidth = false;
+            var pubIconGO = CreerObjetUI("Icon", pubContentGO.transform);
+            var pubIconLE = pubIconGO.AddComponent<LayoutElement>();
+            pubIconLE.preferredWidth = 46f;
+            pubIconLE.preferredHeight = 46f;
+            var pubIconImg = pubIconGO.AddComponent<Image>();
+            pubIconImg.sprite = Resources.Load<Sprite>("UI/play_button");
+            pubIconImg.preserveAspect = true;
+            pubIconImg.raycastTarget = false;
+            var pubTxtGO = CreerObjetUI("Text", pubContentGO.transform);
+            var pubTxtLE = pubTxtGO.AddComponent<LayoutElement>();
+            pubTxtLE.flexibleWidth = 1f;
             var pubTxt = pubTxtGO.AddComponent<TextMeshProUGUI>();
             pubTxt.font = _fontTitle;
             pubTxt.text = LocalizationManager.Get("hud.watch_ad");
-            pubTxt.fontSize = 22;
+            pubTxt.fontSize = 30;
             pubTxt.alignment = TextAlignmentOptions.Center;
             pubTxt.color = new Color(0.20f, 0.12f, 0.06f, 1f);
             pubTxt.fontStyle = FontStyles.Bold;
             pubTxt.raycastTarget = false;
             pubTxt.enableAutoSizing = true;
-            pubTxt.fontSizeMin = 16;
-            pubTxt.fontSizeMax = 22;
+            pubTxt.fontSizeMin = 20;
+            pubTxt.fontSizeMax = 30;
+
+            // Achat 1 vie (secondaire, dépannage payant — la pub reste le roi).
+            var buyGO = CreerObjetUI("BtnViePayante", _defaitePanel.transform);
+            var buyLE = buyGO.AddComponent<LayoutElement>();
+            buyLE.preferredHeight = 64f;
+            buyLE.flexibleWidth = 1f;
+            var buyImg = buyGO.AddComponent<Image>();
+            var buyNormal = JellyUI.SmallYellow ?? GetPiluleSprite();
+            var buyHover = JellyUI.SmallYellow ?? buyNormal;
+            var buyPressed = JellyUI.SmallRed ?? buyNormal;
+            var buyDisabled = JellyUI.SmallGrey ?? buyNormal;
+            buyImg.sprite = buyNormal;
+            buyImg.type = Image.Type.Sliced;
+            buyImg.pixelsPerUnitMultiplier = 1f;
+            var buyBtn = buyGO.AddComponent<Button>();
+            _defaiteBuyBtn = buyBtn;
+            JellyUI.ApplyJellyButton(buyBtn, buyImg, buyNormal, buyHover, buyPressed, buyDisabled);
+            buyBtn.onClick.AddListener(() => OnViePayanteDemande?.Invoke());
+            var buyContentGO = CreerObjetUI("Content", buyGO.transform);
+            var buyContentRect = buyContentGO.GetComponent<RectTransform>();
+            buyContentRect.anchorMin = Vector2.zero;
+            buyContentRect.anchorMax = Vector2.one;
+            buyContentRect.offsetMin = new Vector2(14f, 6f);
+            buyContentRect.offsetMax = new Vector2(-14f, -6f);
+            var buyHLG = buyContentGO.AddComponent<HorizontalLayoutGroup>();
+            buyHLG.spacing = 10f;
+            buyHLG.childAlignment = TextAnchor.MiddleCenter;
+            buyHLG.childForceExpandWidth = false;
+            buyHLG.childControlWidth = false;
+            var buyIconGO = CreerObjetUI("Icon", buyContentGO.transform);
+            var buyIconLE = buyIconGO.AddComponent<LayoutElement>();
+            buyIconLE.preferredWidth = 40f;
+            buyIconLE.preferredHeight = 40f;
+            var buyIconImg = buyIconGO.AddComponent<Image>();
+            buyIconImg.sprite = Resources.Load<Sprite>("UI/coin");
+            buyIconImg.preserveAspect = true;
+            buyIconImg.raycastTarget = false;
+            var buyTxtGO = CreerObjetUI("Text", buyContentGO.transform);
+            var buyTxtLE = buyTxtGO.AddComponent<LayoutElement>();
+            buyTxtLE.flexibleWidth = 1f;
+            var buyTxt = buyTxtGO.AddComponent<TextMeshProUGUI>();
+            _defaiteBuyText = buyTxt;
+            buyTxt.font = _fontTitle;
+            buyTxt.text = LocalizationManager.Get("hud.buy_life", PuzzleGameController.ViePayanteCout);
+            buyTxt.fontSize = 28;
+            buyTxt.alignment = TextAlignmentOptions.Center;
+            buyTxt.color = new Color(0.20f, 0.12f, 0.06f, 1f);
+            buyTxt.fontStyle = FontStyles.Bold;
+            buyTxt.raycastTarget = false;
+            buyTxt.enableAutoSizing = true;
+            buyTxt.fontSizeMin = 20;
+            buyTxt.fontSizeMax = 28;
 
             var btnObj = CreerObjetUI("BtnReessayer", _defaitePanel.transform);
             var btnLE = btnObj.AddComponent<LayoutElement>();
@@ -1421,71 +1678,75 @@ namespace Zoologic
             btnImg.type = Image.Type.Sliced;
             btnImg.pixelsPerUnitMultiplier = 1f;
             var btnComp = btnObj.AddComponent<Button>();
+            _defaiteRetryBtn = btnComp;
             JellyUI.ApplyJellyButton(btnComp, btnImg, btnNormal, btnHover, btnPressed, btnDisabled);
             btnComp.onClick.AddListener(() => OnReessayer?.Invoke());
 
-            var btnTextObj = CreerObjetUI("Texte", btnObj.transform);
-            var btnTextRect = btnTextObj.GetComponent<RectTransform>();
-            btnTextRect.anchorMin = Vector2.zero;
-            btnTextRect.anchorMax = Vector2.one;
-            btnTextRect.offsetMin = new Vector2(12f, 6f);
-            btnTextRect.offsetMax = new Vector2(-12f, -6f);
-
+            var btnContentGO = CreerObjetUI("Content", btnObj.transform);
+            var btnContentRect = btnContentGO.GetComponent<RectTransform>();
+            btnContentRect.anchorMin = Vector2.zero;
+            btnContentRect.anchorMax = Vector2.one;
+            btnContentRect.offsetMin = new Vector2(14f, 6f);
+            btnContentRect.offsetMax = new Vector2(-14f, -6f);
+            var btnHLG = btnContentGO.AddComponent<HorizontalLayoutGroup>();
+            btnHLG.spacing = 10f;
+            btnHLG.childAlignment = TextAnchor.MiddleCenter;
+            btnHLG.childForceExpandWidth = false;
+            btnHLG.childControlWidth = false;
+            var btnIconGO = CreerObjetUI("Icon", btnContentGO.transform);
+            var btnIconLE = btnIconGO.AddComponent<LayoutElement>();
+            btnIconLE.preferredWidth = 38f;
+            btnIconLE.preferredHeight = 38f;
+            var btnIconImg = btnIconGO.AddComponent<Image>();
+            btnIconImg.sprite = Resources.Load<Sprite>("UI/heart");
+            btnIconImg.preserveAspect = true;
+            btnIconImg.raycastTarget = false;
+            var btnTextObj = CreerObjetUI("Texte", btnContentGO.transform);
+            var btnTextLE = btnTextObj.AddComponent<LayoutElement>();
+            btnTextLE.flexibleWidth = 1f;
             var btnText = btnTextObj.AddComponent<TextMeshProUGUI>();
+            _defaiteRetryText = btnText;
             btnText.font = _fontTitle;
             btnText.text = LocalizationManager.Get("hud.retry");
-            btnText.fontSize = 30;
+            btnText.fontSize = 32;
             btnText.alignment = TextAlignmentOptions.Center;
             btnText.color = Color.white;
             btnText.fontStyle = FontStyles.Bold;
             btnText.raycastTarget = false;
+            btnText.enableAutoSizing = true;
+            btnText.fontSizeMin = 22;
+            btnText.fontSizeMax = 32;
             var btnShadow = btnTextObj.AddComponent<Shadow>();
             btnShadow.effectColor = new Color(0f, 0f, 0f, 0.25f);
             btnShadow.effectDistance = new Vector2(0f, -2f);
 
+            // Lien texte discret (hiérarchie jeu : 1 vedette + 1 secondaire + 1 lien)
             var menuGO = CreerObjetUI("BtnMenu", _defaitePanel.transform);
             var menuLE = menuGO.AddComponent<LayoutElement>();
-            menuLE.preferredHeight = 58f;
+            menuLE.preferredHeight = 44f;
             menuLE.flexibleWidth = 1f;
             var menuImg = menuGO.AddComponent<Image>();
-            menuImg.sprite = JellyUI.SmallGrey ?? GetPiluleSprite();
-            menuImg.type = Image.Type.Sliced;
-            menuImg.pixelsPerUnitMultiplier = 1f;
-            menuImg.color = Color.white;
+            menuImg.color = new Color(0f, 0f, 0f, 0f);
             menuImg.raycastTarget = true;
             var menuBtn = menuGO.AddComponent<Button>();
-            var homeIcon = Resources.Load<Sprite>("UI/Icons/home_pixi") ?? Resources.Load<Sprite>("UI/Icons/back");
-            if (homeIcon == null) homeIcon = JellyUI.SmallGrey;
-            JellyUI.ApplyJellyButton(menuBtn, menuImg, JellyUI.SmallGrey ?? GetPiluleSprite(), JellyUI.SmallYellow ?? GetPiluleSprite(), JellyUI.SmallRed ?? GetPiluleSprite(), JellyUI.SmallGrey ?? GetPiluleSprite());
-            var menuContentGO = CreerObjetUI("Content", menuGO.transform);
-            var menuContentRect = menuContentGO.GetComponent<RectTransform>();
-            menuContentRect.anchorMin = Vector2.zero;
-            menuContentRect.anchorMax = Vector2.one;
-            menuContentRect.offsetMin = new Vector2(14f, 6f);
-            menuContentRect.offsetMax = new Vector2(-14f, -6f);
-            var menuHLG = menuContentGO.AddComponent<HorizontalLayoutGroup>();
-            menuHLG.spacing = 10f;
-            menuHLG.childAlignment = TextAnchor.MiddleCenter;
-            menuHLG.childForceExpandWidth = false;
-            menuHLG.childControlWidth = false;
-            var menuIconGO = CreerObjetUI("Icon", menuContentGO.transform);
-            var menuIconRect = menuIconGO.GetComponent<RectTransform>();
-            menuIconRect.sizeDelta = new Vector2(26f, 26f);
-            var menuIconLE = menuIconGO.AddComponent<LayoutElement>();
-            menuIconLE.preferredWidth = 26f;
-            menuIconLE.preferredHeight = 26f;
-            var menuIconImg = menuIconGO.AddComponent<Image>();
-            menuIconImg.sprite = homeIcon;
-            menuIconImg.preserveAspect = true;
-            menuIconImg.color = new Color(0.22f, 0.15f, 0.10f, 1f);
-            menuIconImg.raycastTarget = false;
-            var menuTxtGO = CreerObjetUI("Text", menuContentGO.transform);
+            menuBtn.transition = Selectable.Transition.ColorTint;
+            var menuColors = menuBtn.colors;
+            menuColors.normalColor = Color.white;
+            menuColors.highlightedColor = new Color(1f, 1f, 1f, 1f);
+            menuColors.pressedColor = new Color(0.9f, 0.85f, 0.8f, 1f);
+            menuBtn.colors = menuColors;
+            var menuTxtGO = CreerObjetUI("Text", menuGO.transform);
+            var menuTxtRect = menuTxtGO.GetComponent<RectTransform>();
+            menuTxtRect.anchorMin = Vector2.zero;
+            menuTxtRect.anchorMax = Vector2.one;
+            menuTxtRect.offsetMin = Vector2.zero;
+            menuTxtRect.offsetMax = Vector2.zero;
             var menuTxt = menuTxtGO.AddComponent<TextMeshProUGUI>();
             menuTxt.font = _fontTitle;
-            menuTxt.text = LocalizationManager.Get("hud.back_menu");
-            menuTxt.fontSize = 20;
-            menuTxt.alignment = TextAlignmentOptions.MidlineLeft;
-            menuTxt.color = new Color(0.22f, 0.15f, 0.10f, 1f);
+            menuTxt.text = $"<u>{LocalizationManager.Get("hud.back_menu")}</u>";
+            menuTxt.fontSize = 22;
+            menuTxt.alignment = TextAlignmentOptions.Center;
+            menuTxt.color = new Color(0.45f, 0.32f, 0.22f, 1f);
             menuTxt.fontStyle = FontStyles.Bold;
             menuTxt.raycastTarget = false;
             menuTxt.enableAutoSizing = false;
@@ -1511,13 +1772,29 @@ namespace Zoologic
 
         public Action OnPubViesDemande;
 
+        /// <summary>evenement invoque quand le bouton d'achat d'une vie est presse.</summary>
+        public Action OnViePayanteDemande;
+
         /// <summary>
         /// Construit le panneau de defaite. e appeler APReS que la grille a ete
         /// construite, pour qu'il soit le dernier enfant du canvas (rendu au premier plan).
         /// </summary>
-        public void CreerPanneauDefaite(Canvas canvas)
+        public void CreerPanneauDefaite(Canvas canvas, int numeroNiveau = 1, bool isDaily = false)
         {
             BuildDefaitePanel(canvas);
+            SetDefaiteNiveau(numeroNiveau, isDaily);
+        }
+
+        /// <summary>
+        /// Remplit le badge niveau du panneau de defaite (symetrie victoire).
+        /// </summary>
+        public void SetDefaiteNiveau(int numeroNiveau, bool isDaily = false)
+        {
+            if (_defaiteBadgeText == null)
+                return;
+            _defaiteBadgeText.text = isDaily
+                ? LocalizationManager.Get("victory.daily_badge")
+                : LocalizationManager.Get("victory.level_badge", numeroNiveau);
         }
 
         public void AfficherDefaite()
@@ -1525,24 +1802,78 @@ namespace Zoologic
             if (_overlay != null)
                 _overlay.SetActive(true);
             if (_defaitePanel != null)
+            {
                 _defaitePanel.SetActive(true);
-
-            if (_defeatOwl != null)
-                StartCoroutine(DefeatOwlFadeInRoutine());
+                var pubT = _defaitePanel.transform.Find("BtnPubVies");
+                if (pubT != null) pubT.gameObject.SetActive(AdMobManager.AreAdsAllowed());
+                LocalizationManager.ApplyFontsToScene();
+                RefreshDefaiteButtons();
+                RefreshDefaiteHearts();
+                if (_defaitePopRoutine != null) StopCoroutine(_defaitePopRoutine);
+                _defaitePopRoutine = StartCoroutine(DefeatPopRoutine());
+            }
 
             if (_livesTimerRoutine != null) StopCoroutine(_livesTimerRoutine);
             _livesTimerRoutine = StartCoroutine(LivesTimerRoutine());
         }
 
+        /// <summary>
+        /// Pop d'ouverture façon victoire : panel EaseOutBack puis boutons en cascade.
+        /// </summary>
+        private IEnumerator DefeatPopRoutine()
+        {
+            if (_defaitePanel != null)
+            {
+                _defaitePanel.transform.localScale = Vector3.zero;
+                float duration = 0.32f;
+                float elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    elapsed += Time.unscaledDeltaTime;
+                    float s = Easing.EaseOutBack(Mathf.Clamp01(elapsed / duration));
+                    _defaitePanel.transform.localScale = new Vector3(s, s, s);
+                    yield return null;
+                }
+                _defaitePanel.transform.localScale = Vector3.one;
+            }
+
+            if (_defeatOwl != null)
+                StartCoroutine(DefeatOwlFadeInRoutine());
+
+            string[] cascade = { "BtnPubVies", "BtnViePayante", "BtnReessayer", "BtnMenu" };
+            for (int i = 0; i < cascade.Length; i++)
+            {
+                var t = _defaitePanel != null ? _defaitePanel.transform.Find(cascade[i]) : null;
+                if (t == null || !t.gameObject.activeSelf)
+                    continue;
+                t.localScale = Vector3.zero;
+                float duration = 0.25f;
+                float elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    elapsed += Time.unscaledDeltaTime;
+                    float s = Easing.EaseOutBack(Mathf.Clamp01(elapsed / duration));
+                    t.localScale = new Vector3(s, s, s);
+                    yield return null;
+                }
+                t.localScale = Vector3.one;
+                yield return new WaitForSecondsRealtime(0.06f);
+            }
+            _defaitePopRoutine = null;
+            if (_defaitePanel != null && _defaitePanel.activeSelf)
+                StartDefeatPubPulse();
+        }
+
         private IEnumerator DefeatOwlFadeInRoutine()
         {
             Transform owlT = _defeatOwl.transform;
-            float startY = owlT.localPosition.y + 20f;
+            float startY = owlT.localPosition.y + 26f;
             float endY = owlT.localPosition.y;
-            float duration = 0.6f;
+            float duration = 0.5f;
             float elapsed = 0f;
 
             owlT.localPosition = new Vector3(owlT.localPosition.x, startY, owlT.localPosition.z);
+            owlT.localScale = new Vector3(0.5f, 0.5f, 0.5f);
             _defeatOwl.color = new Color(1f, 1f, 1f, 0f);
 
             while (elapsed < duration)
@@ -1550,16 +1881,67 @@ namespace Zoologic
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
                 float eased = Easing.EaseOutCubic(t);
+                float pop = Easing.EaseOutBack(t);
                 _defeatOwl.color = new Color(1f, 1f, 1f, eased);
                 owlT.localPosition = Vector3.Lerp(
                     new Vector3(owlT.localPosition.x, startY, owlT.localPosition.z),
                     new Vector3(owlT.localPosition.x, endY, owlT.localPosition.z),
                     eased);
+                owlT.localScale = new Vector3(pop, pop, pop);
                 yield return null;
             }
 
             _defeatOwl.color = Color.white;
             owlT.localPosition = new Vector3(owlT.localPosition.x, endY, owlT.localPosition.z);
+            owlT.localScale = Vector3.one;
+
+            // Wiggle consolateur (±8°, amorti), miroir de la victoire
+            float baseZ = owlT.localEulerAngles.z;
+            for (int w = 0; w < 2; w++)
+            {
+                float wElapsed = 0f;
+                const float wDuration = 0.4f;
+                while (wElapsed < wDuration)
+                {
+                    wElapsed += Time.unscaledDeltaTime;
+                    float angle = Mathf.Sin(Mathf.Clamp01(wElapsed / wDuration) * Mathf.PI * 2f) * 8f * (1f - w * 0.5f);
+                    owlT.localRotation = Quaternion.Euler(0f, 0f, angle);
+                    yield return null;
+                }
+            }
+            owlT.localRotation = Quaternion.Euler(0f, 0f, baseZ);
+        }
+
+        /// <summary>
+        /// Pulse doré du bouton pub vedette (±3% en boucle, comme l'indice).
+        /// </summary>
+        private void StartDefeatPubPulse()
+        {
+            StopDefeatPubPulse();
+            if (_defaitePubGO != null && _defaitePubGO.activeSelf)
+                _defaitePubPulseRoutine = StartCoroutine(DefeatPubPulseRoutine());
+        }
+
+        private void StopDefeatPubPulse()
+        {
+            if (_defaitePubPulseRoutine != null)
+            {
+                StopCoroutine(_defaitePubPulseRoutine);
+                _defaitePubPulseRoutine = null;
+            }
+            if (_defaitePubGO != null && _defaitePopRoutine == null)
+                _defaitePubGO.transform.localScale = Vector3.one;
+        }
+
+        private IEnumerator DefeatPubPulseRoutine()
+        {
+            while (true)
+            {
+                float s = 1f + Mathf.Sin(Time.unscaledTime * 3f) * 0.03f;
+                if (_defaitePubGO != null)
+                    _defaitePubGO.transform.localScale = new Vector3(s, s, s);
+                yield return null;
+            }
         }
 
         private IEnumerator LivesTimerRoutine()
@@ -1570,24 +1952,129 @@ namespace Zoologic
                 if (_livesTimerText != null)
                 {
                     if (secs <= 0) _livesTimerText.text = LocalizationManager.Get("hud.full_lives");
-                    else _livesTimerText.text = LocalizationManager.Get("hud.next_life", secs / 60, secs % 60);
+                    else _livesTimerText.text = LocalizationManager.Get("hud.next_heart", secs / 60, secs % 60);
                 }
+                RefreshDefaiteButtons();
+                RefreshDefaiteHearts();
                 if (LivesManager.GetStoredLives() >= LivesManager.MaxVies) yield break;
                 yield return new WaitForSecondsRealtime(1f);
             }
         }
 
+        /// <summary>
+        /// Rafraîchit toute la modale d'échec (boutons + jauge) après un achat de vie.
+        /// </summary>
+        public void RefreshDefeatState()
+        {
+            RefreshDefaiteButtons();
+            RefreshDefaiteHearts();
+        }
+
+        /// <summary>
+        /// Jauge jeu : coeurs remplis selon le stock + barre de progression de regen.
+        /// </summary>
+        private void RefreshDefaiteHearts()
+        {
+            if (_defaitePanel == null || !_defaitePanel.activeSelf)
+                return;
+            int vies = LivesManager.GetStoredLives();
+            for (int i = 0; i < _defaiteHearts.Length; i++)
+            {
+                if (_defaiteHearts[i] != null)
+                    _defaiteHearts[i].color = i < vies ? Color.white : HeartEmptyColor;
+            }
+            if (_defaiteRegenFill != null)
+            {
+                float p = vies >= LivesManager.MaxVies ? 1f : LivesManager.GetRegenProgress();
+                var r = _defaiteRegenFill.rectTransform;
+                r.anchorMax = new Vector2(Mathf.Clamp01(p), 1f);
+            }
+        }
+
+        /// <summary>
+        /// P0 echec : à 0 vie la pub devient le CTA utile et Réessayer est grisé
+        /// (il ne peut pas aboutir sans vie). Titre dynamique selon l'état.
+        /// Appelée à l'ouverture et à chaque tick du timer de vies.
+        /// </summary>
+        private void RefreshDefaiteButtons()
+        {
+            if (_defaitePanel == null || !_defaitePanel.activeSelf)
+                return;
+            int vies = LivesManager.GetStoredLives();
+            bool canRetry = vies > 0;
+            if (_defaiteTitreText != null)
+                _defaiteTitreText.text = LocalizationManager.Get("hud.fail_cheer");
+            if (_defaiteRetryBtn != null)
+                _defaiteRetryBtn.interactable = canRetry;
+            if (_defaiteRetryText != null)
+                _defaiteRetryText.text = LocalizationManager.Get(canRetry ? "hud.retry" : "hud.retry_locked");
+            if (_defaiteBuyBtn != null)
+                _defaiteBuyBtn.interactable = vies < LivesManager.MaxVies
+                    && CurrencyManager.HasCoins(PuzzleGameController.ViePayanteCout);
+            if (_defaiteBuyText != null)
+                _defaiteBuyText.text = LocalizationManager.Get("hud.buy_life", PuzzleGameController.ViePayanteCout);
+        }
+
+        /// <summary>
+        /// Indice affiché : toast qui désigne la case dorée (sinon l'anneau seul
+        /// passe inaperçu alors que l'indice est consommé).
+        /// </summary>
+        public void NotifierIndiceAffiche()
+        {
+            ShowCoinToast(LocalizationManager.Get("hud.hint_look"));
+            Haptics.VibrateLight();
+        }
+
+        /// <summary>
+        /// Conflit expliqué : nomme la règle violée (toast bien visible).
+        /// </summary>
+        public void NotifierConflit(Zoologic.Core.ConflictType type)
+        {
+            string key = type switch
+            {
+                Zoologic.Core.ConflictType.Row => "conflict.row",
+                Zoologic.Core.ConflictType.Column => "conflict.column",
+                Zoologic.Core.ConflictType.Zone => "conflict.zone",
+                _ => "conflict.diagonal",
+            };
+            ShowCoinToast(LocalizationManager.Get(key));
+            Haptics.VibrateLight();
+        }
+
+        /// <summary>
+        /// La pub rewarded a échoué ou n'est pas prête : message dédié
+        /// (pas le toast "pièces insuffisantes" prévu pour la boutique d'indices).
+        /// </summary>
+        public void NotifierPubIndisponible()
+        {
+            ShowCoinToast(LocalizationManager.Get("hud.ad_failed"));
+            Haptics.VibrateLight();
+        }
+
         public void CacherDefaite()
         {
+            StopDefeatPubPulse();
+            if (_defaitePopRoutine != null)
+            {
+                StopCoroutine(_defaitePopRoutine);
+                _defaitePopRoutine = null;
+            }
             if (_overlay != null)
                 _overlay.SetActive(false);
             if (_defaitePanel != null)
+            {
+                _defaitePanel.transform.localScale = Vector3.one;
+                foreach (Transform child in _defaitePanel.transform)
+                    child.localScale = Vector3.one;
                 _defaitePanel.SetActive(false);
+            }
 
             if (_defeatOwl != null)
             {
                 _defeatOwl.color = new Color(1f, 1f, 1f, 0f);
                 _defeatOwl.transform.localPosition = Vector3.zero;
+                _defeatOwl.transform.localScale = Vector3.one;
+                _defeatOwl.transform.localRotation = Quaternion.Euler(0f, 0f, -12f);
             }
 
             if (_livesTimerRoutine != null)

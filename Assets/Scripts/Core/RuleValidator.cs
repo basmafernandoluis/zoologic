@@ -103,6 +103,34 @@ namespace Zoologic.Core
         }
 
         /// <summary>
+        /// Positions des pions existants en conflit avec la case (row, col),
+        /// pour mettre en valeur la paire fautive (pas tout le plateau).
+        /// </summary>
+        public static List<(int row, int col)> GetConflictingCells(PuzzleGrid grid, int row, int col)
+        {
+            var cells = new List<(int row, int col)>();
+            if (grid == null)
+                return cells;
+            if (row < 0 || row >= grid.Size || col < 0 || col >= grid.Size)
+                return cells;
+
+            int zoneNouvelle = grid.GetRegionId(row, col);
+            foreach (var (pionRow, pionCol) in grid.Pions)
+            {
+                if (pionRow == row && pionCol == col)
+                    continue;
+                if (pionRow == row
+                    || pionCol == col
+                    || grid.GetRegionId(pionRow, pionCol) == zoneNouvelle
+                    || EstAdjacentEnDiagonale(pionRow, pionCol, row, col))
+                {
+                    cells.Add((pionRow, pionCol));
+                }
+            }
+            return cells;
+        }
+
+        /// <summary>
         /// Vérifie que la grille est résolue : chaque zone contient exactement un pion,
         /// et aucune paire de pions ne viole les règles de placement.
         /// </summary>

@@ -7,7 +7,7 @@ namespace Zoologic
     {
         public const int ViesDepart = 3;
         public const int MaxVies = 3;
-        public const int RegenSeconds = 900;
+        public const int RegenSeconds = 300;
 
         private const string LivesKey = "player_lives";
         private const string LastLostKey = "lives_last_lost_ticks";
@@ -127,8 +127,31 @@ namespace Zoologic
             if (string.IsNullOrEmpty(lastStr) || !long.TryParse(lastStr, out long ticks)) return RegenSeconds;
             DateTime last = new DateTime(ticks, DateTimeKind.Local);
             double elapsed = (DateTime.Now - last).TotalSeconds;
+            // Clés écrites par un ancien tuning (ex. 20 min) ou horloge modifiée :
+            // on ne rend jamais plus que RegenSeconds et on purge les valeurs aberrantes.
+            if (elapsed < 0 || elapsed > RegenSeconds * MaxVies * 4)
+            {
+                PlayerPrefs.SetString(LastLostKey, DateTime.Now.Ticks.ToString());
+                PlayerPrefs.Save();
+                return RegenSeconds;
+            }
             int remaining = RegenSeconds - (int)(elapsed % RegenSeconds);
-            return Mathf.Clamp(remaining, 0, RegenSeconds);
+            return Mathf.Clamp(remaining, 1, RegenSeconds);
+        }
+
+        /// <summary>
+        /// Progression 0..1 vers la prochaine vie (pour la barre de regen de la modale d'échec).
+        /// 1 si vies pleines, 0 si aucune référence temporelle.
+        /// </summary>
+        public static float GetRegenProgress()
+        {
+            int stored = PlayerPrefs.GetInt(LivesKey, ViesDepart);
+            if (stored >= MaxVies) return 1f;
+            string lastStr = PlayerPrefs.GetString(LastLostKey, "");
+            if (string.IsNullOrEmpty(lastStr) || !long.TryParse(lastStr, out long ticks)) return 0f;
+            double elapsed = (DateTime.Now - new DateTime(ticks, DateTimeKind.Local)).TotalSeconds;
+            if (elapsed < 0) return 0f;
+            return Mathf.Clamp01((float)((elapsed % RegenSeconds) / RegenSeconds));
         }
 
         public static void DebugReset()

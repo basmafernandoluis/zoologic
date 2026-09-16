@@ -98,6 +98,7 @@ namespace Zoologic
             _instance._musicSource = musicGO.AddComponent<AudioSource>();
             _instance._musicSource.playOnAwake = false;
             _instance._musicSource.loop = true;
+            _instance._musicSource.spatialBlend = 0f;
             _instance._musicSource.volume = 0.5f;
             _instance._musicEnabled = PlayerPrefs.GetInt(MusicEnabledKey, 1) == 1;
             _instance._musicSource.mute = !_instance._musicEnabled;
@@ -132,15 +133,38 @@ namespace Zoologic
             if (_musicSource == null) return;
             if (_music == null)
                 _music = Load("Music");
-            if (_music == null) return;
+            if (_music == null)
+            {
+                Debug.LogWarning("[SFX] Ambiance introuvable : Resources/Sounds/Music");
+                return;
+            }
 
             if (_musicSource.clip != _music)
             {
                 _musicSource.clip = _music;
                 _musicSource.time = 0f;
             }
-            if (_musicEnabled)
+            if (_musicEnabled && !_musicSource.isPlaying)
+            {
+                _musicSource.volume = 0f;
                 _musicSource.Play();
+                _instance.StartCoroutine(FadeMusicRoutine(0.5f, 1.5f));
+                Debug.Log("[SFX] Ambiance démarrée : " + _music.name + " (" + _music.length.ToString("F1") + "s)");
+            }
+        }
+
+        private System.Collections.IEnumerator FadeMusicRoutine(float target, float duration)
+        {
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                if (_musicSource == null) yield break;
+                elapsed += Time.unscaledDeltaTime;
+                _musicSource.volume = Mathf.Lerp(0f, target, Mathf.Clamp01(elapsed / duration));
+                yield return null;
+            }
+            if (_musicSource != null)
+                _musicSource.volume = target;
         }
 
         /// <summary>Met la musique en pause (fin de partie, menus), sans l'arrêter.</summary>

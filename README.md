@@ -114,7 +114,7 @@ Les valeurs "New" ou "Both" causent des `NullReferenceException` sur Android car
 - [ ] Vérification visuelle finale des améliorations (HUD, Levels, Settings) dans l'éditeur
 - [ ] Build APK + test sur appareil physique (confettis, shake, transitions, indice, score, HUD responsive)
 - [ ] Icônes et splash screen Android à finaliser
-- [ ] Intégration AdMob (rewarded + interstitial)
+- [x] Intégration AdMob (rewarded + interstitial/4 victoires, IDs prod via build AAB, UMP/GDPR 6+, zéro pub -5 ans)
 - [x] Renommage définitif du projet (Zoodoku → Zoo Logic)
 - [ ] Sauvegarde cloud / Google Play Games
 - [ ] Sons musicaux d'ambiance
@@ -146,6 +146,6 @@ Tools > Zoo Logic > Build Android AAB   # App Bundle (Google Play Store)
 dans `BuildAPK.cs`). Play Store rejette les AAB signés avec la clé debug — ne
 pas retirer ce keystore.
 
-**Icône & splash** : l'icône (`Assets/myicon.jpg`, 512×512) et le splash
+**Icône & splash** : l'icône (`Assets/myicon.png`, 1024×1024) et le splash
 Android (`Assets/Resources/UI/splash_android.png`, 1080×1920) sont appliqués
 automatiquement au build (menu `Tools > Zoo Logic > Apply App Icon`).

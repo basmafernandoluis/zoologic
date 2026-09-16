@@ -107,5 +107,50 @@ namespace Zoologic
 
             return copy;
         }
+
+        private static Sprite[] _flatFaces;
+
+        /// <summary>
+        /// Têtes plates (skin Flat) depuis Resources/Art/Animals, triées par nom.
+        /// </summary>
+        public static Sprite[] LoadFlatFaces()
+        {
+            if (_flatFaces != null)
+                return _flatFaces;
+
+            var all = Resources.LoadAll<Sprite>("Art/Animals");
+            var list = new System.Collections.Generic.List<Sprite>();
+            if (all != null)
+            {
+                for (int i = 0; i < all.Length; i++)
+                {
+                    if (all[i] != null)
+                        list.Add(all[i]);
+                }
+                list.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
+            }
+            _flatFaces = list.ToArray();
+            if (_flatFaces.Length == 0)
+                Debug.LogWarning("[Zoologic] AnimalIconSet : aucune tête flat dans Art/Animals.");
+            return _flatFaces;
+        }
+
+        /// <summary>Version mélangée des têtes plates (même contrat que GetShuffled).</summary>
+        public static Sprite[] GetShuffledFlat()
+        {
+            Sprite[] icons = LoadFlatFaces();
+            var copy = new Sprite[icons.Length];
+            Array.Copy(icons, copy, icons.Length);
+
+            for (int i = copy.Length - 1; i > 0; i--)
+            {
+                int j = UnityEngine.Random.Range(0, i + 1);
+                Sprite temp = copy[i];
+                copy[i] = copy[j];
+                copy[j] = temp;
+            }
+
+            return copy;
+        }
     }
 }

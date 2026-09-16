@@ -49,6 +49,11 @@ namespace Zoologic
         // Victory panel elements
         private GameObject _victoryRoot;
         private GameObject _victoryPanel;
+        private GameObject _victoryPerfectBadge;
+        private bool _victoryPerfect;
+        private GameObject _victoryGlow;
+        private Coroutine _victoryGlowRoutine;
+        private static Sprite _radialGlowSprite;
         private TextMeshProUGUI _victoryText;
         private TextMeshProUGUI _victoryLevelText;
         private TextMeshProUGUI _victoryCoinText;
@@ -68,9 +73,13 @@ namespace Zoologic
         private const int ScorePenaliteConflit = 15;
         private int _totalPenaliteCumul;
 
-        // Économie : récompense en pièces à la victoire.
-        private const int CoinBaseReward = 40;
-        private const int CoinStarBonus = 10;
+        // Économie : récompense en pièces à la victoire (resserrée pour
+        // garder les power-ups significatifs : ~1 victoire = 1 indice).
+        private const int CoinBaseReward = 10;
+        private const int CoinStarBonus = 5;
+
+        // Bonus du niveau parfait (0 conflit + coups == taille) : ~1 gomme offerte.
+        private const int PerfectBonus = 10;
 
         // Économie : coût d'un indice acheté lorsque les indices gratuits sont épuisés.
         public const int IndiceCout = 20;
@@ -78,18 +87,22 @@ namespace Zoologic
         // Économie : coût du power-up « gomme » (retire tous les pions en conflit).
         public const int GommeCout = 30;
 
+        // Économie : achat dépannage d'1 vie dans la modale d'échec. Volontairement
+        // cher (~4-5 victoires) pour que la pub rewarded (+3 vies gratuites)
+        // reste le meilleur choix (AdMob garde son importance).
+        public const int ViePayanteCout = 100;
+
         // Recharge (s) après usage de la gomme avant de pouvoir la racheter.
         private const float GommeRecharge = 1.2f;
 
-        // Double-tap detection
-        private const float DoubleTapWindow = 0.3f;
-        private float _lastTapTime;
-        private int _lastTapRow = -1;
-        private int _lastTapCol = -1;
-        private Coroutine _pendingSingleTapRoutine;
+        // Drag & drop (barre d'animaux + déplacement / retrait des pions).
+        private BoardDragController _drag;
 
         // Compteur d'erreurs pour le calcul des étoiles.
         private int _conflictsThisLevel;
+
+        // Compteur de coups (poses + déplacements) pour l'objectif parfait.
+        private int _moveCount;
 
         // Fond d'écran : dégradé vertical chaud (crème → pêche pâle).
         private static readonly Color OverlayColor = new Color(0f, 0f, 0f, 0.55f);
@@ -121,6 +134,7 @@ namespace Zoologic
             PreloadGameplaySprites();
             _numeroNiveau = SelectedLevel;
             _conflictsThisLevel = 0;
+            _moveCount = 0;
             _totalPenaliteCumul = 0;
 
             SFXManager.Instance.ResumeMusic();
@@ -147,6 +161,7 @@ namespace Zoologic
                 _hud.OnIndiceDemande = DemanderIndice;
                 _hud.OnGommeDemande = UtiliserGomme;
                 _hud.OnPubViesDemande = HandlePubVies;
+                _hud.OnViePayanteDemande = HandleAchatVie;
             }
             catch (System.Exception e)
             {
@@ -175,6 +190,7 @@ namespace Zoologic
 
                 _hud.SetProgression(_grid.Pions.Count, _grid.Size);
                 ReorderCanvasHierarchy(canvas);
+                SetupDragAndDrop(canvas);
             }
             catch (System.Exception e)
             {
@@ -183,7 +199,7 @@ namespace Zoologic
 
             try
             {
-                _hud.CreerPanneauDefaite(canvas);
+                _hud.CreerPanneauDefaite(canvas, _numeroNiveau, IsDailyPuzzle);
             }
             catch (System.Exception e)
             {
@@ -384,58 +400,16 @@ namespace Zoologic
         }
 
         // ------------------------------------------------------------------
-        // Interactions — détection double-tap.
+        // Interactions — tap = X brouillon, drag = poser / déplacer / retirer.
         // ------------------------------------------------------------------
-
-        private void HandleCellTapped(int row, int col)
-        {
-            if (_partieTerminee)
-                return;
-
-            float now = Time.unscaledTime;
-            bool isDoubleTap = _lastTapRow == row && _lastTapCol == col
-                && (now - _lastTapTime) < DoubleTapWindow;
-
-            if (isDoubleTap)
-            {
-                // Double-tap : annule le tap simple en attente et exécute l'action pion.
-                if (_pendingSingleTapRoutine != null)
-                {
-                    StopCoroutine(_pendingSingleTapRoutine);
-                    _pendingSingleTapRoutine = null;
-                }
-
-                PerformDoubleTapAction(row, col);
-                _lastTapRow = -1;
-                _lastTapCol = -1;
-            }
-            else
-            {
-                // Premier tap : lance un délai avant d'exécuter l'action simple (X).
-                _lastTapTime = now;
-                _lastTapRow = row;
-                _lastTapCol = col;
-
-                if (_pendingSingleTapRoutine != null)
-                    StopCoroutine(_pendingSingleTapRoutine);
-                _pendingSingleTapRoutine = StartCoroutine(DelayedSingleTap(row, col));
-            }
-        }
-
-        private IEnumerator DelayedSingleTap(int row, int col)
-        {
-            yield return new WaitForSecondsRealtime(DoubleTapWindow);
-            _pendingSingleTapRoutine = null;
-            PerformSingleTapAction(row, col);
-        }
 
         /// <summary>
         /// Tap simple : toggule un X sur la case (note brouillon).
         /// Aucun conflit/score/vie n'est vérifié.
         /// </summary>
-        private void PerformSingleTapAction(int row, int col)
+        private void HandleCellTapped(int row, int col)
         {
-            if (_partieTerminee)
+            if (_partieTerminee || _victoryShown)
                 return;
 
             // Si la case contient un pion, l'animal "réagit" d'un petit rebond.
@@ -453,37 +427,62 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Double-tap : place ou retire un pion.
-        /// Vérifie les conflits, le score et les victoires uniquement ici.
+        /// Pose un pion (drop depuis la barre). Conflits, score et victoire ici.
         /// </summary>
-        private void PerformDoubleTapAction(int row, int col)
+        private void PlacePionAt(int row, int col, bool countMission = true)
         {
-            if (_partieTerminee)
+            if (_partieTerminee || _victoryShown || _grid.HasPion(row, col))
                 return;
-
-            if (_grid.HasPion(row, col))
-            {
-                _grid.RemovePion(row, col);
-                _gridView.SetPion(row, col, false);
-
-                SFXManager.Instance.PlayClickedOut();
-
-                _hud.SetProgression(_grid.Pions.Count, _grid.Size);
-                ReevaluerConflits();
-                UpdateVictoryVisibility();
-                return;
-            }
 
             _grid.PlacePion(row, col);
             _xMarks[row, col] = false;
             _gridView.SetPion(row, col, true);
             _gridView.SetX(row, col, false);
 
+            _moveCount++;
             _hud.SetProgression(_grid.Pions.Count, _grid.Size);
-            MissionManager.AddProgress(MissionType.PlaceAnimals, 1);
+            _hud.SetMoves(_moveCount);
+            _hud.UpdateTrayCount(_grid.Size - _grid.Pions.Count);
+            if (countMission)
+                MissionManager.AddProgress(MissionType.PlaceAnimals, 1);
             VerifierConflitPlacement(row, col);
-            FlashAllConflicts();
+            RefreshConflicts();
             UpdateVictoryVisibility();
+        }
+
+        /// <summary>
+        /// Retire un pion (drop hors plateau).
+        /// </summary>
+        private void RemovePionAt(int row, int col)
+        {
+            if (_partieTerminee || _victoryShown || !_grid.HasPion(row, col))
+                return;
+
+            _grid.RemovePion(row, col);
+            _gridView.SetPion(row, col, false);
+
+            SFXManager.Instance.PlayClickedOut();
+
+            _hud.SetProgression(_grid.Pions.Count, _grid.Size);
+            _hud.UpdateTrayCount(_grid.Size - _grid.Pions.Count);
+            ReevaluerConflits();
+            RefreshConflicts();
+            UpdateVictoryVisibility();
+        }
+
+        /// <summary>
+        /// Déplace un pion (drag pion → autre case libre). Une seule évaluation.
+        /// </summary>
+        private void MovePionAt(int fromRow, int fromCol, int toRow, int toCol)
+        {
+            if (_partieTerminee || _victoryShown)
+                return;
+            if (!_grid.HasPion(fromRow, fromCol) || _grid.HasPion(toRow, toCol))
+                return;
+
+            _grid.RemovePion(fromRow, fromCol);
+            _gridView.SetPion(fromRow, fromCol, false);
+            PlacePionAt(toRow, toCol, countMission: false);
         }
 
         private void DemanderIndice()
@@ -504,6 +503,8 @@ namespace Zoologic
 
             if (!success)
                 return;
+
+            _hud.NotifierIndiceAffiche();
 
             if (!purchaseMode)
             {
@@ -572,9 +573,11 @@ namespace Zoologic
             }
 
             _hud.SetProgression(_grid.Pions.Count, _grid.Size);
+            _hud.UpdateTrayCount(_grid.Size - _grid.Pions.Count);
             MissionManager.AddProgress(MissionType.UseEraser, 1);
             _gridView.ShakeBoard(20f, 0.3f);
             _hud.BloquerPowerUpTemporairement(GommeRecharge);
+            RefreshConflicts();
             UpdateVictoryVisibility();
         }
 
@@ -592,8 +595,30 @@ namespace Zoologic
                 _hud.BloquerInteractions(false);
                 SFXManager.Instance.PlayUnlock();
             };
-            if (admob != null) admob.ShowRewarded(grant);
-            else grant();
+            // Families: no reward without a real ad view.
+            if (admob != null && admob.IsRewardedReady()) admob.ShowRewarded(grant, () => _hud.NotifierPubIndisponible());
+            else _hud.NotifierPubIndisponible();
+        }
+
+        /// <summary>
+        /// Achat dépannage : 1 vie contre des pièces (modale d'échec). La modale
+        /// reste ouverte : Réessayer se réactive et le joueur peut retenter.
+        /// </summary>
+        private void HandleAchatVie()
+        {
+            if (_livesManager == null || _hud == null) return;
+            if (_livesManager.Vies >= LivesManager.MaxVies) return;
+            if (!CurrencyManager.SpendCoins(ViePayanteCout))
+            {
+                _hud.NotifierPiecesInsuffisantes(ViePayanteCout);
+                return;
+            }
+            _livesManager.AjouterVies(1);
+            _hud.SetVies(_livesManager.Vies);
+            _hud.RefreshCoins();
+            _hud.RefreshDefeatState();
+            SFXManager.Instance.PlayUnlock();
+            Haptics.VibrateLight();
         }
 
         // ------------------------------------------------------------------
@@ -620,6 +645,14 @@ namespace Zoologic
 
             _gridView.ShakeBoard(26f, 0.35f);
 
+            // Explication : nomme la règle violée et ne flash que la paire
+            // fautive (nouveau pion + adversaires), pas tout le plateau.
+            _hud.NotifierConflit(conflits[0]);
+            _gridView.FlashConflict(row, col);
+            foreach (var (r, c) in RuleValidator.GetConflictingCells(_grid, row, col))
+                _gridView.FlashConflict(r, c);
+            Haptics.VibrateLight();
+
             int nouveauScore = Mathf.Max(0, ScoreDepart - _totalPenaliteCumul * ScorePenaliteConflit);
             _hud.SetScore(nouveauScore);
         }
@@ -628,6 +661,29 @@ namespace Zoologic
         {
             int nouveauScore = Mathf.Max(0, ScoreDepart - _totalPenaliteCumul * ScorePenaliteConflit);
             _hud.SetScore(nouveauScore);
+        }
+
+        /// <summary>
+        /// Recalcule les anneaux de conflit persistants après une mutation.
+        /// </summary>
+        private void RefreshConflicts()
+        {
+            if (_grid == null || _gridView == null)
+                return;
+            var set = new HashSet<(int row, int col)>();
+            var pions = new List<(int row, int col)>(_grid.Pions);
+            for (int i = 0; i < pions.Count; i++)
+            {
+                for (int j = i + 1; j < pions.Count; j++)
+                {
+                    if (SontEnConflit(pions[i], pions[j]))
+                    {
+                        set.Add(pions[i]);
+                        set.Add(pions[j]);
+                    }
+                }
+            }
+            _gridView.RefreshConflictMarks(set);
         }
 
         private int CompterPionsEnConflit(List<(int row, int col)> pions)
@@ -685,8 +741,69 @@ namespace Zoologic
         // Défaite / Réinitialisation.
         // ------------------------------------------------------------------
 
+        /// <summary>
+        /// Câble le drag &amp; drop : barre d'animaux, déplacement et retrait des pions.
+        /// </summary>
+        private void SetupDragAndDrop(Canvas canvas)
+        {
+            if (_drag == null)
+                _drag = BoardDragController.Create(canvas, _gridView);
+            else
+                _drag.SetGridView(_gridView);
+
+            _drag.CanPlaceAt = (r, c) => !_grid.HasPion(r, c);
+            _drag.OnTrayDropOnCell = (r, c) =>
+            {
+                if (_partieTerminee || _victoryShown) { _drag.Cancel(); return; }
+                PlacePionAt(r, c);
+            };
+            _drag.OnTrayDropInvalid = (r, c) =>
+            {
+                _gridView.ShakeBoard(12f, 0.2f);
+                SFXManager.Instance.PlayDialogueBlip();
+            };
+            _drag.OnPawnMove = (fr, fc, tr, tc) =>
+            {
+                if (_partieTerminee || _victoryShown) { _drag.Cancel(); return; }
+                MovePionAt(fr, fc, tr, tc);
+            };
+            _drag.OnPawnDropInvalid = (r, c) =>
+            {
+                _gridView.FlashConflict(r, c);
+                Haptics.VibrateLight();
+            };
+            _drag.OnPawnDropOutside = (r, c) =>
+            {
+                if (_partieTerminee || _victoryShown) { _drag.Cancel(); return; }
+                RemovePionAt(r, c);
+            };
+            _gridView.OnPawnDragStart = (r, c, e) =>
+            {
+                if (_partieTerminee || _victoryShown)
+                    return;
+                _drag.BeginPawnDrag(r, c, _gridView.GetPawnSprite(r, c), e.pointerId);
+                _drag.UpdateDrag(e.pointerId, e.position);
+            };
+            _gridView.OnPawnDrag = (r, c, e) =>
+            {
+                if (_drag == null || !_drag.IsDragging)
+                    return;
+                _drag.UpdateDrag(e.pointerId, e.position);
+            };
+            _gridView.OnPawnDragEnd = (r, c, e) =>
+            {
+                if (_drag == null || !_drag.IsDragging)
+                    return;
+                _drag.EndDrag(e.pointerId, e.position);
+            };
+            if (_hud != null)
+                _hud.RebuildAnimalTray(_gridView.GetZoneAnimalSprites(), _drag);
+        }
+
         private void GererPartiePerdue()
         {
+            if (_drag != null)
+                _drag.Cancel();
             _partieTerminee = true;
             SFXManager.Instance.PauseMusic();
             _hud.BloquerInteractions(true);
@@ -704,13 +821,19 @@ namespace Zoologic
             _partieTerminee = false;
             SFXManager.Instance.ResumeMusic();
             _conflictsThisLevel = 0;
+            _moveCount = 0;
             _totalPenaliteCumul = 0;
+            if (_drag != null)
+                _drag.Cancel();
             _hud.CacherDefaite();
             HideVictory();
 
             int livesForRetry = LivesManager.GetStoredLives();
             _hud.Reinitialiser(ScoreDepart, livesForRetry, _hud.IndiceCount);
             _hud.SetProgression(0, _grid.Size);
+            _hud.SetMoves(0);
+            _hud.UpdateTrayCount(_grid.Size);
+            RefreshConflicts();
 
             _grid.Clear();
             for (int row = 0; row < _grid.Size; row++)
@@ -747,6 +870,7 @@ namespace Zoologic
         {
             SFXManager.Instance.PauseMusic();
             SFXManager.Instance.PlaySuccess();
+            _victoryPerfect = false;
 
             if (IsDailyPuzzle)
             {
@@ -754,9 +878,11 @@ namespace Zoologic
                 _victoryCoinReward = DailyPuzzleManager.RewardCoins;
                 if (!DailyPuzzleManager.IsCompletedToday())
                 {
-                    CurrencyManager.AddCoins(DailyPuzzleManager.RewardCoins);
                     DailyPuzzleManager.MarkCompletedToday();
+                    int total = DailyPuzzleManager.RewardCoins + DailyPuzzleManager.GetStreakBonus();
+                    CurrencyManager.AddCoins(total);
                     _hud.RefreshCoins();
+                    _victoryCoinReward = total;
                 }
             }
             else
@@ -771,23 +897,85 @@ namespace Zoologic
                 MissionManager.AddProgress(MissionType.EarnStars, stars);
 
                 int coinReward = CoinBaseReward + stars * CoinStarBonus;
+                // Niveau parfait : 0 conflit + autant de coups que de cases.
+                _victoryPerfect = _conflictsThisLevel == 0 && _moveCount == _grid.Size;
+                if (_victoryPerfect)
+                    coinReward += PerfectBonus;
                 CurrencyManager.AddCoins(coinReward);
                 _hud.RefreshCoins();
                 _victoryStarsEarned = stars;
                 _victoryCoinReward = coinReward;
             }
+
             if (_victoryLevelText != null)
                 _victoryLevelText.text = IsDailyPuzzle ? Zoologic.Localization.LocalizationManager.Get("victory.daily_badge") : Zoologic.Localization.LocalizationManager.Get("victory.level_badge", _numeroNiveau);
             if (_victoryText != null)
                 _victoryText.text = IsDailyPuzzle ? Zoologic.Localization.LocalizationManager.Get("victory.daily_title") : Zoologic.Localization.LocalizationManager.Get("victory.title");
 
+            if (_drag != null)
+                _drag.Cancel();
+
+            if (_victoryPerfectBadge != null)
+                _victoryPerfectBadge.SetActive(_victoryPerfect);
+
             Canvas canvas = FindFirstObjectByType<Canvas>();
             if (canvas != null)
-                ConfettiHelper.Burst(this, canvas, 70);
+                ConfettiHelper.Burst(this, canvas, _victoryPerfect ? 140 : 70);
+            if (_victoryPerfect)
+                Haptics.VibrateStrong();
 
             if (_victoryAnimation != null)
                 StopCoroutine(_victoryAnimation);
             _victoryAnimation = StartCoroutine(VictoryAnimationRoutine());
+            if (_victoryGlowRoutine != null)
+                StopCoroutine(_victoryGlowRoutine);
+            _victoryGlowRoutine = StartCoroutine(VictoryGlowRoutine());
+        }
+
+        /// <summary>Halo doré pulsé tant que la victoire est affichée.</summary>
+        private IEnumerator VictoryGlowRoutine()
+        {
+            while (true)
+            {
+                if (_victoryGlow == null)
+                    yield break;
+                float t = (Mathf.Sin(Time.unscaledTime * 2.2f) + 1f) * 0.5f;
+                var img = _victoryGlow.GetComponent<Image>();
+                if (img != null)
+                    img.color = new Color(1f, 0.85f, 0.35f, Mathf.Lerp(0.28f, 0.45f, t));
+                float rot = _victoryGlow.transform.localEulerAngles.z + Time.unscaledDeltaTime * 8f;
+                _victoryGlow.transform.localRotation = Quaternion.Euler(0f, 0f, rot);
+                float s = 1f + Mathf.Sin(Time.unscaledTime * 2.2f) * 0.03f;
+                _victoryGlow.transform.localScale = new Vector3(s, s, s);
+                yield return null;
+            }
+        }
+
+        /// <summary>Dégradé radial blanc (teinté doré à l'usage) pour le halo.</summary>
+        private static Sprite GetRadialGlowSprite()
+        {
+            if (_radialGlowSprite != null)
+                return _radialGlowSprite;
+            const int res = 256;
+            var tex = new Texture2D(res, res, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+            float center = (res - 1) * 0.5f;
+            float radius = res * 0.5f;
+            for (int y = 0; y < res; y++)
+            {
+                for (int x = 0; x < res; x++)
+                {
+                    float dx = (x - center) / radius;
+                    float dy = (y - center) / radius;
+                    float d = Mathf.Clamp01(Mathf.Sqrt(dx * dx + dy * dy));
+                    float a = (1f - d) * (1f - d);
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+                }
+            }
+            tex.Apply();
+            _radialGlowSprite = Sprite.Create(tex, new Rect(0f, 0f, res, res), new Vector2(0.5f, 0.5f));
+            return _radialGlowSprite;
         }
 
         private void HideVictory()
@@ -796,6 +984,11 @@ namespace Zoologic
             {
                 StopCoroutine(_victoryAnimation);
                 _victoryAnimation = null;
+            }
+            if (_victoryGlowRoutine != null)
+            {
+                StopCoroutine(_victoryGlowRoutine);
+                _victoryGlowRoutine = null;
             }
 
             if (_victoryRoot != null)
@@ -816,10 +1009,19 @@ namespace Zoologic
                 if (_victoryStarRoots[i] != null)
                     _victoryStarRoots[i].SetActive(false);
                 if (_victoryStars[i] != null)
-                    _victoryStars[i].color = new Color(0.80f, 0.80f, 0.82f, 0.55f);
+                {
+                    _victoryStars[i].sprite = GridView.StarGrey;
+                    _victoryStars[i].color = Color.white;
+                }
             }
             if (_victoryCoinText != null)
                 _victoryCoinText.text = "+0";
+            if (_victoryPerfectBadge != null)
+            {
+                _victoryPerfectBadge.transform.localScale = Vector3.one;
+                _victoryPerfectBadge.SetActive(false);
+            }
+            _victoryPerfect = false;
             if (_victoryPanel != null)
                 _victoryPanel.transform.localScale = Vector3.one;
 
@@ -842,10 +1044,11 @@ namespace Zoologic
             Haptics.VibrateStrong();
             Canvas canvasFx = FindFirstObjectByType<Canvas>();
             if (canvasFx != null)
-                ConfettiHelper.Burst(this, canvasFx, 120);
+                ConfettiHelper.Burst(this, canvasFx, _victoryPerfect ? 200 : 120);
 
             if (_victoryRoot != null)
                 _victoryRoot.SetActive(true);
+            Zoologic.Localization.LocalizationManager.ApplyFontsToScene();
             if (_victoryPanel != null)
             {
                 _victoryPanel.transform.localScale = Vector3.zero;
@@ -908,9 +1111,29 @@ namespace Zoologic
                 {
                     _victoryStarRoots[i].SetActive(true);
                     _victoryStarRoots[i].transform.localScale = Vector3.one * 0.85f;
-                    _victoryStars[i].color = new Color(0.80f, 0.80f, 0.82f, 0.55f);
+                    _victoryStars[i].sprite = GridView.StarGrey;
+                    _victoryStars[i].color = Color.white;
                 }
                 yield return new WaitForSecondsRealtime(0.15f);
+            }
+
+            // Badge parfait : pop doré après les étoiles.
+            if (_victoryPerfect && _victoryPerfectBadge != null)
+            {
+                _victoryPerfectBadge.transform.localScale = Vector3.zero;
+                SFXManager.Instance.PlayUnlock();
+                Haptics.VibrateLight();
+                float bd = 0f;
+                while (bd < 0.3f)
+                {
+                    float bt = Mathf.Clamp01(bd / 0.3f);
+                    float bs = Easing.EaseOutBack(bt);
+                    _victoryPerfectBadge.transform.localScale = new Vector3(bs, bs, bs);
+                    bd += Time.unscaledDeltaTime;
+                    yield return null;
+                }
+                _victoryPerfectBadge.transform.localScale = Vector3.one;
+                yield return new WaitForSecondsRealtime(0.1f);
             }
 
             // Compteur de pièces animé + punch de la pilule.
@@ -996,6 +1219,9 @@ namespace Zoologic
             GameObject root = _victoryStarRoots[index];
             Image img = _victoryStars[index];
 
+            Sprite gold = Resources.Load<Sprite>("UI/star");
+            if (gold != null)
+                img.sprite = gold;
             root.SetActive(true);
             root.transform.localScale = Vector3.zero;
             img.color = new Color(1f, 1f, 1f, 0f);
@@ -1195,7 +1421,7 @@ namespace Zoologic
             rootRect.offsetMax = Vector2.zero;
 
             var rootImg = _victoryRoot.GetComponent<Image>();
-            rootImg.color = new Color(0f, 0f, 0f, 0.55f);
+            rootImg.color = new Color(0.08f, 0.05f, 0.03f, 0.72f);
             rootImg.raycastTarget = true;
 
             // 2) Panneau centré blanc arrondi avec relief cartoon
@@ -1209,8 +1435,32 @@ namespace Zoologic
             panelRect.anchoredPosition = Vector2.zero;
 
             var panelImg = _victoryPanel.GetComponent<Image>();
+            if (B1UI.Bubble != null)
+            {
+                panelImg.sprite = B1UI.Bubble;
+                panelImg.type = Image.Type.Sliced;
+                panelImg.pixelsPerUnitMultiplier = 1f;
+            }
             panelImg.color = new Color(1f, 0.985f, 0.95f, 1f);
             panelImg.raycastTarget = false;
+            // Halo doré festif derrière le panneau : la victoire rayonne,
+            // le plateau en arrière-plan s'efface.
+            _victoryGlow = new GameObject("VictoryGlow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            _victoryGlow.transform.SetParent(_victoryRoot.transform, false);
+            var glowRect = _victoryGlow.GetComponent<RectTransform>();
+            glowRect.anchorMin = new Vector2(0.5f, 0.5f);
+            glowRect.anchorMax = new Vector2(0.5f, 0.5f);
+            glowRect.pivot = new Vector2(0.5f, 0.5f);
+            glowRect.sizeDelta = new Vector2(1000f, 1000f);
+            glowRect.anchoredPosition = Vector2.zero;
+            var glowImg = _victoryGlow.GetComponent<Image>();
+            glowImg.sprite = GetRadialGlowSprite();
+            glowImg.type = Image.Type.Simple;
+            glowImg.preserveAspect = true;
+            glowImg.color = new Color(1f, 0.85f, 0.35f, 0.35f);
+            glowImg.raycastTarget = false;
+            _victoryGlow.transform.SetAsFirstSibling();
+            _victoryPanel.transform.SetAsLastSibling();
             var panelShadow = _victoryPanel.AddComponent<Shadow>();
             panelShadow.effectColor = new Color(0.18f, 0.11f, 0.06f, 0.35f);
             panelShadow.effectDistance = new Vector2(0f, -12f);
@@ -1306,10 +1556,10 @@ namespace Zoologic
 
                 Image img = starObj.GetComponent<Image>();
                 if (img == null) img = starObj.AddComponent<Image>();
-                img.sprite = starSprite;
+                img.sprite = GridView.StarGrey;
                 img.type = Image.Type.Simple;
                 img.preserveAspect = true;
-                img.color = new Color(0.80f, 0.80f, 0.82f, 0.55f);
+                img.color = Color.white;
                 img.raycastTarget = false;
 
                 _victoryStars[i] = img;
@@ -1317,7 +1567,57 @@ namespace Zoologic
                 starObj.SetActive(true);
             }
 
-            // 5bis) Pilule récompense pièces sous les étoiles
+            // 5bis) Badge "PARFAIT" doré entre étoiles et pilule (caché par défaut).
+            _victoryPerfectBadge = new GameObject("PerfectBadge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            _victoryPerfectBadge.transform.SetParent(_victoryPanel.transform, false);
+            var perfectRect = _victoryPerfectBadge.GetComponent<RectTransform>();
+            perfectRect.anchorMin = new Vector2(0.5f, 0.5f);
+            perfectRect.anchorMax = new Vector2(0.5f, 0.5f);
+            perfectRect.pivot = new Vector2(0.5f, 0.5f);
+            perfectRect.sizeDelta = new Vector2(420f, 46f);
+            perfectRect.anchoredPosition = new Vector2(0f, -100f);
+            var perfectBg = _victoryPerfectBadge.GetComponent<Image>();
+            var perfectSprite = JellyUI.ButtonYellow;
+            perfectBg.sprite = perfectSprite;
+            perfectBg.type = Image.Type.Sliced;
+            perfectBg.pixelsPerUnitMultiplier = 1f;
+            var perfectContentGO = new GameObject("Content", typeof(RectTransform), typeof(CanvasRenderer));
+            perfectContentGO.transform.SetParent(_victoryPerfectBadge.transform, false);
+            var perfectContentRect = perfectContentGO.GetComponent<RectTransform>();
+            perfectContentRect.anchorMin = Vector2.zero;
+            perfectContentRect.anchorMax = Vector2.one;
+            perfectContentRect.offsetMin = new Vector2(12f, 4f);
+            perfectContentRect.offsetMax = new Vector2(-12f, -4f);
+            var perfectHLG = perfectContentGO.AddComponent<HorizontalLayoutGroup>();
+            perfectHLG.spacing = 8f;
+            perfectHLG.childAlignment = TextAnchor.MiddleCenter;
+            perfectHLG.childForceExpandWidth = false;
+            perfectHLG.childControlWidth = false;
+            var perfectStarGO = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            perfectStarGO.transform.SetParent(perfectContentGO.transform, false);
+            var perfectStarLE = perfectStarGO.AddComponent<LayoutElement>();
+            perfectStarLE.preferredWidth = 30f;
+            perfectStarLE.preferredHeight = 30f;
+            var perfectStarImg = perfectStarGO.GetComponent<Image>();
+            perfectStarImg.sprite = Resources.Load<Sprite>("UI/star");
+            perfectStarImg.preserveAspect = true;
+            perfectStarImg.raycastTarget = false;
+            var perfectTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            perfectTxtGO.transform.SetParent(perfectContentGO.transform, false);
+            var perfectTxtLE = perfectTxtGO.AddComponent<LayoutElement>();
+            perfectTxtLE.flexibleWidth = 1f;
+            var perfectTxt = perfectTxtGO.GetComponent<TextMeshProUGUI>();
+            perfectTxt.font = tmpFont;
+            perfectTxt.text = Zoologic.Localization.LocalizationManager.Get("victory.perfect");
+            Zoologic.Localization.LocalizationManager.ApplyTo(perfectTxt);
+            perfectTxt.fontSize = 28;
+            perfectTxt.fontStyle = FontStyles.Bold;
+            perfectTxt.color = new Color(0.45f, 0.22f, 0.03f, 1f);
+            perfectTxt.alignment = TextAlignmentOptions.Center;
+            perfectTxt.raycastTarget = false;
+            _victoryPerfectBadge.SetActive(false);
+
+            // 5ter) Pilule récompense pièces sous les étoiles (décalée pour le badge).
             _victoryCoinPill = new GameObject("CoinPill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             _victoryCoinPill.transform.SetParent(_victoryPanel.transform, false);
             var coinRect = _victoryCoinPill.GetComponent<RectTransform>();
@@ -1325,7 +1625,7 @@ namespace Zoologic
             coinRect.anchorMax = new Vector2(0.5f, 0.5f);
             coinRect.pivot = new Vector2(0.5f, 0.5f);
             coinRect.sizeDelta = new Vector2(300f, 64f);
-            coinRect.anchoredPosition = new Vector2(0f, -135f);
+            coinRect.anchoredPosition = new Vector2(0f, -170f);
             var coinBg = _victoryCoinPill.GetComponent<Image>();
             coinBg.color = new Color(1f, 0.96f, 0.86f, 1f);
             coinBg.raycastTarget = false;
@@ -1362,21 +1662,28 @@ namespace Zoologic
             _victoryCoinText.color = new Color(0.55f, 0.32f, 0.08f, 1f);
             _victoryCoinText.raycastTarget = false;
 
-            // 6) Boutons : Continuer (vert, principal) + Menu (gris, secondaire)
+            // 6) Boutons jeu : Continuer Jelly vert + icône, Menu en lien texte discret
+            // (même langage que la modale d'échec, fini les rectangles plats).
             var btnGO = new GameObject("BtnContinuer", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             btnGO.transform.SetParent(_victoryPanel.transform, false);
             var btnRect2 = btnGO.GetComponent<RectTransform>();
             btnRect2.anchorMin = new Vector2(0.5f, 0.05f);
             btnRect2.anchorMax = new Vector2(0.5f, 0.05f);
             btnRect2.pivot = new Vector2(0.5f, 0.5f);
-            btnRect2.sizeDelta = new Vector2(300f, 72f);
-            btnRect2.anchoredPosition = new Vector2(-80f, 10f);
+            btnRect2.sizeDelta = new Vector2(400f, 78f);
+            btnRect2.anchoredPosition = new Vector2(-95f, 10f);
 
             var btnImg = btnGO.GetComponent<Image>();
-            btnImg.color = new Color(0.22f, 0.68f, 0.32f, 1f);
+            var contNormal = JellyUI.ButtonGreen;
+            var contHover = JellyUI.ButtonYellow ?? contNormal;
+            var contPressed = JellyUI.ButtonRed ?? contNormal;
+            var contDisabled = JellyUI.ButtonGrey ?? contNormal;
+            btnImg.sprite = contNormal;
+            btnImg.type = Image.Type.Sliced;
+            btnImg.pixelsPerUnitMultiplier = 1f;
 
             var btnComp = btnGO.AddComponent<Button>();
-            btnComp.targetGraphic = btnImg;
+            JellyUI.ApplyJellyButton(btnComp, btnImg, contNormal, contHover, contPressed, contDisabled);
             btnComp.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
@@ -1395,22 +1702,47 @@ namespace Zoologic
                 }
             });
 
+            var btnContentGO = new GameObject("Content", typeof(RectTransform), typeof(CanvasRenderer));
+            btnContentGO.transform.SetParent(btnGO.transform, false);
+            var btnContentRect = btnContentGO.GetComponent<RectTransform>();
+            btnContentRect.anchorMin = Vector2.zero;
+            btnContentRect.anchorMax = Vector2.one;
+            btnContentRect.offsetMin = new Vector2(14f, 6f);
+            btnContentRect.offsetMax = new Vector2(-14f, -6f);
+            var btnHLG = btnContentGO.AddComponent<HorizontalLayoutGroup>();
+            btnHLG.spacing = 10f;
+            btnHLG.childAlignment = TextAnchor.MiddleCenter;
+            btnHLG.childForceExpandWidth = false;
+            btnHLG.childControlWidth = false;
+            var btnIconGO = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            btnIconGO.transform.SetParent(btnContentGO.transform, false);
+            var btnIconLE = btnIconGO.AddComponent<LayoutElement>();
+            btnIconLE.preferredWidth = 42f;
+            btnIconLE.preferredHeight = 42f;
+            var btnIconImg = btnIconGO.GetComponent<Image>();
+            btnIconImg.sprite = Resources.Load<Sprite>("UI/play_button");
+            btnIconImg.preserveAspect = true;
+            btnIconImg.raycastTarget = false;
+
             var btnTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            btnTxtGO.transform.SetParent(btnGO.transform, false);
-            var btnTxtRect = btnTxtGO.GetComponent<RectTransform>();
-            btnTxtRect.anchorMin = Vector2.zero;
-            btnTxtRect.anchorMax = Vector2.one;
-            btnTxtRect.offsetMin = Vector2.zero;
-            btnTxtRect.offsetMax = Vector2.zero;
+            btnTxtGO.transform.SetParent(btnContentGO.transform, false);
+            var btnTxtLE = btnTxtGO.AddComponent<LayoutElement>();
+            btnTxtLE.flexibleWidth = 1f;
 
             var btnTxt = btnTxtGO.GetComponent<TextMeshProUGUI>();
             btnTxt.font = tmpFont;
             btnTxt.text = Zoologic.Localization.LocalizationManager.Get("victory.continue");
-            btnTxt.fontSize = 30;
+            btnTxt.fontSize = 32;
             btnTxt.fontStyle = FontStyles.Bold;
             btnTxt.color = Color.white;
             btnTxt.alignment = TextAlignmentOptions.Center;
             btnTxt.raycastTarget = false;
+            btnTxt.enableAutoSizing = true;
+            btnTxt.fontSizeMin = 22;
+            btnTxt.fontSizeMax = 32;
+            var btnShadow = btnTxtGO.AddComponent<Shadow>();
+            btnShadow.effectColor = new Color(0f, 0f, 0f, 0.25f);
+            btnShadow.effectDistance = new Vector2(0f, -2f);
 
             var menuGO = new GameObject("BtnMenu", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             menuGO.transform.SetParent(_victoryPanel.transform, false);
@@ -1418,12 +1750,17 @@ namespace Zoologic
             menuRect.anchorMin = new Vector2(0.5f, 0.05f);
             menuRect.anchorMax = new Vector2(0.5f, 0.05f);
             menuRect.pivot = new Vector2(0.5f, 0.5f);
-            menuRect.sizeDelta = new Vector2(150f, 72f);
-            menuRect.anchoredPosition = new Vector2(175f, 10f);
+            menuRect.sizeDelta = new Vector2(150f, 78f);
+            menuRect.anchoredPosition = new Vector2(195f, 10f);
             var menuImg = menuGO.GetComponent<Image>();
-            menuImg.color = new Color(0.90f, 0.88f, 0.86f, 1f);
+            var menuNormal = JellyUI.SmallGrey;
+            var menuHover = JellyUI.SmallYellow ?? menuNormal;
+            var menuPressed = JellyUI.SmallRed ?? menuNormal;
+            menuImg.sprite = menuNormal;
+            menuImg.type = Image.Type.Sliced;
+            menuImg.pixelsPerUnitMultiplier = 1f;
             var menuBtn = menuGO.AddComponent<Button>();
-            menuBtn.targetGraphic = menuImg;
+            JellyUI.ApplyJellyButton(menuBtn, menuImg, menuNormal, menuHover, menuPressed, menuNormal);
             menuBtn.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
@@ -1432,21 +1769,48 @@ namespace Zoologic
                 SceneFader.FadeOut(this, c, 0.3f,
                     () => UnityEngine.SceneManagement.SceneManager.LoadScene("LevelMap"));
             });
+            var menuContentGO = new GameObject("Content", typeof(RectTransform), typeof(CanvasRenderer));
+            menuContentGO.transform.SetParent(menuGO.transform, false);
+            var menuContentRect = menuContentGO.GetComponent<RectTransform>();
+            menuContentRect.anchorMin = Vector2.zero;
+            menuContentRect.anchorMax = Vector2.one;
+            menuContentRect.offsetMin = new Vector2(10f, 6f);
+            menuContentRect.offsetMax = new Vector2(-10f, -6f);
+            var menuHLG = menuContentGO.AddComponent<HorizontalLayoutGroup>();
+            menuHLG.spacing = 8f;
+            menuHLG.childAlignment = TextAnchor.MiddleCenter;
+            menuHLG.childForceExpandWidth = false;
+            menuHLG.childControlWidth = false;
+            var menuIconGO = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            menuIconGO.transform.SetParent(menuContentGO.transform, false);
+            var menuIconLE = menuIconGO.AddComponent<LayoutElement>();
+            menuIconLE.preferredWidth = 34f;
+            menuIconLE.preferredHeight = 34f;
+            var menuIconImg = menuIconGO.GetComponent<Image>();
+            menuIconImg.sprite = Resources.Load<Sprite>("UI/Icons/home_pixi") ?? Resources.Load<Sprite>("UI/Icons/back");
+            menuIconImg.preserveAspect = true;
+            menuIconImg.color = Color.white;
+            menuIconImg.raycastTarget = false;
             var menuTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            menuTxtGO.transform.SetParent(menuGO.transform, false);
-            var menuTxtRect = menuTxtGO.GetComponent<RectTransform>();
-            menuTxtRect.anchorMin = Vector2.zero;
-            menuTxtRect.anchorMax = Vector2.one;
-            menuTxtRect.offsetMin = Vector2.zero;
-            menuTxtRect.offsetMax = Vector2.zero;
+            menuTxtGO.transform.SetParent(menuContentGO.transform, false);
+            var menuTxtLE = menuTxtGO.AddComponent<LayoutElement>();
+            menuTxtLE.flexibleWidth = 1f;
             var menuTxt = menuTxtGO.GetComponent<TextMeshProUGUI>();
             menuTxt.font = tmpFont;
             menuTxt.text = Zoologic.Localization.LocalizationManager.Get("victory.menu");
-            menuTxt.fontSize = 26;
+            menuTxt.fontSize = 22;
             menuTxt.fontStyle = FontStyles.Bold;
-            menuTxt.color = new Color(0.35f, 0.25f, 0.15f, 1f);
+            menuTxt.color = Color.white;
             menuTxt.alignment = TextAlignmentOptions.Center;
             menuTxt.raycastTarget = false;
+            menuTxt.enableAutoSizing = true;
+            menuTxt.fontSizeMin = 16;
+            menuTxt.fontSizeMax = 22;
+            menuTxt.outlineWidth = 0.18f;
+            menuTxt.outlineColor = new Color(0f, 0f, 0f, 0.40f);
+            var menuTxtShadow = menuTxtGO.AddComponent<Shadow>();
+            menuTxtShadow.effectColor = new Color(0f, 0f, 0f, 0.30f);
+            menuTxtShadow.effectDistance = new Vector2(0f, -2f);
         }
 
         private void DisableParasiteText(Canvas canvas)
@@ -1469,7 +1833,7 @@ namespace Zoologic
                 if (rt != null)
                 {
                     float bInset = _hud != null ? _hud.BottomInset : 18f;
-                    float y = Mathf.Max(bInset, 30f);
+                    float y = Mathf.Max(bInset, 48f);
                     rt.anchorMin = new Vector2(0.5f, 0f);
                     rt.anchorMax = new Vector2(0.5f, 0f);
                     rt.pivot = new Vector2(0.5f, 0f);
@@ -1491,12 +1855,12 @@ namespace Zoologic
                 if (rt != null)
                 {
                     float bInset = _hud != null ? _hud.BottomInset : 18f;
-                    float y = Mathf.Max(bInset, 30f);
+                    float y = Mathf.Max(bInset, 48f);
                     rt.anchorMin = new Vector2(1f, 0f);
                     rt.anchorMax = new Vector2(1f, 0f);
                     rt.pivot = new Vector2(1f, 0f);
-                    rt.sizeDelta = new Vector2(64f, 64f);
-                    rt.anchoredPosition = new Vector2(-56f, y + 22f);
+                    rt.sizeDelta = new Vector2(96f, 96f);
+                    rt.anchoredPosition = new Vector2(-48f, y + 24f);
                     var img = reset.GetComponent<Image>();
                     if (img != null)
                     {

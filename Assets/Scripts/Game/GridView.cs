@@ -52,7 +52,17 @@ namespace Zoologic
         /// <summary>Appelé quand une case est tapée (paramètres : ligne, colonne).</summary>
         public Action<int, int> OnCellTapped;
 
-        // Animation d'entrée de la grille.
+        /// <summary>Appelé quand un drag commence depuis un pion posé (ligne, colonne, événement).</summary>
+        public Action<int, int, UnityEngine.EventSystems.PointerEventData> OnPawnDragStart;
+
+        /// <summary>Relai du drag pion en cours (ligne, colonne d'origine, événement).</summary>
+        public Action<int, int, UnityEngine.EventSystems.PointerEventData> OnPawnDrag;
+
+        /// <summary>Relai de fin de drag pion (ligne, colonne d'origine, événement).</summary>
+        public Action<int, int, UnityEngine.EventSystems.PointerEventData> OnPawnDragEnd;
+
+        // Animation d'entrée de la grille : vague de pop (les cases restent en
+        // place, c'est le pion posé qui tombe du haut, voir CellView).
         private const float EntranceDuration = 0.4f;
         private const float EntranceStep = 0.012f; // délai entre chaque cellule (vague)
 
@@ -68,19 +78,24 @@ namespace Zoologic
         private int _iconIndex;
 
         private const float BoardFill = 0.9f;          // part de l'écran occupée par la grille
-        private const float PionRatio = 0.62f;         // taille du pion par rapport à la case
+        private const float PionRatio = 0.78f;         // taille du pion par rapport à la case
 
         private static Sprite _circleSprite;
         private static Sprite _roundedRectSprite;
+        private static Sprite _greyStarSprite;
         private static Font _builtinFont;
 
         // Indice / highlight
         private static readonly Color HighlightColor = new Color(1f, 0.82f, 0.18f, 0.55f);
-        private const float HighlightDuration = 3f;
+        private static readonly Color HighlightRingColor = new Color(1f, 0.78f, 0.10f, 1f);
+        private static readonly Color HighlightDimColor = new Color(0.10f, 0.07f, 0.05f, 0.35f);
+        private const float HighlightDuration = 5f;
         private const float HighlightPulseSpeed = 3f;
         private GameObject _highlightRoot;
         private Image _highlightImage;
+        private GameObject _highlightDim;
         private Coroutine _highlightRoutine;
+        private static Sprite _ringSprite;
 
         /// <summary>Nombre de lignes (et de colonnes) de la grille affichée (0 si aucune).</summary>
         public int Size => _grid != null ? _grid.Size : 0;
@@ -156,7 +171,7 @@ namespace Zoologic
 
             _regionColors.Clear();
             _regionIcons.Clear();
-            _levelIcons = AnimalIconSet.GetShuffled();
+            _levelIcons = SkinManager.GetZoneSprites();
             _iconIndex = 0;
             _cells = new CellView[n, n];
 
@@ -196,6 +211,9 @@ namespace Zoologic
                     int rowCapture = row;
                     int colCapture = col;
                     cell.OnTap = () => OnCellTapped?.Invoke(rowCapture, colCapture);
+                    cell.OnPawnDragStart = (e) => OnPawnDragStart?.Invoke(rowCapture, colCapture, e);
+                    cell.OnPawnDrag = (e) => OnPawnDrag?.Invoke(rowCapture, colCapture, e);
+                    cell.OnPawnDragEnd = (e) => OnPawnDragEnd?.Invoke(rowCapture, colCapture, e);
 
                     _cells[row, col] = cell;
                 }
@@ -436,9 +454,73 @@ namespace Zoologic
             hlRect.sizeDelta = cellRect.sizeDelta;
             hlRect.anchoredPosition = cellRect.anchoredPosition;
 
+            // Anneau doré opaque par-dessus le tint + voile sur le reste du
+            // plateau : la case saute aux yeux même sur petite grille.
+            EnsureHighlightRing(cellRect);
+            EnsureHighlightDim();
+            if (_highlightDim != null)
+            {
+                _highlightDim.SetActive(true);
+                _highlightDim.transform.SetSiblingIndex(_highlightRoot.transform.GetSiblingIndex());
+            }
+
             _highlightRoot.SetActive(true);
             _highlightRoot.transform.localScale = Vector3.one;
+            _highlightRoot.transform.SetAsLastSibling();
             _highlightRoutine = StartCoroutine(PulseHighlightRoutine());
+        }
+
+        /// <summary>Anneau doré opaque autour de la case indicée.</summary>
+        private void EnsureHighlightRing(RectTransform cellRect)
+        {
+            var ring = _highlightRoot.transform.Find("Ring");
+            Image ringImg;
+            if (ring == null)
+            {
+                var ringGO = new GameObject("Ring", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                ringGO.transform.SetParent(_highlightRoot.transform, false);
+                ringImg = ringGO.GetComponent<Image>();
+                ringImg.sprite = GetRingSprite();
+                ringImg.type = Image.Type.Simple;
+                ringImg.raycastTarget = false;
+            }
+            else
+            {
+                ringImg = ring.GetComponent<Image>();
+            }
+            ringImg.color = HighlightRingColor;
+            var ringRect = (RectTransform)ringImg.transform;
+            ringRect.anchorMin = Vector2.zero;
+            ringRect.anchorMax = Vector2.one;
+            ringRect.offsetMin = new Vector2(-10f, -10f);
+            ringRect.offsetMax = new Vector2(10f, 10f);
+        }
+
+        /// <summary>Voile sombre sur tout le plateau sauf la case (mis sous l'anneau).</summary>
+        private void EnsureHighlightDim()
+        {
+            if (_highlightDim == null)
+            {
+                _highlightDim = new GameObject("HintDim", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                _highlightDim.transform.SetParent(_boardContainer, false);
+                var rect = (RectTransform)_highlightDim.transform;
+                rect.anchorMin = new Vector2(0.5f, 0.5f);
+                rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.sizeDelta = _boardContainer.sizeDelta;
+                rect.anchoredPosition = Vector2.zero;
+                var img = _highlightDim.GetComponent<Image>();
+                img.sprite = GetRoundedRectSprite();
+                img.type = Image.Type.Simple;
+                img.color = HighlightDimColor;
+                img.raycastTarget = false;
+                _highlightDim.SetActive(false);
+            }
+            else
+            {
+                var rect = (RectTransform)_highlightDim.transform;
+                rect.sizeDelta = _boardContainer.sizeDelta;
+            }
         }
 
         private void StopHighlight()
@@ -451,6 +533,8 @@ namespace Zoologic
 
             if (_highlightRoot != null)
                 _highlightRoot.SetActive(false);
+            if (_highlightDim != null)
+                _highlightDim.SetActive(false);
         }
 
         private void EnsureHighlightObject()
@@ -476,7 +560,7 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Pulsation dorée : l'alpha et l'échelle oscillent pendant 3 secondes,
+        /// Pulsation dorée : l'alpha et l'échelle oscillent pendant 5 secondes,
         /// puis la highlight disparaît automatiquement.
         /// </summary>
         private IEnumerator PulseHighlightRoutine()
@@ -484,17 +568,23 @@ namespace Zoologic
             float elapsed = 0f;
             Color baseColor = HighlightColor;
             RectTransform hlRect = _highlightRoot != null ? (RectTransform)_highlightRoot.transform : null;
+            Transform ring = _highlightRoot != null ? _highlightRoot.transform.Find("Ring") : null;
 
             while (elapsed < HighlightDuration)
             {
                 float t = Mathf.PingPong(elapsed * HighlightPulseSpeed, 1f);
-                float alpha = Mathf.Lerp(0.25f, 0.55f, t);
+                float alpha = Mathf.Lerp(0.35f, 0.65f, t);
                 _highlightImage.color = new Color(baseColor.r, baseColor.g, baseColor.b, alpha);
 
                 if (hlRect != null)
                 {
-                    float s = Mathf.Lerp(1f, 1.06f, t);
+                    float s = Mathf.Lerp(1f, 1.08f, t);
                     hlRect.localScale = new Vector3(s, s, s);
+                }
+                if (ring != null)
+                {
+                    float rs = Mathf.Lerp(1f, 1.04f, 1f - t);
+                    ring.localScale = new Vector3(rs, rs, rs);
                 }
 
                 elapsed += Time.unscaledDeltaTime;
@@ -503,7 +593,11 @@ namespace Zoologic
 
             if (hlRect != null)
                 hlRect.localScale = Vector3.one;
+            if (ring != null)
+                ring.localScale = Vector3.one;
             _highlightRoot.SetActive(false);
+            if (_highlightDim != null)
+                _highlightDim.SetActive(false);
             _highlightRoutine = null;
         }
 
@@ -512,6 +606,167 @@ namespace Zoologic
             if (_cells == null || row < 0 || row >= _cells.GetLength(0) || col < 0 || col >= _cells.GetLength(1))
                 return null;
             return _cells[row, col];
+        }
+
+        /// <summary>Taille d'un emplacement (case + gap) en unités canvas, 0 si pas de grille.</summary>
+        public float SlotSize
+        {
+            get
+            {
+                if (_boardContainer == null || _grid == null || _grid.Size <= 0)
+                    return 0f;
+                return _boardContainer.sizeDelta.x / _grid.Size;
+            }
+        }
+
+        /// <summary>RectTransform d'une case (pour main fantôme / tutoriel).</summary>
+        public RectTransform GetCellRect(int row, int col)
+        {
+            CellView cell = GetCell(row, col);
+            return cell != null ? (RectTransform)cell.transform : null;
+        }
+
+        /// <summary>Sprite du pion affiché sur la case (pour le fantôme de drag).</summary>
+        public Sprite GetPawnSprite(int row, int col)
+        {
+            CellView cell = GetCell(row, col);
+            return cell != null ? cell.PawnSprite : null;
+        }
+
+        /// <summary>Atténue/restaure le pion d'une case (origine d'un drag).</summary>
+        public void SetCellDimmed(int row, int col, bool dimmed)
+        {
+            CellView cell = GetCell(row, col);
+            if (cell != null)
+                cell.SetDimmed(dimmed);
+        }
+
+        /// <summary>
+        /// Pose/retire les anneaux de conflit persistants : seules les cases de
+        /// l'ensemble restent marquées. Appelé après chaque mutation du plateau.
+        /// </summary>
+        public void RefreshConflictMarks(System.Collections.Generic.HashSet<(int row, int col)> conflicted)
+        {
+            if (_cells == null || _grid == null)
+                return;
+            int n = _grid.Size;
+            for (int row = 0; row < n; row++)
+            {
+                for (int col = 0; col < n; col++)
+                {
+                    CellView cell = GetCell(row, col);
+                    if (cell == null)
+                        continue;
+                    bool marked = conflicted != null && conflicted.Contains((row, col));
+                    cell.SetConflictMarked(marked);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Animaux des zones du niveau, un par zone (ordre de découverte = ordre
+        /// d'affichage de la barre). Pour les jetons de drag, visuel uniquement.
+        /// </summary>
+        public IReadOnlyList<Sprite> GetZoneAnimalSprites()
+        {
+            var list = new List<Sprite>();
+            foreach (var kv in _regionIcons)
+            {
+                if (kv.Value != null)
+                    list.Add(kv.Value);
+            }
+            return list;
+        }
+
+        /// <summary>
+        /// Case sous un point écran (pour le drop du drag). False si hors grille.
+        /// </summary>
+        public bool TryGetCellAtScreenPoint(Vector2 screenPoint, Camera cam, out int row, out int col)
+        {
+            row = -1;
+            col = -1;
+            if (_boardContainer == null || _grid == null)
+                return false;
+            Vector2 local;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(_boardContainer, screenPoint, cam, out local))
+                return false;
+            float slot = SlotSize;
+            if (slot <= 0f)
+                return false;
+            float half = _grid.Size * slot * 0.5f;
+            if (local.x < -half || local.x > half || local.y < -half || local.y > half)
+                return false;
+            col = Mathf.Clamp(Mathf.FloorToInt((local.x + half) / slot), 0, _grid.Size - 1);
+            row = Mathf.Clamp(Mathf.FloorToInt((half - local.y) / slot), 0, _grid.Size - 1);
+            return true;
+        }
+
+        /// <summary>Le point écran est-il au-dessus du plateau ?</summary>
+        public bool IsOverBoard(Vector2 screenPoint, Camera cam)
+        {
+            if (_boardContainer == null)
+                return false;
+            return RectTransformUtility.RectangleContainsScreenPoint(
+                _boardContainer, screenPoint, cam);
+        }
+
+        /// <summary>Sprite carré arrondi partagé (jetons de la barre, fantôme).</summary>
+        public static Sprite SharedRoundedRect => GetRoundedRectSprite();
+
+        /// <summary>Anneau partagé (indice doré, conflits rouges teintés).</summary>
+        public static Sprite SharedRing => GetRingSprite();
+
+        /// <summary>
+        /// Étoile "vide" gris chaud partagée (bulles levels + panneau victoire).
+        /// Le sprite doré ne peut pas être grisé par teinte (multiplication),
+        /// d'où ce polygone généré.
+        /// </summary>
+        public static Sprite StarGrey
+        {
+            get
+            {
+                if (_greyStarSprite == null)
+                    _greyStarSprite = CreateGreyStarSprite();
+                return _greyStarSprite;
+            }
+        }
+
+        private static Sprite CreateGreyStarSprite()
+        {
+            const int resolution = 128;
+            const float outer = 58f;
+            const float inner = 26f;
+
+            var texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false);
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+
+            float center = (resolution - 1) * 0.5f;
+            Color fill = new Color(0.85f, 0.82f, 0.78f, 1f);
+            Color rim = new Color(0.66f, 0.63f, 0.59f, 1f);
+
+            for (int y = 0; y < resolution; y++)
+            {
+                for (int x = 0; x < resolution; x++)
+                {
+                    float dx = x - center;
+                    float dy = center - y;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    float ang = Mathf.Atan2(dy, dx);
+                    if (ang < 0f) ang += Mathf.PI * 2f;
+                    // Pointe vers le haut : décale d'un quart de segment.
+                    float seg = Mathf.PI * 2f / 5f;
+                    float t = ((ang + Mathf.PI * 0.5f + seg * 0.5f) % seg) / seg;
+                    float edge = outer - (outer - inner) * (t < 0.5f ? t * 2f : (1f - t) * 2f);
+                    float d = dist - edge;
+                    Color c = d <= -2f ? fill : rim;
+                    float alpha = Mathf.Clamp01(1f - d);
+                    texture.SetPixel(x, y, new Color(c.r, c.g, c.b, alpha));
+                }
+            }
+
+            texture.Apply();
+            return Sprite.Create(texture, new Rect(0f, 0f, resolution, resolution), new Vector2(0.5f, 0.5f));
         }
 
         // ------------------------------------------------------------------
@@ -618,6 +873,52 @@ namespace Zoologic
             if (_roundedRectSprite == null)
                 _roundedRectSprite = CreateRoundedRectSprite();
             return _roundedRectSprite;
+        }
+
+        private static Sprite GetRingSprite()
+        {
+            if (_ringSprite == null)
+                _ringSprite = CreateRingSprite();
+            return _ringSprite;
+        }
+
+        /// <summary>
+        /// Anneau doré : carré à coins arrondis évidé (bordure seule), pour
+        /// encadrer la case indicée sans masquer son contenu.
+        /// </summary>
+        private static Sprite CreateRingSprite()
+        {
+            const int resolution = 256;
+            const float cornerRatio = 0.22f;
+            const float border = 14f;
+
+            var texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false);
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+
+            float half = (resolution - 1) * 0.5f;
+            float radius = resolution * cornerRatio;
+            float inner = half - radius;
+
+            for (int y = 0; y < resolution; y++)
+            {
+                for (int x = 0; x < resolution; x++)
+                {
+                    // Distance signée à la boîte arrondie (négatif dedans).
+                    float qx = Mathf.Abs(x - half) - inner;
+                    float qy = Mathf.Abs(y - half) - inner;
+                    float ox = Mathf.Max(qx, 0f);
+                    float oy = Mathf.Max(qy, 0f);
+                    float sdf = Mathf.Sqrt(ox * ox + oy * oy) + Mathf.Min(Mathf.Max(qx, qy), 0f) - radius;
+                    // Bandeau centré sur le bord (opaque au milieu, doux aux lisières).
+                    float d = Mathf.Abs(sdf + border * 0.5f);
+                    float alpha = Mathf.Clamp01((border * 0.5f + 1f - d) / 2f);
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+
+            texture.Apply();
+            return Sprite.Create(texture, new Rect(0f, 0f, resolution, resolution), new Vector2(0.5f, 0.5f));
         }
 
         /// <summary>

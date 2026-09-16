@@ -61,10 +61,14 @@ namespace Zoologic
         private readonly List<(Image image, RectTransform rect)> _highlightOverlays = new List<(Image, RectTransform)>();
         private readonly HashSet<(int row, int col)> _interactive = new HashSet<(int row, int col)>();
         private readonly Queue<(int row, int col, float time)> _tapQueue = new Queue<(int row, int col, float time)>();
+        private readonly Queue<(string kind, int row, int col, int fromRow, int fromCol)> _dropQueue = new Queue<(string, int, int, int, int)>();
         private (int row, int col) _lastTap;
         private bool _acceptTaps;
+        private bool _acceptDrops;
         private bool _victory;
-        private const float DoubleTapWindow = 0.35f;
+
+        private BoardDragController _drag;
+        private AnimalTray _tray;
 
         private GameObject _overlayRoot;
         private Image _overlayTop; private Image _overlayBottom; private Image _overlayLeft; private Image _overlayRight;
@@ -84,6 +88,17 @@ namespace Zoologic
 
         private void Start()
         {
+            Canvas earlyCanvas = EnsureCanvas();
+            if (!AgeGateManager.HasChosen)
+            {
+                AgeGateManager.Show(earlyCanvas, _ => InitTutorial());
+                return;
+            }
+            InitTutorial();
+        }
+
+        private void InitTutorial()
+        {
             bool isTutorialScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Tutorial";
             if (HasCompleted && !isTutorialScene)
             {
@@ -96,6 +111,7 @@ namespace Zoologic
             }
             Canvas canvas = EnsureCanvas();
             CreateBackground(canvas);
+            CreateTray(canvas);
             _canvasRect = (RectTransform)canvas.transform;
             _fontTitle = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
             _fontBody = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF");
@@ -111,6 +127,8 @@ namespace Zoologic
             _gridView.OnCellTapped = HandleCellTapped;
             _gridView.Build(_grid, _canvasRect);
             LocateCells();
+            SetupDrag(canvas);
+            LocalizationManager.ApplyFontsToScene();
             StartCoroutine(RunTutorial());
         }
 
@@ -121,7 +139,8 @@ namespace Zoologic
             yield return StartCoroutine(Step2_Zone());
             yield return StartCoroutine(Step3_Adjacency());
             yield return StartCoroutine(Step4_XElimination());
-            SetAccept(false); ClearHighlights(); HideOverlay(); _hand.Hide();
+            SetAccept(false); SetAcceptDrops(false); ClearHighlights(); HideOverlay(); _hand.Hide();
+            if (_drag != null) _drag.Cancel();
             if (_skipRoot != null) _skipRoot.SetActive(false);
             ConfettiHelper.Burst(this, _canvasRect.GetComponent<Canvas>(), 40);
             SFXManager.Instance.PlaySuccess();
@@ -140,22 +159,25 @@ namespace Zoologic
             yield return ShowBubble(LocalizationManager.Get("tutorial.one_per_row"), true);
             var target = (0, 0);
             HighlightSingle(target.Item1, target.Item2);
-            ShowOverlay(target.Item1, target.Item2);
-            _hand.PointTo(GetCellRect(target.Item1, target.Item2));
+            _hand.PlayDragFromTo(GetTrayChipRect(0), GetCellRect(target.Item1, target.Item2));
             yield return ShowBubble(LocalizationManager.Get("tutorial.double_tap"), false);
-            SetInteractive(target); SetAccept(true);
-            yield return WaitDoubleTap(); _hand.PlayTap(); SetAccept(false);
-            PlacePiece(target.Item1, target.Item2); PunchAndConfetti(target.Item1,target.Item2); ClearHighlights(); HideOverlay(); _hand.Hide();
+            SetInteractive(target); SetAcceptDrops(true);
+            yield return WaitDropOnCell(0, 0); SetAcceptDrops(false);
+            PlacePiece(target.Item1, target.Item2); PunchAndConfetti(target.Item1,target.Item2); ClearHighlights(); _hand.Hide();
             yield return new WaitForSecondsRealtime(0.4f);
             var forbid = new (int,int)[] { (0,1),(0,2),(1,0),(2,0) };
             SetHighlights(forbid); ShowMultiOverlay(forbid); yield return ShowBubble(LocalizationManager.Get("tutorial.row_blocked"), true);
-            yield return ShowBubble(LocalizationManager.Get("tutorial.tap_here"), false);
-            HighlightSingle(0,1); ShowOverlay(0,1); _hand.PointTo(GetCellRect(0,1)); _hand.Show();
-            SetInteractive((0,1)); SetAccept(true);
-            yield return WaitDoubleTap(); _hand.PlayTap(); SetAccept(false); _hand.Hide(); ClearHighlights(); HideOverlay();
-            PlacePiece(0,1); FlashAllConflicts(); yield return ShowBubble(LocalizationManager.Get("tutorial.same_row"), true);
-            SetInteractive((0,1)); SetAccept(true); yield return ShowBubble(LocalizationManager.Get("tutorial.tap_removes"), false); _hand.PointTo(GetCellRect(0,1)); _hand.Show();
-            yield return WaitDoubleTap(); SetAccept(false); RemovePiece(0,1); ClearHighlights(); HideOverlay(); _hand.Hide();
+            // Démo automatique de l'erreur : on ne demande jamais à l'utilisateur
+            // de jouer un coup interdit, le hibou montre puis l'utilisateur répare.
+            ClearHighlights(); HideOverlay();
+            PlacePiece(0,1); FlashAllConflicts(); PunchAndConfetti(0,1);
+            yield return ShowBubble(LocalizationManager.Get("tutorial.same_row"), true);
+            HighlightSingle(0,1);
+            SetInteractive((0,1)); yield return ShowBubble(LocalizationManager.Get("tutorial.tap_removes"), false);
+            _hand.PlayDragToLocal(GetCellRect(0,1), DropOffBoardLocal(GetCellRect(0,1))); _hand.Show();
+            SetAcceptDrops(true);
+            yield return WaitDropRemove(0, 1); SetAcceptDrops(false);
+            RemovePiece(0,1); ClearHighlights(); _hand.Hide();
             yield return ShowBubble(LocalizationManager.Get("tutorial.perfect"), true);
             RemovePiece(0,0);
         }
@@ -169,9 +191,9 @@ namespace Zoologic
             ClearHighlights(); HideOverlay();
             PlacePiece(0,0); PunchAndConfetti(0,0); yield return new WaitForSecondsRealtime(0.4f);
             yield return ShowBubble(LocalizationManager.Get("tutorial.tap_here"), false);
-            HighlightSingle(2,2); ShowOverlay(2,2); _hand.PointTo(GetCellRect(2,2)); _hand.Show();
-            SetInteractive((2,2)); SetAccept(true);
-            yield return WaitDoubleTap(); SetAccept(false); _hand.Hide(); ClearHighlights(); HideOverlay();
+            HighlightSingle(2,2); _hand.PlayDragFromTo(GetTrayChipRect(0), GetCellRect(2,2)); _hand.Show();
+            SetInteractive((2,2)); SetAcceptDrops(true);
+            yield return WaitDropOnCell(2, 2); SetAcceptDrops(false); _hand.Hide(); ClearHighlights();
             PlacePiece(2,2); PunchAndConfetti(2,2); yield return ShowBubble(LocalizationManager.Get("tutorial.exact"), true);
             RemovePiece(0,0); RemovePiece(2,2);
         }
@@ -195,9 +217,9 @@ namespace Zoologic
             yield return new WaitForSecondsRealtime(0.4f);
             yield return ShowBubble(LocalizationManager.Get("tutorial.tap_animal"), true);
             yield return ShowBubble(LocalizationManager.Get("tutorial.place_here"), false);
-            HighlightSingle(3,3); ShowOverlay(3,3); _hand.PointTo(GetCellRect(3,3)); _hand.Show();
-            SetInteractive((3,3)); SetAccept(true);
-            yield return WaitDoubleTap(); SetAccept(false); _hand.Hide(); ClearHighlights(); HideOverlay();
+            HighlightSingle(3,3); _hand.PlayDragFromTo(GetTrayChipRect(0), GetCellRect(3,3)); _hand.Show();
+            SetInteractive((3,3)); SetAcceptDrops(true);
+            yield return WaitDropOnCell(3, 3); SetAcceptDrops(false); _hand.Hide(); ClearHighlights();
             PlacePiece(3,3); PunchAndConfetti(3,3); yield return ShowBubble(LocalizationManager.Get("tutorial.validated"), true);
             RemovePiece(1,1); RemovePiece(3,3); _gridView.SetX(0,0,false);
         }
@@ -215,18 +237,34 @@ namespace Zoologic
             if (_lastTap == (1,0)) { _gridView.SetX(1,0,true); _hand.PlayTap(); }
             ClearHighlights(); HideOverlay(); _hand.Hide();
             yield return ShowBubble(LocalizationManager.Get("tutorial.find_last"), false);
-            SetInteractiveAll(); SetAccept(true);
-            _hand.PointTo(GetCellRect(2,0)); _hand.Show();
+            SetInteractiveAll(); SetAccept(true); SetAcceptDrops(true);
+            _hand.PlayDragFromTo(GetTrayChipRect(0), GetCellRect(2,0)); _hand.Show();
             while (!_victory)
             {
-                yield return WaitTap();
+                yield return WaitActivity();
+                if (_lastActivityIsDrop)
+                {
+                    var d = _lastDrop;
+                    if (d.kind == "remove")
+                    {
+                        RemovePiece(d.row, d.col);
+                        continue;
+                    }
+                    // place / move : le tuto n'accepte que les poses valides.
+                    var conflits = RuleValidator.GetConflicts(_grid, d.row, d.col);
+                    if (conflits.Count > 0) { _gridView.FlashConflict(d.row, d.col); Haptics.VibrateLight(); continue; }
+                    if (d.kind == "move") RemovePiece(d.fromRow, d.fromCol);
+                    PlacePiece(d.row, d.col); PunchAndConfetti(d.row, d.col);
+                    if (RuleValidator.IsSolved(_grid)) { _victory = true; PlayVictory(); }
+                    else { _hand.PlayDragFromTo(GetTrayChipRect(0), GetCellRect(2,0)); }
+                    continue;
+                }
                 var (row,col) = _lastTap;
-                if (_grid.HasPion(row,col)) { RemovePiece(row,col); continue; }
-                if (_gridView != null && HasX(row,col)) { _gridView.SetX(row,col,false); continue; }
-                var conflits = RuleValidator.GetConflicts(_grid, row, col);
-                if (conflits.Count > 0) { _gridView.FlashConflict(row,col); Haptics.VibrateLight(); continue; }
-                if (TryPlaceWithValidation(row,col)) { if (RuleValidator.IsSolved(_grid)) { _victory = true; PlayVictory(); } else { _hand.PointTo(GetCellRect(2,0)); } }
+                // En résolution libre le tap ne pose plus : il efface un X.
+                if (_gridView != null && HasX(row,col)) { _gridView.SetX(row,col,false); SFXManager.Instance.PlayClickedOut(); continue; }
+                SFXManager.Instance.PlayDialogueBlip();
             }
+            SetAcceptDrops(false);
             SetAccept(false); _hand.Hide(); ClearHighlights(); HideOverlay();
             yield return ShowBubble(LocalizationManager.Get("tutorial.solved"), true);
         }
@@ -248,14 +286,117 @@ namespace Zoologic
             return true;
         }
 
+        private void CreateTray(Canvas canvas)
+        {
+            var holder = new GameObject("TrayHolder", typeof(RectTransform));
+            holder.transform.SetParent(canvas.transform, false);
+            var rect = (RectTransform)holder.transform;
+            rect.anchorMin = new Vector2(0.5f, 0f);
+            rect.anchorMax = new Vector2(0.5f, 0f);
+            rect.pivot = new Vector2(0.5f, 0f);
+            rect.sizeDelta = new Vector2(800f, 100f);
+            rect.anchoredPosition = new Vector2(0f, 190f);
+        }
+
+        private void SetupDrag(Canvas canvas)
+        {
+            _drag = BoardDragController.Create(canvas, _gridView);
+            _drag.CanPlaceAt = (r, c) => _grid != null && !_grid.HasPion(r, c);
+            _drag.OnTrayDropOnCell = (r, c) =>
+            {
+                if (_acceptDrops && _interactive.Contains((r, c)))
+                    _dropQueue.Enqueue(("place", r, c, -1, -1));
+                else if (_acceptDrops)
+                {
+                    _gridView.FlashConflict(r, c);
+                    Haptics.VibrateLight();
+                }
+            };
+            _drag.OnTrayDropInvalid = (r, c) =>
+            {
+                if (!_acceptDrops) return;
+                _gridView.FlashConflict(r, c);
+                Haptics.VibrateLight();
+            };
+            _drag.OnPawnMove = (fr, fc, tr, tc) =>
+            {
+                if (_acceptDrops && _interactive.Contains((tr, tc)))
+                    _dropQueue.Enqueue(("move", tr, tc, fr, fc));
+                else if (_acceptDrops)
+                {
+                    _gridView.FlashConflict(tr, tc);
+                    Haptics.VibrateLight();
+                }
+            };
+            _drag.OnPawnDropInvalid = (r, c) =>
+            {
+                if (!_acceptDrops) return;
+                _gridView.FlashConflict(r, c);
+                Haptics.VibrateLight();
+            };
+            _drag.OnPawnDropOutside = (r, c) =>
+            {
+                if (_acceptDrops && _interactive.Contains((r, c)))
+                    _dropQueue.Enqueue(("remove", r, c, -1, -1));
+            };
+            _gridView.OnPawnDragStart = (r, c, e) =>
+            {
+                if (!_acceptDrops || !_interactive.Contains((r, c))) return;
+                _drag.BeginPawnDrag(r, c, _gridView.GetPawnSprite(r, c), e.pointerId);
+                _drag.UpdateDrag(e.pointerId, e.position);
+            };
+            _gridView.OnPawnDrag = (r, c, e) =>
+            {
+                if (_drag == null || !_drag.IsDragging) return;
+                _drag.UpdateDrag(e.pointerId, e.position);
+            };
+            _gridView.OnPawnDragEnd = (r, c, e) =>
+            {
+                if (_drag == null || !_drag.IsDragging) return;
+                _drag.EndDrag(e.pointerId, e.position);
+            };
+            RefreshTraySprites();
+        }
+
+        private void RefreshTraySprites()
+        {
+            if (_tray == null)
+            {
+                var holder = _canvasRect != null ? _canvasRect.Find("TrayHolder") : null;
+                if (holder == null) return;
+                _tray = AnimalTray.Build(holder, _drag);
+            }
+            else
+            {
+                _tray.SetDrag(_drag);
+            }
+            if (_gridView != null)
+            {
+                // Démo : 3 jetons suffisent (réutilisables à l'infini), même si la
+                // grille d'exemple a plus de zones (ex. 9 pour Grid3_RowCol).
+                var all = _gridView.GetZoneAnimalSprites();
+                var few = new List<Sprite>();
+                for (int i = 0; i < all.Count && few.Count < 3; i++)
+                    few.Add(all[i]);
+                _tray.SetSprites(few);
+            }
+        }
+
+        private RectTransform GetTrayChipRect(int index)
+        {
+            return _tray != null ? _tray.GetChipRect(index) : null;
+        }
+
         private void RebuildGrid(int[,] regions)
         {
             ClearHighlights(); HideOverlay();
+            if (_drag != null) _drag.Cancel();
             if (_canvasRect != null) Canvas.ForceUpdateCanvases();
             _grid = new PuzzleGrid(regions);
             _gridView.Build(_grid, _canvasRect);
             LocateCells();
-            _interactive.Clear(); _tapQueue.Clear(); _victory = false;
+            RefreshTraySprites();
+            _interactive.Clear(); _tapQueue.Clear(); _dropQueue.Clear(); _victory = false;
         }
 
         private void HandleCellTapped(int row, int col)
@@ -282,42 +423,82 @@ namespace Zoologic
             yield return new WaitForSecondsRealtime(0.05f);
         }
 
-        private IEnumerator WaitDoubleTap()
+        private (string kind, int row, int col, int fromRow, int fromCol) _lastDrop;
+        private bool _lastActivityIsDrop;
+
+        /// <summary>
+        /// Point local pour la démo "glisser hors grille" : à la verticale de la
+        /// case mais sous le bas du plateau (jamais sur une autre case).
+        /// </summary>
+        private Vector2 DropOffBoardLocal(RectTransform cellRect)
         {
+            if (cellRect == null || _canvasRect == null) return new Vector2(0f, -500f);
+            Vector3 world = cellRect.TransformPoint(cellRect.rect.center);
+            Vector2 screen = RectTransformUtility.WorldToScreenPoint(null, world);
+            Vector2 cellLocal;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvasRect, screen, null, out cellLocal);
+            float boardBottom = cellLocal.y - 380f;
+            var board = _gridView != null ? _gridView.BoardContainer : null;
+            if (board != null)
+            {
+                Vector3[] corners = new Vector3[4];
+                board.GetWorldCorners(corners);
+                Vector2 cornerScreen = RectTransformUtility.WorldToScreenPoint(null, corners[0]);
+                Vector2 cornerLocal;
+                if (RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvasRect, cornerScreen, null, out cornerLocal))
+                    boardBottom = cornerLocal.y - 140f;
+            }
+            return new Vector2(cellLocal.x, boardBottom);
+        }
+
+        private IEnumerator WaitDropOnCell(int row, int col)
+        {
+            _dropQueue.Clear();
             while (true)
             {
-                _tapQueue.Clear();
-                while (_tapQueue.Count == 0) yield return null;
-                var first = _tapQueue.Dequeue();
-                float t0 = first.time;
-                bool gotSecond = false;
-                while (Time.unscaledTime - t0 < DoubleTapWindow)
-                {
-                    if (_tapQueue.Count > 0)
-                    {
-                        var second = _tapQueue.Peek();
-                        if (second.row == first.row && second.col == first.col)
-                        {
-                            _tapQueue.Dequeue();
-                            _lastTap = (second.row, second.col);
-                            gotSecond = true;
-                            break;
-                        }
-                        else
-                        {
-                            _tapQueue.Clear();
-                            break;
-                        }
-                    }
-                    yield return null;
-                }
-                if (gotSecond) yield break;
-                yield return ShowBubble(LocalizationManager.Get("tutorial.double_tap"), false);
+                while (_dropQueue.Count == 0) yield return null;
+                var d = _dropQueue.Dequeue();
+                if ((d.kind == "place" || d.kind == "move") && d.row == row && d.col == col)
+                    yield break;
                 Haptics.VibrateLight();
             }
         }
 
+        private IEnumerator WaitDropRemove(int row, int col)
+        {
+            _dropQueue.Clear();
+            while (true)
+            {
+                while (_dropQueue.Count == 0) yield return null;
+                var d = _dropQueue.Dequeue();
+                if (d.kind == "remove" && d.row == row && d.col == col)
+                    yield break;
+                Haptics.VibrateLight();
+            }
+        }
+
+        /// <summary>Attend indifféremment un tap ou un drop (résolution libre).</summary>
+        private IEnumerator WaitActivity()
+        {
+            _tapQueue.Clear();
+            _dropQueue.Clear();
+            while (_tapQueue.Count == 0 && _dropQueue.Count == 0) yield return null;
+            if (_dropQueue.Count > 0)
+            {
+                _lastDrop = _dropQueue.Dequeue();
+                _lastActivityIsDrop = true;
+            }
+            else
+            {
+                var t = _tapQueue.Dequeue();
+                _lastTap = (t.row, t.col);
+                _lastActivityIsDrop = false;
+                yield return new WaitForSecondsRealtime(0.05f);
+            }
+        }
+
         private void SetAccept(bool a) { _acceptTaps = a; _tapQueue.Clear(); }
+        private void SetAcceptDrops(bool a) { _acceptDrops = a; _dropQueue.Clear(); }
         private void SetInteractive(params (int row,int col)[] cells) { _interactive.Clear(); if (cells!=null) foreach(var c in cells) _interactive.Add(c); }
         private void SetInteractiveAll() { _interactive.Clear(); for(int r=0;r<_grid.Size;r++) for(int c=0;c<_grid.Size;c++) _interactive.Add((r,c)); }
 
@@ -468,27 +649,32 @@ namespace Zoologic
             _skipRoot.transform.SetParent(canvas.transform, false);
             var rt = (RectTransform)_skipRoot.transform;
             rt.anchorMin = new Vector2(1f, 1f); rt.anchorMax = new Vector2(1f, 1f); rt.pivot = new Vector2(1f, 1f);
-            rt.sizeDelta = new Vector2(180f, 56f); rt.anchoredPosition = new Vector2(-16f, -16f);
+            rt.sizeDelta = new Vector2(240f, 84f); rt.anchoredPosition = new Vector2(-16f, -16f);
             var img = _skipRoot.GetComponent<Image>();
-            img.sprite = JellyUI.ButtonGrey ?? _roundedSprite;
-            img.type = Image.Type.Sliced; img.color = new Color(1f, 1f, 1f, 0.92f); img.raycastTarget = true;
+            img.sprite = B1UI.Skip ?? JellyUI.ButtonGrey ?? _roundedSprite;
+            img.type = Image.Type.Sliced; img.color = Color.white; img.raycastTarget = true;
             var btn = _skipRoot.GetComponent<Button>();
-            JellyUI.ApplyJellyButton(btn, img, JellyUI.ButtonGrey, JellyUI.ButtonGrey, JellyUI.ButtonGrey, JellyUI.ButtonGrey);
+            var skip = B1UI.Skip ?? JellyUI.ButtonGrey;
+            JellyUI.ApplyJellyButton(btn, img, skip, skip, skip, skip);
             btn.onClick.AddListener(SkipTutorial);
             var txtGO = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             txtGO.transform.SetParent(_skipRoot.transform, false);
-            var txtRect = (RectTransform)txtGO.transform; txtRect.anchorMin = Vector2.zero; txtRect.anchorMax = Vector2.one; txtRect.offsetMin = new Vector2(8f, 4f); txtRect.offsetMax = new Vector2(-8f, -4f);
+            var txtRect = (RectTransform)txtGO.transform; txtRect.anchorMin = Vector2.zero; txtRect.anchorMax = Vector2.one; txtRect.offsetMin = new Vector2(64f, 6f); txtRect.offsetMax = new Vector2(-12f, -6f);
             var txt = txtGO.GetComponent<TextMeshProUGUI>();
             txt.font = _fontTitle != null ? _fontTitle : Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
-            txt.text = LocalizationManager.Get("tutorial.skip"); txt.fontSize = 24; txt.fontStyle = FontStyles.Bold; txt.color = new Color(0.35f, 0.30f, 0.28f, 1f); txt.alignment = TextAlignmentOptions.Center;
+            txt.text = LocalizationManager.Get("tutorial.skip"); txt.fontSize = 28; txt.fontStyle = FontStyles.Bold; txt.color = Color.white; txt.alignment = TextAlignmentOptions.Center;
+            txt.outlineWidth = 0.18f; txt.outlineColor = new Color(0.25f, 0.12f, 0.06f, 0.9f);
             txt.raycastTarget = false;
+            var tsh = txtGO.AddComponent<UnityEngine.UI.Shadow>(); tsh.effectColor = new Color(0f, 0f, 0f, 0.35f); tsh.effectDistance = new Vector2(0f, -2f);
+            LocalizationManager.ApplyTo(txt);
             _skipRoot.transform.SetAsLastSibling();
         }
 
         private void SkipTutorial()
         {
             StopAllCoroutines();
-            SetAccept(false); ClearHighlights(); HideOverlay(); _hand?.Hide();
+            if (_drag != null) _drag.Cancel();
+            SetAccept(false); SetAcceptDrops(false); ClearHighlights(); HideOverlay(); _hand?.Hide();
             SetBubbleVisible(false); SetActionVisible(false);
             if (_skipRoot != null) _skipRoot.SetActive(false);
             MarkCompleted();
@@ -503,7 +689,7 @@ namespace Zoologic
             var rt=(RectTransform)_bubbleRoot.transform;
             rt.anchorMin=new Vector2(0.5f,1f); rt.anchorMax=new Vector2(0.5f,1f); rt.pivot=new Vector2(0.5f,1f);
             rt.sizeDelta=new Vector2(900f,190f); rt.anchoredPosition=new Vector2(0f,-120f);
-            var img=_bubbleRoot.GetComponent<Image>(); img.sprite=_roundedSprite; img.type=Image.Type.Sliced; img.color=new Color(1f,0.985f,0.95f,1f); img.raycastTarget=false;
+            var img=_bubbleRoot.GetComponent<Image>(); img.sprite=B1UI.Bubble ?? _roundedSprite; img.type=Image.Type.Sliced; img.color=new Color(1f,0.985f,0.95f,1f); img.raycastTarget=false;
             var bOl=_bubbleRoot.AddComponent<Outline>(); bOl.effectColor=new Color(1f,1f,1f,0.9f); bOl.effectDistance=new Vector2(3f,-3f);
             var bSh=_bubbleRoot.AddComponent<Shadow>(); bSh.effectColor=new Color(0.25f,0.15f,0.08f,0.30f); bSh.effectDistance=new Vector2(0f,-8f);
             var owlGO=new GameObject("Mascot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -531,7 +717,7 @@ namespace Zoologic
             art.anchorMin=new Vector2(0.5f,0f); art.anchorMax=new Vector2(0.5f,0f); art.pivot=new Vector2(0.5f,0f);
             art.sizeDelta=new Vector2(480f,100f); art.anchoredPosition=new Vector2(0f,64f);
             var aImg=_actionRoot.GetComponent<Image>();
-            var jellyGreen=JellyUI.ButtonGreen ?? _roundedSprite;
+            var jellyGreen=B1UI.Primary ?? JellyUI.ButtonGreen ?? _roundedSprite;
             aImg.sprite=jellyGreen; aImg.type=Image.Type.Sliced; aImg.pixelsPerUnitMultiplier=1f; aImg.color=Color.white; aImg.raycastTarget=true;
             var aOl=_actionRoot.AddComponent<Outline>(); aOl.effectColor=new Color(1f,1f,1f,0.7f); aOl.effectDistance=new Vector2(2f,-2f);
             var aSh=_actionRoot.AddComponent<Shadow>(); aSh.effectColor=new Color(0.15f,0.35f,0.15f,0.40f); aSh.effectDistance=new Vector2(0f,-6f);

@@ -36,7 +36,37 @@ namespace Zoologic
         private TMP_FontAsset _fontBody;
         private Image _owlImage;
 
+        /// <summary>
+        /// Marge haute safe-area en unités canvas (réf 1080x1920). Les boutons du
+        /// haut (cadeau, missions, réglages) descendent sous le poinçon S22.
+        /// </summary>
+        private static float TopInset()
+        {
+            float insetPx = Screen.height - Screen.safeArea.yMax;
+            if (insetPx <= 1f) return 70f;
+            return insetPx * (1920f / Mathf.Max(Screen.height, 1));
+        }
+
         private void Start()
+        {
+            if (!AgeGateManager.HasChosen)
+            {
+                var gateCanvasGO = new GameObject("AgeGateCanvas");
+                var gateCanvas = gateCanvasGO.AddComponent<Canvas>();
+                gateCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                gateCanvas.sortingOrder = 5000;
+                gateCanvasGO.AddComponent<GraphicRaycaster>();
+                AgeGateManager.Show(gateCanvas, _ =>
+                {
+                    try { Destroy(gateCanvasGO); } catch { }
+                    StartContinued();
+                });
+                return;
+            }
+            StartContinued();
+        }
+
+        private void StartContinued()
         {
             if (TutorialManager.ShouldShow)
             {
@@ -80,8 +110,10 @@ namespace Zoologic
             BuildPlayButton(canvasGO.transform);
             BuildDailyButton(canvasGO.transform);
             BuildMissionsButton(canvasGO.transform);
+            BuildCollectionButton(canvasGO.transform);
             BuildSettingsButton(canvasGO.transform);
             BuildVersion(canvasGO.transform);
+            Zoologic.Localization.LocalizationManager.ApplyFontsToScene();
 
             if (DailyRewardManager.CanClaimToday())
                 StartCoroutine(ShowDailyPopupDelayed());
@@ -429,8 +461,8 @@ namespace Zoologic
             rect.anchorMin = new Vector2(1f, 1f);
             rect.anchorMax = new Vector2(1f, 1f);
             rect.pivot = new Vector2(1f, 1f);
-            rect.sizeDelta = new Vector2(80f, 80f);
-            rect.anchoredPosition = new Vector2(-20f, -20f);
+            rect.sizeDelta = new Vector2(96f, 96f);
+            rect.anchoredPosition = new Vector2(-24f, -(TopInset() + 12f));
 
             var img = go.AddComponent<Image>();
             img.sprite = GetSettingsSprite();
@@ -452,129 +484,151 @@ namespace Zoologic
             });
         }
 
-        private void BuildDailyButton(Transform parent)
+        private static Sprite _medalMission;
+        private static Sprite _medalGift;
+        private static Sprite _medalStar;
+        private static bool _medalsLoaded;
+
+        /// <summary>Médaillons bois du menu (Sprites/x_0..2). Fallback null.</summary>
+        private static Sprite GetMedal(int index)
         {
-            bool canClaim = DailyRewardManager.CanClaimToday();
-            var go = new GameObject("DailyButton");
+            if (!_medalsLoaded)
+            {
+                _medalsLoaded = true;
+                try
+                {
+                    var all = Resources.LoadAll<Sprite>("Sprites/x");
+                    if (all != null)
+                    {
+                        foreach (var s in all)
+                        {
+                            if (s == null) continue;
+                            if (s.name == "x_0") _medalMission = s;
+                            else if (s.name == "x_1") _medalGift = s;
+                            else if (s.name == "x_2") _medalStar = s;
+                        }
+                    }
+                }
+                catch { }
+            }
+            return index == 0 ? _medalMission : index == 1 ? _medalGift : _medalStar;
+        }
+
+        /// <summary>
+        /// Bouton médaillon rond + légende Fredoka dessous. Retourne (root, medal).
+        /// </summary>
+        private (GameObject root, GameObject medal) BuildMedalButton(
+            Transform parent, string name, Sprite medalSprite, string captionKey, float x, System.Action onClick)
+        {
+            float top = TopInset() + 12f;
+            var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
-            rect.sizeDelta = new Vector2(260f, 90f);
-            rect.anchoredPosition = new Vector2(18f, -18f);
+            rect.sizeDelta = new Vector2(190f, 210f);
+            rect.anchoredPosition = new Vector2(x, -top);
 
-            var img = go.AddComponent<Image>();
-            img.sprite = Resources.Load<Sprite>("UI/badge_cadeau");
-            if (img.sprite == null) img.sprite = KenneyUI.Button(canClaim ? "Yellow" : "Grey");
-            if (img.sprite == null) img.sprite = CreerSpriteArrondi(128, 0.35f);
-            img.type = Image.Type.Sliced;
-            img.color = canClaim ? Color.white : new Color(0.85f, 0.85f, 0.85f, 1f);
-            img.raycastTarget = true;
+            var medalGO = new GameObject("Medal", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            medalGO.transform.SetParent(go.transform, false);
+            var medalRect = medalGO.GetComponent<RectTransform>();
+            medalRect.anchorMin = new Vector2(0f, 1f);
+            medalRect.anchorMax = new Vector2(0f, 1f);
+            medalRect.pivot = new Vector2(0.5f, 1f);
+            medalRect.sizeDelta = new Vector2(150f, 150f);
+            medalRect.anchoredPosition = new Vector2(95f, 0f);
+            var medalImg = medalGO.GetComponent<Image>();
+            medalImg.sprite = medalSprite;
+            medalImg.type = Image.Type.Simple;
+            medalImg.preserveAspect = true;
+            medalImg.raycastTarget = true;
+            var medalShadow = medalGO.AddComponent<Shadow>();
+            medalShadow.effectColor = new Color(0f, 0f, 0f, 0.22f);
+            medalShadow.effectDistance = new Vector2(0f, -5f);
 
-            var txtGO = new GameObject("Text");
-            txtGO.transform.SetParent(go.transform, false);
-            var txtRect = txtGO.AddComponent<RectTransform>();
-            txtRect.anchorMin = new Vector2(0.5f, 0.5f);
-            txtRect.anchorMax = new Vector2(0.5f, 0.5f);
-            txtRect.pivot = new Vector2(0.5f, 0.5f);
-            txtRect.sizeDelta = new Vector2(200f, 40f);
-            txtRect.anchoredPosition = new Vector2(30f, 0f);
-            txtGO.AddComponent<CanvasRenderer>();
-            var txt = txtGO.AddComponent<TextMeshProUGUI>();
-            txt.font = _fontTitle != null ? _fontTitle : Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
-            txt.text = Zoologic.Localization.LocalizationManager.Get("menu.gift");
-            txt.fontSize = 20;
-            txt.fontStyle = FontStyles.Bold;
-            txt.color = new Color(0.29f, 0.157f, 0.063f, 1f);
-            txt.alignment = TextAlignmentOptions.Center;
-            txt.raycastTarget = false;
+            var btn = medalGO.AddComponent<Button>();
+            btn.targetGraphic = medalImg;
+            btn.transition = Selectable.Transition.ColorTint;
+            var colors = btn.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 0.96f, 0.88f);
+            colors.pressedColor = new Color(0.85f, 0.78f, 0.70f);
+            btn.colors = colors;
+            btn.onClick.AddListener(() => onClick?.Invoke());
 
-            var btn = go.AddComponent<Button>();
-            btn.targetGraphic = img;
-            btn.onClick.AddListener(() =>
+            var capGO = new GameObject("Caption", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            capGO.transform.SetParent(go.transform, false);
+            var capRect = capGO.GetComponent<RectTransform>();
+            capRect.anchorMin = new Vector2(0f, 1f);
+            capRect.anchorMax = new Vector2(0f, 1f);
+            capRect.pivot = new Vector2(0.5f, 1f);
+            capRect.sizeDelta = new Vector2(190f, 52f);
+            capRect.anchoredPosition = new Vector2(95f, -154f);
+            var cap = capGO.GetComponent<TextMeshProUGUI>();
+            cap.font = _fontTitle;
+            cap.text = Zoologic.Localization.LocalizationManager.Get(captionKey);
+            Zoologic.Localization.LocalizationManager.ApplyTo(cap);
+            cap.fontSize = 28;
+            cap.fontStyle = FontStyles.Bold;
+            cap.color = new Color(0.29f, 0.157f, 0.063f, 1f);
+            cap.alignment = TextAlignmentOptions.Center;
+            cap.raycastTarget = false;
+            cap.enableAutoSizing = true;
+            cap.fontSizeMin = 20;
+            cap.fontSizeMax = 28;
+
+            var floatAnim = medalGO.AddComponent<MedalFloat>();
+            floatAnim.Init(x);
+
+            return (go, medalGO);
+        }
+
+        private void BuildDailyButton(Transform parent)
+        {
+            bool canClaim = DailyRewardManager.CanClaimToday();
+            Sprite medal = GetMedal(1);
+            if (medal == null)
+                medal = Resources.Load<Sprite>("UI/badge_cadeau");
+            var built = BuildMedalButton(parent, "DailyButton", medal, "menu.gift", 30f, () =>
             {
                 SFXManager.Instance.PlayMenuOpen();
                 var canvas = FindFirstObjectByType<Canvas>();
                 if (canvas != null) DailyRewardUI.Show(canvas);
             });
-
-            var sh = go.AddComponent<Shadow>();
-            sh.effectColor = new Color(0f, 0f, 0f, 0.18f);
-            sh.effectDistance = new Vector2(0f, -4f);
-
-            if (canClaim) go.AddComponent<DailyPulse>();
+            if (!canClaim)
+            {
+                var img = built.medal.GetComponent<Image>();
+                if (img != null) img.color = new Color(0.80f, 0.80f, 0.82f, 1f);
+            }
+            else
+            {
+                built.root.AddComponent<DailyPulse>();
+            }
         }
 
         private void BuildMissionsButton(Transform parent)
         {
             int done = MissionManager.GetCompletedCount();
-            bool hasClaim = done > 0;
-            var go = new GameObject("MissionsButton");
-            go.transform.SetParent(parent, false);
-            var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.sizeDelta = new Vector2(210f, 66f);
-            rect.anchoredPosition = new Vector2(340f, -18f);
-
-            var missionBg = Resources.Load<Sprite>("UI/Icons/Mission");
-            var img = go.AddComponent<Image>();
-            img.sprite = missionBg != null ? missionBg : KenneyUI.Button(hasClaim ? "Yellow" : "Blue") ?? CreerSpriteArrondi(128, 0.35f);
-            img.type = missionBg != null ? Image.Type.Sliced : Image.Type.Simple;
-            img.pixelsPerUnitMultiplier = 1f;
-            img.color = Color.white;
-
-            var hlg = go.AddComponent<HorizontalLayoutGroup>();
-            hlg.padding = new RectOffset(14, 12, 0, 0);
-            hlg.spacing = 8f;
-            hlg.childAlignment = TextAnchor.MiddleCenter;
-            hlg.childForceExpandWidth = false;
-
-            var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            iconGO.transform.SetParent(go.transform, false);
-            var iconRect = iconGO.GetComponent<RectTransform>();
-            iconRect.sizeDelta = new Vector2(28f, 28f);
-            var iconImg = iconGO.GetComponent<Image>();
-            iconImg.sprite = Resources.Load<Sprite>("UI/Icons/scroll_icon");
-            iconImg.preserveAspect = true;
-            iconImg.raycastTarget = false;
-            iconGO.AddComponent<LayoutElement>().preferredWidth = 28f;
-
-            var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            txtGO.transform.SetParent(go.transform, false);
-            var txt = txtGO.GetComponent<TextMeshProUGUI>();
-            txt.font = _fontTitle;
-            txt.text = Zoologic.Localization.LocalizationManager.Get("menu.missions");
-            txt.fontSize = 20;
-            txt.fontStyle = FontStyles.Bold;
-            txt.color = hasClaim ? new Color(0.32f, 0.20f, 0.10f) : Color.white;
-            txt.alignment = TextAlignmentOptions.Center;
-            txtGO.AddComponent<LayoutElement>().flexibleWidth = 1f;
-
-            var btn = go.AddComponent<Button>();
-            btn.targetGraphic = img;
-            btn.onClick.AddListener(() =>
+            Sprite medal = GetMedal(0);
+            if (medal == null)
+                medal = Resources.Load<Sprite>("UI/Icons/Mission");
+            var built = BuildMedalButton(parent, "MissionsButton", medal, "menu.missions", 290f, () =>
             {
                 SFXManager.Instance?.PlayMenuOpen();
                 var canvas = FindFirstObjectByType<Canvas>();
                 if (canvas != null) MissionUI.Show(canvas);
             });
 
-            var sh = go.AddComponent<Shadow>();
-            sh.effectColor = new Color(0.38f, 0.24f, 0.14f, 0.14f);
-            sh.effectDistance = new Vector2(0f, -4f);
-
             if (done > 0)
             {
                 var badgeGO = new GameObject("Badge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                badgeGO.transform.SetParent(go.transform, false);
+                badgeGO.transform.SetParent(built.medal.transform, false);
                 var badgeRect = badgeGO.GetComponent<RectTransform>();
                 badgeRect.anchorMin = new Vector2(1f, 1f); badgeRect.anchorMax = new Vector2(1f, 1f);
                 badgeRect.pivot = new Vector2(0.5f, 0.5f);
-                badgeRect.sizeDelta = new Vector2(28f, 28f);
-                badgeRect.anchoredPosition = new Vector2(10f, 10f);
+                badgeRect.sizeDelta = new Vector2(40f, 40f);
+                badgeRect.anchoredPosition = new Vector2(14f, -6f);
                 var badgeImg = badgeGO.GetComponent<Image>();
                 badgeImg.sprite = CreerSpriteArrondi(64, 0.5f);
                 badgeImg.color = new Color(0.92f, 0.36f, 0.42f);
@@ -584,9 +638,23 @@ namespace Zoologic
                 btr.anchorMin = Vector2.zero; btr.anchorMax = Vector2.one;
                 btr.offsetMin = Vector2.zero; btr.offsetMax = Vector2.zero;
                 var btxt = badgeTxtGO.GetComponent<TextMeshProUGUI>();
-                btxt.font = _fontTitle; btxt.text = done.ToString(); btxt.fontSize = 18;
+                btxt.font = _fontTitle; btxt.text = done.ToString(); btxt.fontSize = 24;
                 btxt.fontStyle = FontStyles.Bold; btxt.color = Color.white; btxt.alignment = TextAlignmentOptions.Center;
+                btxt.raycastTarget = false;
             }
+        }
+
+        private void BuildCollectionButton(Transform parent)
+        {
+            Sprite medal = GetMedal(2);
+            if (medal == null)
+                medal = Resources.Load<Sprite>("UI/star");
+            BuildMedalButton(parent, "CollectionButton", medal, "shop.title", 550f, () =>
+            {
+                SFXManager.Instance?.PlayMenuOpen();
+                var canvas = FindFirstObjectByType<Canvas>();
+                if (canvas != null) CollectionUI.Show(canvas);
+            });
         }
 
         private IEnumerator ShowDailyPopupDelayed()
@@ -603,6 +671,33 @@ namespace Zoologic
             {
                 float s = 1f + Mathf.Sin(Time.unscaledTime * 3f) * 0.06f;
                 transform.localScale = new Vector3(s, s, 1f);
+            }
+        }
+
+        /// <summary>Flottement idle des médaillons (bob vertical + tilt, déphasé).</summary>
+        private class MedalFloat : MonoBehaviour
+        {
+            private Vector2 _base;
+            private float _phase;
+            private RectTransform _rect;
+
+            public void Init(float x)
+            {
+                _phase = x * 0.05f;
+            }
+
+            private void Start()
+            {
+                _rect = (RectTransform)transform;
+                _base = _rect.anchoredPosition;
+            }
+
+            private void Update()
+            {
+                if (_rect == null) return;
+                float t = Time.unscaledTime * 1.8f + _phase;
+                _rect.anchoredPosition = _base + new Vector2(0f, Mathf.Sin(t) * 7f);
+                _rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.7f) * 4f);
             }
         }
 
@@ -738,6 +833,7 @@ namespace Zoologic
             {
                 if (DailyRewardUI.IsOpen) { DailyRewardUI.Close(); return; }
                 if (MissionUI.IsOpen) { MissionUI.Close(); return; }
+                if (CollectionUI.IsOpen) { CollectionUI.Close(); return; }
                 if (SettingsPanel.HandleBackButton()) return;
                 ShowQuitConfirmation();
             }

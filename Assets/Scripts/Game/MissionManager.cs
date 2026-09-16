@@ -119,9 +119,9 @@ namespace Zoologic
         {
             switch (t)
             {
-                case MissionType.CompleteLevels: return 40;
-                case MissionType.EarnStars: return 40;
-                default: return 30;
+                case MissionType.CompleteLevels: return 15;
+                case MissionType.EarnStars: return 15;
+                default: return 10;
             }
         }
 

@@ -89,6 +89,7 @@ namespace Zoologic
 
             CreerOverlayFond(_root.transform);
             BuildPanel(_root.transform);
+            LocalizationManager.ApplyFontsToScene();
         }
 
         private static void CreerOverlayFond(Transform parent)
@@ -166,9 +167,74 @@ namespace Zoologic
             CreerLangue(panel.transform);
             CreerBoutonResetProgression(panel.transform);
             CreerBoutonResetTuto(panel.transform);
+            CreerBoutonPrivacy(panel.transform);
+            CreerLigneAge(panel.transform);
             CreerVersion(panel.transform);
 
             CreerBoutonFermer(panel.transform);
+
+            // Entrée en cascade des lignes (titre puis réglages).
+            int rowIndex = 0;
+            foreach (Transform child in panel.transform)
+            {
+                if (child.name == "CloseBtn") continue;
+                var pop = child.gameObject.AddComponent<RowPop>();
+                pop.Delay = rowIndex * 0.05f;
+                rowIndex++;
+            }
+        }
+
+        /// <summary>Pop d'entrée d'une ligne du panneau (cascade).</summary>
+        private class RowPop : MonoBehaviour
+        {
+            public float Delay;
+            private void OnEnable()
+            {
+                StartCoroutine(PopRoutine());
+            }
+            private System.Collections.IEnumerator PopRoutine()
+            {
+                transform.localScale = Vector3.zero;
+                if (Delay > 0f)
+                    yield return new WaitForSecondsRealtime(Delay);
+                if (this == null) yield break;
+                float d = 0.26f;
+                float e = 0f;
+                while (e < d)
+                {
+                    e += Time.unscaledDeltaTime;
+                    float s = Easing.EaseOutBack(Mathf.Clamp01(e / d));
+                    transform.localScale = new Vector3(s, s, s);
+                    yield return null;
+                }
+                transform.localScale = Vector3.one;
+                Destroy(this);
+            }
+        }
+
+        /// <summary>Petit punch d'échelle au clic (runner = SFXManager persistant).</summary>
+        private static class ButtonPunch
+        {
+            public static void Play(Transform t)
+            {
+                var runner = SFXManager.Instance;
+                if (runner == null || t == null) return;
+                runner.StartCoroutine(PunchRoutine(t));
+            }
+            private static System.Collections.IEnumerator PunchRoutine(Transform t)
+            {
+                float d = 0.18f;
+                float e = 0f;
+                while (e < d && t != null)
+                {
+                    e += Time.unscaledDeltaTime;
+                    float k = Mathf.Clamp01(e / d);
+                    float s = k < 0.5f ? Mathf.Lerp(1f, 0.93f, k * 2f) : Mathf.Lerp(0.93f, 1f, (k - 0.5f) * 2f);
+                    t.localScale = new Vector3(s, s, s);
+                    yield return null;
+                }
+                if (t != null) t.localScale = Vector3.one;
+            }
         }
 
         private static void CreerTitre(Transform parent)
@@ -353,11 +419,12 @@ namespace Zoologic
             var btnGO = new GameObject("LangBtn", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             btnGO.transform.SetParent(row.transform, false);
             var btnImg = btnGO.GetComponent<Image>();
-            btnImg.sprite = CreerSpriteArrondi(128, 0.4f);
+            btnImg.sprite = JellyUI.ButtonGrey ?? CreerSpriteArrondi(128, 0.4f);
             btnImg.type = Image.Type.Sliced;
             btnImg.color = AccentOrange;
             var btn = btnGO.GetComponent<Button>();
             btn.targetGraphic = btnImg;
+            btn.onClick.AddListener(() => ButtonPunch.Play(btnGO.transform));
             var btnLE = btnGO.AddComponent<LayoutElement>();
             btnLE.preferredWidth = 260f; btnLE.preferredHeight = 62f;
             var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
@@ -388,7 +455,7 @@ namespace Zoologic
 
         private static void CreerBoutonResetProgression(Transform parent)
         {
-            var btn = CreerBouton(parent, LocalizationManager.Get("settings.reset_progress"), DangerRed, 34f);
+            var btn = CreerBouton(parent, LocalizationManager.Get("settings.reset_progress"), DangerRed, 34f, "UI/X");
             btn.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
@@ -398,7 +465,7 @@ namespace Zoologic
 
         private static void CreerBoutonResetTuto(Transform parent)
         {
-            var btn = CreerBouton(parent, LocalizationManager.Get("settings.retake_tutorial"), AccentOrange, 30f);
+            var btn = CreerBouton(parent, LocalizationManager.Get("settings.retake_tutorial"), AccentOrange, 30f, "UI/play_button");
             btn.onClick.AddListener(() =>
             {
                 TutorialManager.ResetTutorial();
@@ -485,6 +552,104 @@ namespace Zoologic
             });
         }
 
+        private static void CreerBoutonPrivacy(Transform parent)
+        {
+            var btn = CreerBouton(parent, LocalizationManager.Get("settings.privacy"), new Color(0.22f, 0.50f, 0.85f, 1f), 30f, "UI/settings");
+            btn.onClick.AddListener(() =>
+            {
+                SFXManager.Instance.PlayMenuOpen();
+                try { Application.OpenURL(AppLinks.PrivacyUrl); } catch { }
+            });
+        }
+
+        private static void CreerLigneAge(Transform parent)
+        {
+            var row = new GameObject("Age");
+            row.transform.SetParent(parent, false);
+            var hlg = row.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 16f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childForceExpandWidth = true;
+            hlg.childForceExpandHeight = false;
+            hlg.padding = new RectOffset(22, 22, 14, 14);
+            var card = row.AddComponent<Image>();
+            card.sprite = CreerSpriteArrondi(128, 0.28f);
+            card.type = Image.Type.Sliced;
+            card.color = ToggleCardBg;
+            card.raycastTarget = false;
+            var rowLE = row.AddComponent<LayoutElement>();
+            rowLE.preferredHeight = 96f;
+            rowLE.flexibleWidth = 1f;
+
+            var labelGO = new GameObject("Label");
+            labelGO.transform.SetParent(row.transform, false);
+            var labelText = labelGO.AddComponent<TextMeshProUGUI>();
+            labelText.font = _fontTitle;
+            labelText.text = LocalizationManager.Get("settings.age");
+            labelText.fontSize = 30;
+            labelText.fontStyle = FontStyles.Bold;
+            labelText.color = TitleText;
+            labelText.alignment = TextAlignmentOptions.MidlineLeft;
+            labelText.raycastTarget = false;
+            var labelLE = labelGO.AddComponent<LayoutElement>();
+            labelLE.flexibleWidth = 1f;
+
+            var valueGO = new GameObject("Value");
+            valueGO.transform.SetParent(row.transform, false);
+            var valueText = valueGO.AddComponent<TextMeshProUGUI>();
+            valueText.font = _fontBody;
+            valueText.text = !AgeGateManager.HasChosen ? "—"
+                : AgeGateManager.IsUnder5 ? LocalizationManager.Get("settings.age_under5")
+                : LocalizationManager.Get("settings.age_over5");
+            valueText.fontSize = 24;
+            valueText.color = BodyText;
+            valueText.alignment = TextAlignmentOptions.MidlineRight;
+            valueText.raycastTarget = false;
+            var valueLE = valueGO.AddComponent<LayoutElement>();
+            valueLE.flexibleWidth = 1f;
+
+            var btnGO = new GameObject("AgeBtn", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            btnGO.transform.SetParent(row.transform, false);
+            var btnImg = btnGO.GetComponent<Image>();
+            btnImg.sprite = JellyUI.ButtonGrey ?? CreerSpriteArrondi(128, 0.4f);
+            btnImg.type = Image.Type.Sliced;
+            btnImg.color = AccentOrange;
+            var btn = btnGO.GetComponent<Button>();
+            btn.targetGraphic = btnImg;
+            btn.onClick.AddListener(() => ButtonPunch.Play(btnGO.transform));
+            var btnLE = btnGO.AddComponent<LayoutElement>();
+            btnLE.preferredWidth = 200f; btnLE.preferredHeight = 62f;
+            var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            txtGO.transform.SetParent(btnGO.transform, false);
+            var txtRect = (RectTransform)txtGO.transform;
+            txtRect.anchorMin = Vector2.zero; txtRect.anchorMax = Vector2.one;
+            txtRect.offsetMin = new Vector2(8f, 4f); txtRect.offsetMax = new Vector2(-8f, -4f);
+            var txt = txtGO.GetComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.fontSize = 24;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = Color.white;
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.raycastTarget = false;
+            txt.text = LocalizationManager.Get("settings.change");
+            btn.onClick.AddListener(() =>
+            {
+                SFXManager.Instance.PlayMenuOpen();
+                if (_overlayCanvas == null) return;
+                ParentGate.Show(_overlayCanvas, onSuccess: () =>
+                {
+                    AgeGateManager.ResetChoice();
+                    try { AdMobManager.Instance?.ApplyAgeBand(true); } catch { }
+                    if (_overlayCanvas == null) return;
+                    AgeGateManager.Show(_overlayCanvas, _ =>
+                    {
+                        Close();
+                        Open();
+                    });
+                });
+            });
+        }
+
         private static void CreerVersion(Transform parent)
         {
             var go = new GameObject("Version");
@@ -554,7 +719,7 @@ namespace Zoologic
             le.ignoreLayout = true;
         }
 
-        private static Button CreerBouton(Transform parent, string label, Color bgColor, float fontSize)
+        private static Button CreerBouton(Transform parent, string label, Color bgColor, float fontSize, string iconPath = null)
         {
             var go = new GameObject("Btn_" + label);
             go.transform.SetParent(parent, false);
@@ -562,7 +727,7 @@ namespace Zoologic
             rect.sizeDelta = new Vector2(320f, 66f);
 
             var img = go.AddComponent<Image>();
-            img.sprite = CreerSpriteArrondi(128, 0.4f);
+            img.sprite = JellyUI.ButtonGrey ?? CreerSpriteArrondi(128, 0.4f);
             img.type = Image.Type.Sliced;
             img.color = bgColor;
             var ol = go.AddComponent<Outline>();
@@ -572,22 +737,56 @@ namespace Zoologic
             sh.effectColor = new Color(0.20f, 0.12f, 0.07f, 0.28f);
             sh.effectDistance = new Vector2(0f, -4f);
 
+            // Reflet glossy haut (relief jelly).
+            var glossGO = new GameObject("Gloss");
+            glossGO.transform.SetParent(go.transform, false);
+            var glossRect = glossGO.AddComponent<RectTransform>();
+            glossRect.anchorMin = new Vector2(0f, 0.55f);
+            glossRect.anchorMax = new Vector2(1f, 1f);
+            glossRect.offsetMin = new Vector2(10f, 0f);
+            glossRect.offsetMax = new Vector2(-10f, -6f);
+            var glossImg = glossGO.AddComponent<Image>();
+            glossImg.sprite = JellyUI.ButtonGrey ?? CreerSpriteArrondi(128, 0.4f);
+            glossImg.type = Image.Type.Sliced;
+            glossImg.color = new Color(1f, 1f, 1f, 0.16f);
+            glossImg.raycastTarget = false;
+
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.transition = Selectable.Transition.ColorTint;
             var colors = btn.colors;
-            colors.normalColor = bgColor;
-            colors.highlightedColor = bgColor * 1.12f;
-            colors.pressedColor = bgColor * 0.82f;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 1f, 1f, 1f);
+            colors.pressedColor = new Color(0.82f, 0.82f, 0.82f, 1f);
             btn.colors = colors;
+            btn.onClick.AddListener(() => ButtonPunch.Play(go.transform));
 
+            var contentGO = new GameObject("Content");
+            contentGO.transform.SetParent(go.transform, false);
+            var contentRect = contentGO.AddComponent<RectTransform>();
+            contentRect.anchorMin = Vector2.zero;
+            contentRect.anchorMax = Vector2.one;
+            contentRect.offsetMin = new Vector2(12f, 4f);
+            contentRect.offsetMax = new Vector2(-12f, -4f);
+            var hlg = contentGO.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 10f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childForceExpandWidth = false;
+            hlg.childControlWidth = false;
+            if (!string.IsNullOrEmpty(iconPath))
+            {
+                var iconGO = new GameObject("Icon");
+                iconGO.transform.SetParent(contentGO.transform, false);
+                var iconImg = iconGO.AddComponent<Image>();
+                iconImg.sprite = Resources.Load<Sprite>(iconPath);
+                iconImg.preserveAspect = true;
+                iconImg.raycastTarget = false;
+                var iconLE = iconGO.AddComponent<LayoutElement>();
+                iconLE.preferredWidth = 36f;
+                iconLE.preferredHeight = 36f;
+            }
             var txtGO = new GameObject("Text");
-            txtGO.transform.SetParent(go.transform, false);
-            var txtRect = txtGO.AddComponent<RectTransform>();
-            txtRect.anchorMin = Vector2.zero;
-            txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = new Vector2(12f, 4f);
-            txtRect.offsetMax = new Vector2(-12f, -4f);
+            txtGO.transform.SetParent(contentGO.transform, false);
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = label;
@@ -598,6 +797,11 @@ namespace Zoologic
             txt.outlineColor = new Color(0f, 0f, 0f, 0.25f);
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
+            txt.enableAutoSizing = true;
+            txt.fontSizeMin = 22f;
+            txt.fontSizeMax = fontSize;
+            txt.textWrappingMode = TextWrappingModes.NoWrap;
+            txt.overflowMode = TextOverflowModes.Ellipsis;
 
             var le = go.AddComponent<LayoutElement>();
             le.preferredWidth = 520f;

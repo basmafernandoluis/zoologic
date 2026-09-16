@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
@@ -7,8 +8,8 @@ namespace Zoologic.EditorTools
 {
     public static class BuildAPK
     {
-        private const string ApkPath = "Builds/ZooLogic_v0.6.apk";
-        private const string AabPath = "Builds/ZooLogic_v0.6.aab";
+        private const string ApkPath = "Builds/ZooLogic_v0.7.apk";
+        private const string AabPath = "Builds/ZooLogic_v0.7.aab";
 
         // https://developer.android.com/studio/publish/app-signing
         private const string KeystorePath = "Assets/play store/memorymatrix.keystore";
@@ -16,7 +17,8 @@ namespace Zoologic.EditorTools
         private const string KeyAlias = "memorymatrix";
         private const string KeyAliasPass = "123456";
 
-        private const string IconPath = "Assets/myicon.jpg";
+        private const string IconPath = "Assets/myicon.png";
+        private const string IconFallbackPath = "Assets/myicon.jpg";
         private const string SplashPath = "Assets/Resources/UI/splash_android.png";
 
         private static readonly string[] ScenePaths =
@@ -30,10 +32,12 @@ namespace Zoologic.EditorTools
         [MenuItem("Tools/Zoo Logic/Apply App Icon")]
         public static void ApplyAppIcon()
         {
-            Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(IconPath);
+            EnsureIconImportSettings();
+            Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(IconPath)
+                ?? AssetDatabase.LoadAssetAtPath<Texture2D>(IconFallbackPath);
             if (tex == null)
             {
-                Debug.LogError("[Icon] Texture non trouv\u00e9e : " + IconPath);
+                Debug.LogError("[Icon] Texture non trouvée : " + IconPath + " ni " + IconFallbackPath);
                 return;
             }
 
@@ -42,9 +46,47 @@ namespace Zoologic.EditorTools
                 BuildTargetGroup.Android,
                 new[] { tex, tex, tex });
 #pragma warning restore CS0618
-            AssetDatabase.SaveAssets();
+            // SaveAssets() global interdit : il reecrit les prefabs immuables
+            // d'AdMob (PlaceholderAds). On ne persiste que les PlayerSettings.
+            foreach (Object o in AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset"))
+            {
+                if (o != null && EditorUtility.IsDirty(o))
+                    AssetDatabase.SaveAssetIfDirty(o);
+            }
             AssetDatabase.Refresh();
             Debug.Log("[Icon] Ic\u00f4ne appliqu\u00e9e \u00e0 Android (legacy + adaptive).");
+        }
+
+        /// <summary>
+        /// L'icône Android doit être non compressée (sinon le build prévient que
+        /// la qualité sera dégradée). Appliqué sur notre asset mutable uniquement.
+        /// Vide aussi l'override de plateforme Android (qui forçait ETC2).
+        /// </summary>
+        private static void EnsureIconImportSettings()
+        {
+            var importer = AssetImporter.GetAtPath(IconPath) as TextureImporter;
+            if (importer == null)
+            {
+                Debug.LogWarning("[Icon] Importer introuvable : " + IconPath);
+                return;
+            }
+            bool dirty = false;
+            if (importer.textureType != TextureImporterType.Default) { importer.textureType = TextureImporterType.Default; dirty = true; }
+            if (!importer.sRGBTexture) { importer.sRGBTexture = true; dirty = true; }
+            if (!importer.mipmapEnabled) { importer.mipmapEnabled = true; dirty = true; }
+            if (importer.maxTextureSize < 1024) { importer.maxTextureSize = 1024; dirty = true; }
+            if (importer.textureCompression != TextureImporterCompression.Uncompressed) { importer.textureCompression = TextureImporterCompression.Uncompressed; dirty = true; }
+            if (importer.GetPlatformTextureSettings("Android", out int maxSize, out TextureImporterFormat format, out int quality, out bool overridden) && overridden)
+            {
+                importer.ClearPlatformTextureSettings("Android");
+                dirty = true;
+            }
+            Debug.Log($"[Icon] Import settings: type={importer.textureType} compression={importer.textureCompression} maxSize={importer.maxTextureSize}");
+            if (dirty)
+            {
+                importer.SaveAndReimport();
+                Debug.Log("[Icon] Import myicon.png forcé en non-compressé (RGBA32).");
+            }
         }
 
         [MenuItem("Tools/Zoo Logic/Build Android APK (Test Ads)")]
@@ -82,8 +124,8 @@ namespace Zoologic.EditorTools
 
             PlayerSettings.companyName = "AppWizards";
             PlayerSettings.productName = "Zoo Logic";
-            PlayerSettings.bundleVersion = "0.6";
-            PlayerSettings.Android.bundleVersionCode = 6;
+            PlayerSettings.bundleVersion = "0.7";
+            PlayerSettings.Android.bundleVersionCode = 7;
             PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android, "com.appwizards.zoologic");
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.AutoRotation;
             PlayerSettings.allowedAutorotateToPortrait = true;
@@ -140,7 +182,13 @@ namespace Zoologic.EditorTools
                 new EditorBuildSettingsScene(ScenePaths[2], true),
                 new EditorBuildSettingsScene(ScenePaths[3], true)
             };
-            AssetDatabase.SaveAssets();
+            // Pas de SaveAssets() global : cf. ApplyAppIcon (prefabs AdMob immuables).
+            foreach (Object o in AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset")
+                .Concat(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/EditorBuildSettings.asset")))
+            {
+                if (o != null && EditorUtility.IsDirty(o))
+                    AssetDatabase.SaveAssetIfDirty(o);
+            }
 
             try
             {
@@ -188,6 +236,19 @@ namespace Zoologic.EditorTools
             Debug.Log("[Splash] Splash désactivé - Made by Unity retiré, démarrage direct MainMenu");
         }
 
+        /// <summary>
+        /// Bruit connu et non-fatal : Unity tente de sauvegarder les prefabs
+        /// PlaceholderAds du package AdMob (dossier immuable) marqués dirty à
+        /// l'import. Le build continue et réussit (vérifié : APK produit).
+        /// On le déclasse pour ne pas masquer les vraies erreurs.
+        /// </summary>
+        private static bool IsBenignPackageNoise(string content)
+        {
+            return !string.IsNullOrEmpty(content)
+                && content.Contains("immutable folder")
+                && content.Contains("PlaceholderAds");
+        }
+
         private static void LogResult(BuildReport report, string kind)
         {
             BuildSummary summary = report.summary;
@@ -202,7 +263,8 @@ namespace Zoologic.EditorTools
 
             foreach (BuildStep step in report.steps)
                 foreach (BuildStepMessage msg in step.messages)
-                    if (msg.type == LogType.Error) Debug.LogError("[BUILD-ERR] " + msg.content);
+                    if (msg.type == LogType.Error && IsBenignPackageNoise(msg.content)) Debug.Log("[BUILD-INFO] (bénin, build non bloqué) " + msg.content);
+                    else if (msg.type == LogType.Error) Debug.LogError("[BUILD-ERR] " + msg.content);
                     else if (msg.type == LogType.Warning) Debug.LogWarning("[BUILD-WARN] " + msg.content);
 
             if (summary.result == BuildResult.Succeeded)
