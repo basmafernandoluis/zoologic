@@ -112,21 +112,41 @@ namespace Zoologic.Localization
         {
             if (key == null) return "";
             if (_strings.Count == 0) LoadTable(Current);
-            return _strings.TryGetValue(key, out var v) ? v : $"[{key}]";
+            if (!_strings.TryGetValue(key, out var v)) return $"[{key}]";
+            return ShapeForDisplay(v);
         }
 
         public static string Get(string key, params object[] args)
         {
-            string fmt = Get(key);
-            try { return args == null || args.Length == 0 ? fmt : string.Format(fmt, args); }
-            catch { return fmt; }
+            if (key == null) return "";
+            if (_strings.Count == 0) LoadTable(Current);
+            if (!_strings.TryGetValue(key, out var v)) return $"[{key}]";
+            string result;
+            // Format AVANT façonnage : les accolades {0} ne doivent pas être
+            // miroirées/inversées, seuls les arguments substitués sont façonnés.
+            try { result = args == null || args.Length == 0 ? v : string.Format(v, args); }
+            catch { result = v; }
+            return ShapeForDisplay(result);
+        }
+
+        /// <summary>
+        /// Façonne une chaîne pour l'affichage (arabe : ordre visuel + lettres
+        /// liées via <see cref="ArabicShaper"/>). Passe-through pour les autres
+        /// langues. À utiliser pour tout texte affiché non issu de Get().
+        /// </summary>
+        public static string ShapeForDisplay(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text ?? "";
+            if (Current != "ar-SA") return text;
+            try { return ArabicShaper.Shape(text); }
+            catch { return text; }
         }
 
         public static void ApplyTo(TMP_Text tmp)
         {
             if (tmp == null) return;
             if (tmp.font == null) return;
-            tmp.isRightToLeftText = IsRTL && ContainsRtl(tmp.text);
+            tmp.isRightToLeftText = IsRTL && ContainsRtl(tmp.text) && !ContainsShapedArabic(tmp.text);
             try { WireStaticFallbacks(); } catch { }
             if (_originals.TryGetValue(tmp.GetInstanceID(), out var orig) && orig != null)
             {
@@ -189,6 +209,18 @@ namespace Zoologic.Localization
             if (f.name.Contains("ja-JP")) return "ja-JP";
             if (f.name.Contains("hi-IN")) return "hi-IN";
             return null;
+        }
+
+        private static bool ContainsShapedArabic(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            foreach (char c in text)
+            {
+                if ((c >= '\uFB50' && c <= '\uFDFF')
+                    || (c >= '\uFE70' && c <= '\uFEFF'))
+                    return true;
+            }
+            return false;
         }
 
         private static bool ContainsRtl(string text)

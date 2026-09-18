@@ -130,9 +130,12 @@ namespace Zoologic
         private TextMeshProUGUI _coinsValueText;
         private Image _coinsPillBg;
         private Image _indiceCoinIconImage;
+        private Image _indiceBadgeImg;
         private TextMeshProUGUI _indiceCostText;
         private Sprite _coinSprite;
+        private static Sprite _playTriangleSprite;
         private Coroutine _toastRoutine;
+        private Coroutine _conflictRoutine;
 
         // Power-up e gomme e : bouton flottant en bas d'ecran.
         private Button _gommeButton;
@@ -463,7 +466,9 @@ namespace Zoologic
             _coinsValueText.fontSizeMin = 20;
             _coinsValueText.fontSizeMax = 34;
             _coinsValueText.textWrappingMode = TextWrappingModes.NoWrap;
-            _coinsValueText.overflowMode = TextOverflowModes.Ellipsis;
+            // Truncate (jamais Ellipsis) : Ellipsis + fonts fallback = boucle
+            // "Line breaking recursion max threshold" (bug TMP documenté).
+            _coinsValueText.overflowMode = TextOverflowModes.Truncate;
             _coinsValueText.alignment = TextAlignmentOptions.MidlineLeft;
             _coinsValueText.color = Color.white;
             _coinsValueText.fontStyle = FontStyles.Bold;
@@ -756,7 +761,7 @@ namespace Zoologic
             labelText.fontStyle = FontStyles.Bold;
             labelText.lineSpacing = 0f;
             labelText.textWrappingMode = TextWrappingModes.Normal;
-            labelText.overflowMode = TextOverflowModes.Ellipsis;
+            labelText.overflowMode = TextOverflowModes.Truncate; // Jamais Ellipsis : boucle "Line breaking recursion" avec les fallbacks (bug TMP).
             labelText.raycastTarget = false;
         }
 
@@ -2026,7 +2031,9 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Conflit expliqué : nomme la règle violée (toast bien visible).
+        /// Conflit expliqué : badge ludique (carte crème + pastille rouge "!" + pop),
+        /// cohérent avec la bulle du guide et les cartes de règles. Ne passe plus
+        /// par le toast système noir réservé aux pièces/pubs.
         /// </summary>
         public void NotifierConflit(Zoologic.Core.ConflictType type)
         {
@@ -2037,8 +2044,136 @@ namespace Zoologic
                 Zoologic.Core.ConflictType.Zone => "conflict.zone",
                 _ => "conflict.diagonal",
             };
-            ShowCoinToast(LocalizationManager.Get(key));
+            ShowConflictBadge(LocalizationManager.Get(key));
             Haptics.VibrateLight();
+        }
+
+        /// <summary>
+        /// Badge d'erreur ludique : carte crème arrondie (même langage que le
+        /// GuideBubble et les cartes de règles), pastille rouge avec "!" blanc,
+        /// texte Fredoka Bold marron, pop OutBack + fade-out glissé vers le haut.
+        /// </summary>
+        private void ShowConflictBadge(string message)
+        {
+            Canvas canvas = FindFirstObjectByType<Canvas>();
+            if (canvas == null)
+                return;
+
+            GameObject existing = GameObject.Find("ConflictBadge");
+            if (existing != null)
+                Destroy(existing);
+
+            var badgeObj = CreerObjetUI("ConflictBadge", canvas.transform);
+            var badgeRect = badgeObj.GetComponent<RectTransform>();
+            badgeRect.anchorMin = new Vector2(0.5f, 0.5f);
+            badgeRect.anchorMax = new Vector2(0.5f, 0.5f);
+            badgeRect.pivot = new Vector2(0.5f, 0.5f);
+            badgeRect.sizeDelta = new Vector2(660f, 124f);
+            badgeRect.anchoredPosition = new Vector2(0f, -240f);
+
+            var badgeImg = badgeObj.AddComponent<Image>();
+            badgeImg.sprite = B1UI.Bubble ?? GetCarteSprite();
+            badgeImg.type = Image.Type.Sliced;
+            badgeImg.color = new Color(1f, 0.98f, 0.96f, 1f);
+            badgeImg.raycastTarget = false;
+
+            var shadow = badgeObj.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0.25f, 0.15f, 0.08f, 0.30f);
+            shadow.effectDistance = new Vector2(0f, -8f);
+
+            var pastilleObj = CreerObjetUI("Pastille", badgeObj.transform);
+            var pastilleRect = pastilleObj.GetComponent<RectTransform>();
+            pastilleRect.anchorMin = new Vector2(0f, 0.5f);
+            pastilleRect.anchorMax = new Vector2(0f, 0.5f);
+            pastilleRect.pivot = new Vector2(0.5f, 0.5f);
+            pastilleRect.sizeDelta = new Vector2(76f, 76f);
+            pastilleRect.anchoredPosition = new Vector2(64f, 0f);
+
+            var pastilleImg = pastilleObj.AddComponent<Image>();
+            pastilleImg.sprite = GetPiluleSprite();
+            pastilleImg.type = Image.Type.Simple;
+            pastilleImg.color = new Color(0.90f, 0.20f, 0.20f, 1f);
+            pastilleImg.raycastTarget = false;
+
+            var pointObj = CreerObjetUI("Point", pastilleObj.transform);
+            var pointRect = pointObj.GetComponent<RectTransform>();
+            pointRect.anchorMin = Vector2.zero;
+            pointRect.anchorMax = Vector2.one;
+            pointRect.offsetMin = Vector2.zero;
+            pointRect.offsetMax = new Vector2(0f, 4f);
+
+            var pointText = pointObj.AddComponent<TextMeshProUGUI>();
+            pointText.font = _fontTitle != null ? _fontTitle : _fontBody;
+            pointText.text = "!";
+            pointText.fontSize = 52;
+            pointText.fontStyle = FontStyles.Bold;
+            pointText.alignment = TextAlignmentOptions.Center;
+            pointText.color = Color.white;
+            pointText.textWrappingMode = TextWrappingModes.NoWrap;
+            pointText.overflowMode = TextOverflowModes.Overflow;
+            pointText.raycastTarget = false;
+
+            var msgObj = CreerObjetUI("Text", badgeObj.transform);
+            var msgRect = msgObj.GetComponent<RectTransform>();
+            msgRect.anchorMin = Vector2.zero;
+            msgRect.anchorMax = Vector2.one;
+            msgRect.offsetMin = new Vector2(122f, 12f);
+            msgRect.offsetMax = new Vector2(-20f, -12f);
+
+            var msgText = msgObj.AddComponent<TextMeshProUGUI>();
+            msgText.font = _fontTitle != null ? _fontTitle : _fontBody;
+            msgText.text = message;
+            msgText.fontSize = 32;
+            msgText.fontStyle = FontStyles.Bold;
+            msgText.alignment = TextAlignmentOptions.MidlineLeft;
+            msgText.color = TitleBrown;
+            msgText.textWrappingMode = TextWrappingModes.Normal;
+            msgText.overflowMode = TextOverflowModes.Overflow;
+            msgText.raycastTarget = false;
+            LocalizationManager.ApplyTo(msgText);
+
+            if (_conflictRoutine != null)
+                StopCoroutine(_conflictRoutine);
+            _conflictRoutine = StartCoroutine(ConflictBadgeRoutine(badgeObj, badgeRect));
+        }
+
+        private IEnumerator ConflictBadgeRoutine(GameObject badgeObj, RectTransform badgeRect)
+        {
+            float duration = 1.6f;
+            float popDuration = 0.28f;
+            float fadeStart = 0.72f;
+            float elapsed = 0f;
+            Vector2 basePos = badgeRect.anchoredPosition;
+
+            CanvasGroup group = badgeObj.AddComponent<CanvasGroup>();
+            group.alpha = 1f;
+            badgeRect.localScale = new Vector3(0.6f, 0.6f, 1f);
+
+            while (elapsed < duration)
+            {
+                float t = Mathf.Clamp01(elapsed / duration);
+                if (elapsed < popDuration)
+                {
+                    float s = Mathf.Lerp(0.6f, 1f, Easing.EaseOutBack(elapsed / popDuration));
+                    badgeRect.localScale = new Vector3(s, s, 1f);
+                }
+                else
+                {
+                    badgeRect.localScale = Vector3.one;
+                }
+                if (t > fadeStart)
+                {
+                    float f = (t - fadeStart) / (1f - fadeStart);
+                    group.alpha = 1f - Easing.EaseInQuad(f);
+                    badgeRect.anchoredPosition = basePos + new Vector2(0f, 24f * f);
+                }
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            if (badgeObj != null)
+                Destroy(badgeObj);
+            _conflictRoutine = null;
         }
 
         /// <summary>
@@ -2451,7 +2586,7 @@ namespace Zoologic
             labelText.fontStyle = FontStyles.Bold;
             labelText.lineSpacing = 0f;
             labelText.textWrappingMode = TextWrappingModes.Normal;
-            labelText.overflowMode = TextOverflowModes.Ellipsis;
+            labelText.overflowMode = TextOverflowModes.Truncate; // Jamais Ellipsis : boucle "Line breaking recursion" avec les fallbacks (bug TMP).
             labelText.raycastTarget = false;
 
             var cardLE = carte.AddComponent<LayoutElement>();

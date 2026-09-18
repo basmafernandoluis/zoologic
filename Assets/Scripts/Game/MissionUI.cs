@@ -152,7 +152,9 @@ namespace Zoologic
                 label.font = _fontTitle; label.text = m.Label; label.fontSize = 24; label.fontStyle = FontStyles.Bold;
                 label.color = new Color(0.22f, 0.13f, 0.07f); label.alignment = TextAlignmentOptions.MidlineLeft;
                 label.textWrappingMode = TextWrappingModes.NoWrap;
-                label.overflowMode = TextOverflowModes.Ellipsis;
+                // Truncate (jamais Ellipsis) : Ellipsis + fonts fallback = boucle
+                // "Line breaking recursion max threshold" (bug TMP documenté).
+                label.overflowMode = TextOverflowModes.Truncate;
                 label.raycastTarget = false;
                 var labLE = labelGO.AddComponent<LayoutElement>(); labLE.preferredHeight = 32f; labLE.flexibleWidth = 1f; labLE.minWidth = 0f;
 

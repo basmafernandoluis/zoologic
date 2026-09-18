@@ -65,6 +65,8 @@ namespace Zoologic.EditorTools
             if (!string.IsNullOrEmpty(missing))
                 Debug.LogWarning($"[LocFont] {job.Code}: glyphes manquants: {missing}");
 
+            if (job.Code == "ar-SA") VerifyArabicCoverage(fa);
+
             fa.atlasPopulationMode = AtlasPopulationMode.Static;
 
             fa.name = $"Loc_{job.Code}";
@@ -82,10 +84,50 @@ namespace Zoologic.EditorTools
             Debug.Log($"[LocFont] {job.Code}: OK -> {assetPath} (atlas {atlas}, {fa.characterTable?.Count ?? 0} caracteres)");
         }
 
+        /// <summary>
+        /// Garde-fou : chaque glyphe émis par ArabicShaper (formes FB50-FDFF /
+        /// FE70-FEFF) doit exister dans l'atlas, sinon tofu □ en jeu.
+        /// Les symboles (♥…) passent par les fallbacks, on ne les contrôle pas ici.
+        /// </summary>
+        private static void VerifyArabicCoverage(TMP_FontAsset fa)
+        {
+            try
+            {
+                var have = new HashSet<int>();
+                if (fa.characterTable != null)
+                    foreach (var ch in fa.characterTable)
+                        have.Add((int)ch.unicode);
+                string json = File.ReadAllText("Assets/Resources/Localization/ar-SA.json");
+                var table = JsonUtility.FromJson<LocTable>("{\"entries\":" + json + "}");
+                var lacking = new HashSet<int>();
+                if (table?.entries != null)
+                    foreach (var e in table.entries)
+                    {
+                        if (e?.v == null) continue;
+                        foreach (char c in Zoologic.Localization.ArabicShaper.Shape(e.v))
+                        {
+                            int u = c;
+                            if ((u >= 0xFB50 && u <= 0xFDFF) || (u >= 0xFE70 && u <= 0xFEFF))
+                                if (!have.Contains(u)) lacking.Add(u);
+                        }
+                    }
+                if (lacking.Count > 0)
+                {
+                    var list = new System.Text.StringBuilder();
+                    foreach (int u in lacking) list.Append("U+").Append(u.ToString("X4")).Append(' ');
+                    Debug.LogError("[LocFont] ar-SA: " + lacking.Count
+                        + " formes de présentation manquantes (tofu □ en jeu) : " + list);
+                }
+                else Debug.Log("[LocFont] ar-SA: couverture des formes de présentation OK.");
+            }
+            catch (System.Exception e) { Debug.LogWarning("[LocFont] vérification ar-SA impossible : " + e.Message); }
+        }
+
         private static int PickAtlas(string code, int glyphCount, int sampling, int padding)
         {
             if (code == "zh-CN" || code == "ja-JP") return 4096;
-            if (code == "ar-SA" || code == "hi-IN") return 2048;
+            if (code == "ar-SA") return 4096; // +832 formes de présentation.
+            if (code == "hi-IN") return 2048;
             int cell = sampling + padding * 2;
             foreach (int size in new[] { 1024, 2048, 4096 })
             {
@@ -112,6 +154,14 @@ namespace Zoologic.EditorTools
             for (uint c = 32; c < 127; c++) set.Add(c);
             foreach (char c in "•♥—–…’«»「」？！：；×→") set.Add(c);
             foreach (char c in "FrançaisEnglishPortuguêsРусскийالعربية中文日本語हिन्दी") set.Add(c);
+            if (code == "ar-SA")
+            {
+                // Façonnage arabe (ArabicShaper) : formes de présentation
+                // (FB50-FDFF : ligatures + alef maksura FBE8/FBE9 ;
+                //  FE70-FEFF : formes contextuelles + lam-alef FEF5-FEFC).
+                for (uint c = 0xFB50; c <= 0xFDFF; c++) set.Add(c);
+                for (uint c = 0xFE70; c <= 0xFEFF; c++) set.Add(c);
+            }
             string dir = "Assets/Resources/Localization";
             string[] files;
             try { files = Directory.GetFiles(dir, "*.json"); }

@@ -33,6 +33,18 @@ namespace Zoologic
         private static TMP_FontAsset _fontTitle;
         private static TMP_FontAsset _fontBody;
 
+        /// <summary>
+        /// Finalise un texte localisé : miroir RTL de l'alignement + fallback
+        /// de police + flag directionnel (arabe déjà façonné en ordre visuel).
+        /// À appeler après font/text/alignement.
+        /// </summary>
+        private static void Localize(TextMeshProUGUI tmp)
+        {
+            if (tmp == null) return;
+            tmp.alignment = LocalizationManager.Mirror(tmp.alignment);
+            LocalizationManager.ApplyTo(tmp);
+        }
+
         public static void Open()
         {
             if (IsOpen) return;
@@ -251,6 +263,7 @@ namespace Zoologic
             txt.outlineWidth = 0.15f;
             txt.outlineColor = new Color(1f, 0.98f, 0.92f, 0.9f);
             txt.raycastTarget = false;
+            Localize(txt);
             var sh = go.AddComponent<Shadow>();
             sh.effectColor = new Color(0.35f, 0.22f, 0.12f, 0.18f);
             sh.effectDistance = new Vector2(0f, -3f);
@@ -301,6 +314,7 @@ namespace Zoologic
             labelText.color = TitleText;
             labelText.alignment = TextAlignmentOptions.MidlineLeft;
             labelText.raycastTarget = false;
+            Localize(labelText);
             var labelLE = labelGO.AddComponent<LayoutElement>();
             labelLE.flexibleWidth = 1f;
 
@@ -315,6 +329,7 @@ namespace Zoologic
             statusText.color = isOn ? StatusOn : StatusOff;
             statusText.alignment = TextAlignmentOptions.MidlineRight;
             statusText.raycastTarget = false;
+            Localize(statusText);
             var statusLE = statusGO.AddComponent<LayoutElement>();
             statusLE.preferredWidth = 150f;
 
@@ -413,6 +428,7 @@ namespace Zoologic
             labelText.color = TitleText;
             labelText.alignment = TextAlignmentOptions.MidlineLeft;
             labelText.raycastTarget = false;
+            Localize(labelText);
             var labelLE = labelGO.AddComponent<LayoutElement>();
             labelLE.flexibleWidth = 1f;
 
@@ -439,8 +455,9 @@ namespace Zoologic
             txt.color = Color.white;
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
-            System.Action refresh = () => { txt.text = LangNative(LocalizationManager.Current); };
+            System.Action refresh = () => { txt.text = LocalizationManager.ShapeForDisplay(LangNative(LocalizationManager.Current)); };
             refresh();
+            Localize(txt);
             btn.onClick.AddListener(() =>
             {
                 var all = LocalizationManager.Supported;
@@ -522,6 +539,7 @@ namespace Zoologic
             msgTxt.color = BodyText;
             msgTxt.alignment = TextAlignmentOptions.Center;
             msgTxt.raycastTarget = false;
+            Localize(msgTxt);
             var msgLE = msgGO.AddComponent<LayoutElement>();
             msgLE.preferredHeight = 80f;
 
@@ -591,6 +609,7 @@ namespace Zoologic
             labelText.color = TitleText;
             labelText.alignment = TextAlignmentOptions.MidlineLeft;
             labelText.raycastTarget = false;
+            Localize(labelText);
             var labelLE = labelGO.AddComponent<LayoutElement>();
             labelLE.flexibleWidth = 1f;
 
@@ -605,6 +624,7 @@ namespace Zoologic
             valueText.color = BodyText;
             valueText.alignment = TextAlignmentOptions.MidlineRight;
             valueText.raycastTarget = false;
+            Localize(valueText);
             var valueLE = valueGO.AddComponent<LayoutElement>();
             valueLE.flexibleWidth = 1f;
 
@@ -632,6 +652,7 @@ namespace Zoologic
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
             txt.text = LocalizationManager.Get("settings.change");
+            Localize(txt);
             btn.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuOpen();
@@ -798,10 +819,13 @@ namespace Zoologic
             txt.alignment = TextAlignmentOptions.Center;
             txt.raycastTarget = false;
             txt.enableAutoSizing = true;
+            Localize(txt);
             txt.fontSizeMin = 22f;
             txt.fontSizeMax = fontSize;
             txt.textWrappingMode = TextWrappingModes.NoWrap;
-            txt.overflowMode = TextOverflowModes.Ellipsis;
+            // Truncate (jamais Ellipsis) : Ellipsis + fonts fallback = boucle
+            // "Line breaking recursion max threshold" (bug TMP documenté).
+            txt.overflowMode = TextOverflowModes.Truncate;
 
             var le = go.AddComponent<LayoutElement>();
             le.preferredWidth = 520f;
