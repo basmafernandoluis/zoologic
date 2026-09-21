@@ -23,11 +23,12 @@ namespace Zoologic.EditorTools
 
         private static readonly string[] ScenePaths =
         {
+            "Assets/Scenes/Splash.unity",
             "Assets/Scenes/MainMenu.unity",
-            "Assets/Scenes/Tutorial.unity",
             "Assets/Scenes/LevelMap.unity",
             "Assets/Scenes/TestGrid.unity"
         };
+
 
         [MenuItem("Tools/Zoo Logic/Apply App Icon")]
         public static void ApplyAppIcon()

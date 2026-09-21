@@ -39,10 +39,10 @@ namespace Zoologic.EditorTools
 
         private static int GetSceneOrder(string path)
         {
-            if (path.Contains("MainMenu")) return 0;
-            if (path.Contains("LevelMap")) return 1;
-            if (path.Contains("TestGrid")) return 2;
-            if (path.Contains("Tutorial")) return 3;
+            if (path.Contains("Splash")) return 0;
+            if (path.Contains("MainMenu")) return 1;
+            if (path.Contains("LevelMap")) return 2;
+            if (path.Contains("TestGrid")) return 3;
             return 99;
         }
 
