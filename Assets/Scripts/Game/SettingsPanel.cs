@@ -485,11 +485,11 @@ namespace Zoologic
             var btn = CreerBouton(parent, LocalizationManager.Get("settings.retake_tutorial"), AccentOrange, 30f, "UI/play_button");
             btn.onClick.AddListener(() =>
             {
-                TutorialManager.ResetTutorial();
-                TutorialManager.ForceShow = true;
+                PuzzleGameController.ResetGuided();
+                PuzzleGameController.SelectedLevel = 1;
                 SFXManager.Instance.PlayMenuClose();
                 Close();
-                UnityEngine.SceneManagement.SceneManager.LoadScene("Tutorial");
+                UnityEngine.SceneManagement.SceneManager.LoadScene("TestGrid");
             });
         }
 
@@ -677,7 +677,7 @@ namespace Zoologic
             go.transform.SetParent(parent, false);
             var txt = go.AddComponent<TextMeshProUGUI>();
             txt.font = _fontBody;
-            txt.text = "v0.1";
+            txt.text = "v" + Application.version;
             txt.fontSize = 23;
             txt.color = MutedText;
             txt.alignment = TextAlignmentOptions.Center;
