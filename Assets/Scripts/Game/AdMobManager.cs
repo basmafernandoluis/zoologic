@@ -47,13 +47,17 @@ namespace Zoologic
         public static bool Under5Mode { get; private set; } = true;
         public static bool AreAdsAllowed() => !Under5Mode;
 
+        /// <summary>Log info pub : présent en éditeur/dev, strippé à la compilation en release (zéro spam logcat prod).</summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        internal static void AdLog(string message) { AdLog(message); }
+
         public void OnAgeBandChosen(bool under5) => ApplyAgeBand(under5);
 
         public void ApplyAgeBand(bool under5)
         {
             bool wasAllowed = !Under5Mode;
             Under5Mode = under5;
-            Debug.Log($"[AdMob] Age band applied Under5={under5} AdsAllowed={!under5}");
+            AdLog($"[AdMob] Age band applied Under5={under5} AdsAllowed={!under5}");
             if (!under5 && !wasAllowed) TryInitializeAds();
             if (under5)
             {
@@ -117,7 +121,7 @@ namespace Zoologic
 
         private void ConfigureAndInitialize()
         {
-            Debug.Log($"[AdMob] Configure IsProduction={IsProduction} AppId={AppId} Banner={BannerId} Rewarded={RewardedId}");
+            AdLog($"[AdMob] Configure IsProduction={IsProduction} AppId={AppId} Banner={BannerId} Rewarded={RewardedId}");
             try
             {
 #pragma warning disable CS0618
@@ -129,7 +133,7 @@ namespace Zoologic
                 };
                 MobileAds.SetRequestConfiguration(config);
 #pragma warning restore CS0618
-                Debug.Log("[AdMob] RequestConfiguration set: TFCD=True TFA=True MaxRating=G BEFORE Initialize (privacy enfants)");
+                AdLog("[AdMob] RequestConfiguration set: TFCD=True TFA=True MaxRating=G BEFORE Initialize (privacy enfants)");
             }
             catch (Exception e) { Debug.LogWarning("[AdMob] RequestConfiguration failed: " + e.Message); }
 
@@ -142,13 +146,13 @@ namespace Zoologic
         {
             if (Under5Mode)
             {
-                Debug.Log("[AdMob] Under-5 mode: SDK init skipped (zero ads for young children)");
+                AdLog("[AdMob] Under-5 mode: SDK init skipped (zero ads for young children)");
                 return;
             }
             // GDPR/TTCF : le SDK ne s'initialise qu'après résolution UMP (6+ uniquement).
             if (!_consentResolved)
             {
-                Debug.Log("[AdMob] Waiting for UMP consent before init");
+                AdLog("[AdMob] Waiting for UMP consent before init");
                 UmpConsent.RequestConsent(() =>
                 {
                     _consentResolved = true;
@@ -162,7 +166,7 @@ namespace Zoologic
             {
                 MobileAds.Initialize(initStatus =>
                 {
-                    Debug.Log("[AdMob] MobileAds Initialized: " + initStatus);
+                    AdLog("[AdMob] MobileAds Initialized: " + initStatus);
                     LoadRewarded();
                     LoadInterstitial();
                     // Families: no AppOpen — interstitial on launch is prohibited.
@@ -186,9 +190,11 @@ namespace Zoologic
                 {
                     SFXManager.Instance.PauseMusic();
                     _adMusicPaused = true;
-                    Debug.Log("[AdMob] Music paused for ad");
+                    AdLog("[AdMob] Music paused for ad");
                 }
                 else _adMusicPaused = false;
+                // SFX toujours suspendus (même si la musique était déjà en pause, ex : écran de victoire).
+                try { if (SFXManager.Instance != null) SFXManager.Instance.SetSfxSuspended(true); } catch { }
             }
             catch { _adMusicPaused = false; }
         }
@@ -197,10 +203,11 @@ namespace Zoologic
         {
             try
             {
+                try { if (SFXManager.Instance != null) SFXManager.Instance.SetSfxSuspended(false); } catch { }
                 if (_adMusicPaused && SFXManager.Instance != null)
                 {
                     SFXManager.Instance.ResumeMusic();
-                    Debug.Log("[AdMob] Music resumed after ad");
+                    AdLog("[AdMob] Music resumed after ad");
                 }
             }
             catch (Exception e) { Debug.LogWarning("[AdMob] ResumeMusic failed: " + e.Message); }
@@ -219,7 +226,7 @@ namespace Zoologic
                 if (err != null || ad == null) { Debug.LogWarning("[AdMob] Rewarded load failed: " + err); return; }
                 _rewardedAd = ad;
                 _rewardedAd.OnAdFullScreenContentFailed += (AdError e) => { Debug.LogWarning("[AdMob] Rewarded prefail: " + e); _rewardedAd = null; ResumeMusicAfterAd(); LoadRewarded(); };
-                Debug.Log("[AdMob] Rewarded loaded: " + RewardedId + " NPA=1");
+                AdLog("[AdMob] Rewarded loaded: " + RewardedId + " NPA=1");
             });
         }
 
@@ -235,7 +242,7 @@ namespace Zoologic
                 if (err != null || ad == null) { Debug.LogWarning("[AdMob] Interstitial load failed: " + err); return; }
                 _interstitialAd = ad;
                 _interstitialAd.OnAdFullScreenContentFailed += (AdError e) => { Debug.LogWarning("[AdMob] Interstitial prefail: " + e); _interstitialAd = null; ResumeMusicAfterAd(); LoadInterstitial(); };
-                Debug.Log("[AdMob] Interstitial loaded: " + InterstitialId + " NPA=1");
+                AdLog("[AdMob] Interstitial loaded: " + InterstitialId + " NPA=1");
             });
         }
 
@@ -249,11 +256,11 @@ namespace Zoologic
         {
             if (Under5Mode)
             {
-                Debug.Log("[AdMob] ShowRewarded blocked: under-5 mode (zero ads)");
+                AdLog("[AdMob] ShowRewarded blocked: under-5 mode (zero ads)");
                 try { onClosedNoReward?.Invoke(); } catch { }
                 return;
             }
-            Debug.Log($"[AdMob] ShowRewarded IsProduction={IsProduction} ID={RewardedId} NPA=1");
+            AdLog($"[AdMob] ShowRewarded IsProduction={IsProduction} ID={RewardedId} NPA=1");
             if (_rewardedAd != null && _rewardedAd.CanShowAd())
             {
                 PauseMusicForAd();
@@ -263,7 +270,7 @@ namespace Zoologic
                 bool settled = false;
                 Action<AdValue> paidHandler = (AdValue v) =>
                 {
-                    Debug.Log($"[AdMob] OnAdPaid {v.Value} {v.CurrencyCode}");
+                    AdLog($"[AdMob] OnAdPaid {v.Value} {v.CurrencyCode}");
                     try { _lastAnyAdTime = Time.realtimeSinceStartup; } catch { }
                 };
                 Action closedHandler = null;
@@ -304,7 +311,7 @@ namespace Zoologic
                     ad.Show((Reward r) =>
                     {
                         rewardEarned = true;
-                        Debug.Log($"[AdMob] Reward earned {r.Amount} {r.Type}");
+                        AdLog($"[AdMob] Reward earned {r.Amount} {r.Type}");
                     });
                     try { _lastAnyAdTime = Time.realtimeSinceStartup; } catch { }
                     return;
@@ -336,7 +343,7 @@ namespace Zoologic
             }
             else
             {
-                Debug.Log("[AdMob] Rewarded closed without reward - no grant");
+                AdLog("[AdMob] Rewarded closed without reward - no grant");
                 try { onClosedNoReward?.Invoke(); } catch (Exception e) { Debug.LogError("[AdMob] onClosedNoReward exception: " + e); }
             }
         }
@@ -366,11 +373,11 @@ namespace Zoologic
         {
             try
             {
-                if (Under5Mode) { Debug.Log("[AdMob] Skipped reason=under5"); return false; }
-                if (levelNumber < LEVEL_MIN) { Debug.Log($"[AdMob] Skipped reason=level level={levelNumber} min={LEVEL_MIN}"); return false; }
-                if (!_consentResolved || !_adsInitialized) { Debug.Log("[AdMob] Skipped reason=consent"); return false; }
+                if (Under5Mode) { AdLog("[AdMob] Skipped reason=under5"); return false; }
+                if (levelNumber < LEVEL_MIN) { AdLog($"[AdMob] Skipped reason=level level={levelNumber} min={LEVEL_MIN}"); return false; }
+                if (!_consentResolved || !_adsInitialized) { AdLog("[AdMob] Skipped reason=consent"); return false; }
                 if (Time.realtimeSinceStartup - _sessionStartRealtime < FIRST_SESSION_DELAY)
-                { Debug.Log($"[AdMob] Skipped reason=first_session elapsed={Time.realtimeSinceStartup - _sessionStartRealtime:F0}s"); return false; }
+                { AdLog($"[AdMob] Skipped reason=first_session elapsed={Time.realtimeSinceStartup - _sessionStartRealtime:F0}s"); return false; }
 
                 _victoryCount++;
                 try
@@ -381,14 +388,14 @@ namespace Zoologic
                 }
                 catch (Exception e) { Debug.LogWarning("[AdMob] victoryCount persist failed: " + e.Message); }
 
-                if (_victoryCount % FREQUENCY_DIVISOR != 0) { Debug.Log($"[AdMob] Skipped reason=frequency count={_victoryCount}"); return false; }
-                if (_sessionInterstitialCount >= SESSION_CAP) { Debug.Log($"[AdMob] Skipped reason=cap sessionCount={_sessionInterstitialCount}"); return false; }
+                if (_victoryCount % FREQUENCY_DIVISOR != 0) { AdLog($"[AdMob] Skipped reason=frequency count={_victoryCount}"); return false; }
+                if (_sessionInterstitialCount >= SESSION_CAP) { AdLog($"[AdMob] Skipped reason=cap sessionCount={_sessionInterstitialCount}"); return false; }
                 float sinceLast = Time.realtimeSinceStartup - _lastInterstitialShowTime;
-                if (sinceLast < MIN_INTERVAL) { Debug.Log($"[AdMob] Skipped reason=cooldown sinceLast={sinceLast:F0}s"); return false; }
+                if (sinceLast < MIN_INTERVAL) { AdLog($"[AdMob] Skipped reason=cooldown sinceLast={sinceLast:F0}s"); return false; }
                 float sinceAny = Time.realtimeSinceStartup - _lastAnyAdTime;
-                if (sinceAny < REWARDED_GAP) { Debug.Log($"[AdMob] Skipped reason=rewarded_gap sinceAny={sinceAny:F0}s"); return false; }
+                if (sinceAny < REWARDED_GAP) { AdLog($"[AdMob] Skipped reason=rewarded_gap sinceAny={sinceAny:F0}s"); return false; }
 
-                Debug.Log($"[AdMob] Interstitial trigger level={levelNumber} count={_victoryCount} IsProduction={IsProduction} ID={InterstitialId} NPA=1");
+                AdLog($"[AdMob] Interstitial trigger level={levelNumber} count={_victoryCount} IsProduction={IsProduction} ID={InterstitialId} NPA=1");
                 if (_interstitialAd != null && _interstitialAd.CanShowAd())
                 {
                     PauseMusicForAd();
@@ -435,7 +442,7 @@ namespace Zoologic
                         _lastInterstitialShowTime = Time.realtimeSinceStartup;
                         _lastAnyAdTime = _lastInterstitialShowTime;
                         _sessionInterstitialCount++;
-                        Debug.Log($"[AdMob] Show level={levelNumber} count={_victoryCount} session={_sessionInterstitialCount}");
+                        AdLog($"[AdMob] Show level={levelNumber} count={_victoryCount} session={_sessionInterstitialCount}");
                         return true;
                     }
                     catch (Exception e) { Debug.LogWarning("[AdMob] Interstitial show failed: " + e.Message); ResumeMusicAfterAd(); }
@@ -446,7 +453,7 @@ namespace Zoologic
                     }
                     catch { }
                 }
-            Debug.Log("[AdMob] Skipped reason=not_ready");
+            AdLog("[AdMob] Skipped reason=not_ready");
             LoadInterstitial();
             return false;
             }
@@ -459,14 +466,14 @@ namespace Zoologic
         public void ShowBanner()
         {
             if (Under5Mode) return;
-            Debug.Log($"[AdMob] ShowBanner IsProduction={IsProduction} ID={BannerId} NPA=1");
+            AdLog($"[AdMob] ShowBanner IsProduction={IsProduction} ID={BannerId} NPA=1");
             try
             {
                 if (_bannerView != null) return;
                 _bannerView = new BannerView(BannerId, AdSize.Banner, AdPosition.Bottom);
                 var req = CreateNpaRequest();
                 _bannerView.LoadAd(req);
-                Debug.Log($"[AdMob] Banner load NPA ID={BannerId}");
+                AdLog($"[AdMob] Banner load NPA ID={BannerId}");
                 return;
             }
             catch (Exception e) { Debug.LogWarning("[AdMob] Banner failed: " + e.Message); }

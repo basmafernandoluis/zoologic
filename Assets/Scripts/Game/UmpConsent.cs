@@ -33,20 +33,20 @@ namespace Zoologic
                         if (GoogleMobileAds.Ump.Api.ConsentInformation.ConsentStatus
                             == GoogleMobileAds.Ump.Api.ConsentStatus.Required)
                         {
-                            Debug.Log("[UMP] Consent required: showing UMP form");
+                            AdMobManager.AdLog("[UMP] Consent required: showing UMP form");
                             GoogleMobileAds.Ump.Api.ConsentForm.LoadAndShowConsentFormIfRequired(
                                 (GoogleMobileAds.Ump.Api.FormError formError) =>
                                 {
                                     if (formError != null)
                                         Debug.LogWarning("[UMP] Consent form failed: " + formError.Message + " (fail-open NPA)");
                                     else
-                                        Debug.Log("[UMP] Consent form resolved: " + GoogleMobileAds.Ump.Api.ConsentInformation.ConsentStatus);
+                                        AdMobManager.AdLog("[UMP] Consent form resolved: " + GoogleMobileAds.Ump.Api.ConsentInformation.ConsentStatus);
                                     try { onDone?.Invoke(); } catch { }
                                 });
                         }
                         else
                         {
-                            Debug.Log("[UMP] Consent not required: " + GoogleMobileAds.Ump.Api.ConsentInformation.ConsentStatus);
+                            AdMobManager.AdLog("[UMP] Consent not required: " + GoogleMobileAds.Ump.Api.ConsentInformation.ConsentStatus);
                             try { onDone?.Invoke(); } catch { }
                         }
                     });

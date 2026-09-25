@@ -26,6 +26,7 @@ namespace Zoologic
 
         private bool _isEnabled;
         private bool _musicEnabled;
+        private bool _sfxSuspended; // runtime pur (pub affichée) : jamais persisté, jamais confondu avec IsEnabled
 
         // Clips chargés une seule fois (lazy).
         private AudioClip _confirm;
@@ -111,11 +112,18 @@ namespace Zoologic
 
         private void Play(AudioClip clip, float pitchMin = 0.95f, float pitchMax = 1.05f)
         {
-            if (clip == null || !_isEnabled)
+            if (clip == null || !_isEnabled || _sfxSuspended)
                 return;
             _source.pitch = UnityEngine.Random.Range(pitchMin, pitchMax);
             _source.PlayOneShot(clip);
             _source.pitch = 1f;
+        }
+
+        /// <summary>Coupe/restaure les SFX pendant une pub (zéro chevauchement audio).
+        /// Indépendant du réglage utilisateur <see cref="IsEnabled"/>.</summary>
+        public void SetSfxSuspended(bool suspended)
+        {
+            try { _sfxSuspended = suspended; } catch { }
         }
 
         private void Start()
