@@ -66,6 +66,21 @@ namespace Zoologic
 
         private bool _adsInitialized;
         private int _victoryCount;
+
+        // MODE B STANDARD — pacing interstitial victoire (100% procédural, défensif).
+        private const int LEVEL_MIN = 4;                 // pas de pub niveaux 1-3
+        private const int FREQUENCY_DIVISOR = 2;         // 1 victoire sur 2 (niveau >= 4)
+        private const float MIN_INTERVAL = 60f;          // cooldown entre 2 interstitiels (s)
+        private const float REWARDED_GAP = 30f;          // jamais rewarded -> interstitial < 30s
+        private const int SESSION_CAP = 6;               // max interstitiels / session
+        private const float FIRST_SESSION_DELAY = 60f;   // embargo 60s début de session
+        private const string PREF_VICTORY_COUNT = "ZooLogic_AdVictoryCount";
+        private const string PREF_VICTORY_DATE = "ZooLogic_AdVictoryCount_Date";
+
+        private float _sessionStartRealtime;
+        private float _lastInterstitialShowTime = -10000f;
+        private float _lastAnyAdTime = -10000f;          // tout format (rewarded + interstitial)
+        private int _sessionInterstitialCount;
         private GameObject _bannerGO;
 
         private RewardedAd _rewardedAd;
@@ -94,6 +109,9 @@ namespace Zoologic
             DontDestroyOnLoad(gameObject);
             try { Under5Mode = !AgeGateManager.HasChosen || AgeGateManager.IsUnder5; }
             catch { Under5Mode = true; }
+            try { _victoryCount = PlayerPrefs.GetInt(PREF_VICTORY_COUNT, 0); }
+            catch { _victoryCount = 0; }
+            _sessionStartRealtime = Time.realtimeSinceStartup;
             ConfigureAndInitialize();
         }
 
@@ -243,7 +261,11 @@ namespace Zoologic
                 _rewardedAd = null;
                 bool rewardEarned = false;
                 bool settled = false;
-                Action<AdValue> paidHandler = (AdValue v) => Debug.Log($"[AdMob] OnAdPaid {v.Value} {v.CurrencyCode}");
+                Action<AdValue> paidHandler = (AdValue v) =>
+                {
+                    Debug.Log($"[AdMob] OnAdPaid {v.Value} {v.CurrencyCode}");
+                    try { _lastAnyAdTime = Time.realtimeSinceStartup; } catch { }
+                };
                 Action closedHandler = null;
                 Action<AdError> failedHandler = null;
                 Action unsubscribe = () =>
@@ -261,6 +283,7 @@ namespace Zoologic
                     if (settled) return;
                     settled = true;
                     unsubscribe();
+                    try { _lastAnyAdTime = Time.realtimeSinceStartup; } catch { } // fin du rewarded = début du gap 30s
                     StartCoroutine(RewardedCloseSequence(rewardEarned, onRewarded, onClosedNoReward));
                     LoadRewarded();
                 };
@@ -283,6 +306,7 @@ namespace Zoologic
                         rewardEarned = true;
                         Debug.Log($"[AdMob] Reward earned {r.Amount} {r.Type}");
                     });
+                    try { _lastAnyAdTime = Time.realtimeSinceStartup; } catch { }
                     return;
                 }
                 catch (Exception e)
@@ -319,31 +343,72 @@ namespace Zoologic
 
         public bool IsRewardedReady() => !Under5Mode && _rewardedAd != null && _rewardedAd.CanShowAd();
 
-        public void ShowInterstitialIfNeeded()
+        /// <summary>Stamp manuel fin de rewarded (call sites externes). Centralisé de toute façon dans ShowRewarded.</summary>
+        public void NotifyRewardedShown()
         {
-            _victoryCount++;
-            if (Under5Mode) return;
-            if (_victoryCount % 4 != 0) return;
-            Debug.Log($"[AdMob] Interstitial trigger 4th victory IsProduction={IsProduction} ID={InterstitialId} NPA=1");
-            if (_interstitialAd != null && _interstitialAd.CanShowAd())
+            try { _lastAnyAdTime = Time.realtimeSinceStartup; } catch { }
+        }
+
+        /// <summary>
+        /// MODE B : niveau >= 4, 1 victoire/2 (compteur persisté), cooldown 60s,
+        /// cap 6/session, embargo 180s première session, gap 30s post-rewarded.
+        /// Compteur = victoires éligibles uniquement (niv 1-3 non comptés).
+        /// Retourne true si montré. UMP/TFCD-TFA-G/NPA et PauseMusic inchangés.
+        /// </summary>
+        public bool ShowInterstitialIfNeeded(int levelNumber) => ShowInterstitialIfNeeded(levelNumber, null);
+
+        /// <summary>
+        /// Variante avec continuation (ex : navigation après fermeture/échec de l'ad).
+        /// onClosedAfterAd invoquée uniquement si Show() a démarré (close ou fail).
+        /// Si skipped (retour false), le caller exécute lui-même la suite.
+        /// </summary>
+        public bool ShowInterstitialIfNeeded(int levelNumber, Action onClosedAfterAd)
+        {
+            try
             {
-                PauseMusicForAd();
-                Action closedHandler = null;
-                Action<AdError> failedHandler = null;
-                closedHandler = () =>
+                if (Under5Mode) { Debug.Log("[AdMob] Skipped reason=under5"); return false; }
+                if (levelNumber < LEVEL_MIN) { Debug.Log($"[AdMob] Skipped reason=level level={levelNumber} min={LEVEL_MIN}"); return false; }
+                if (!_consentResolved || !_adsInitialized) { Debug.Log("[AdMob] Skipped reason=consent"); return false; }
+                if (Time.realtimeSinceStartup - _sessionStartRealtime < FIRST_SESSION_DELAY)
+                { Debug.Log($"[AdMob] Skipped reason=first_session elapsed={Time.realtimeSinceStartup - _sessionStartRealtime:F0}s"); return false; }
+
+                _victoryCount++;
+                try
                 {
-                    try
+                    PlayerPrefs.SetInt(PREF_VICTORY_COUNT, _victoryCount);
+                    PlayerPrefs.SetString(PREF_VICTORY_DATE, DateTime.UtcNow.ToString("yyyy-MM-dd"));
+                    PlayerPrefs.Save();
+                }
+                catch (Exception e) { Debug.LogWarning("[AdMob] victoryCount persist failed: " + e.Message); }
+
+                if (_victoryCount % FREQUENCY_DIVISOR != 0) { Debug.Log($"[AdMob] Skipped reason=frequency count={_victoryCount}"); return false; }
+                if (_sessionInterstitialCount >= SESSION_CAP) { Debug.Log($"[AdMob] Skipped reason=cap sessionCount={_sessionInterstitialCount}"); return false; }
+                float sinceLast = Time.realtimeSinceStartup - _lastInterstitialShowTime;
+                if (sinceLast < MIN_INTERVAL) { Debug.Log($"[AdMob] Skipped reason=cooldown sinceLast={sinceLast:F0}s"); return false; }
+                float sinceAny = Time.realtimeSinceStartup - _lastAnyAdTime;
+                if (sinceAny < REWARDED_GAP) { Debug.Log($"[AdMob] Skipped reason=rewarded_gap sinceAny={sinceAny:F0}s"); return false; }
+
+                Debug.Log($"[AdMob] Interstitial trigger level={levelNumber} count={_victoryCount} IsProduction={IsProduction} ID={InterstitialId} NPA=1");
+                if (_interstitialAd != null && _interstitialAd.CanShowAd())
+                {
+                    PauseMusicForAd();
+                    Action closedHandler = null;
+                    Action<AdError> failedHandler = null;
+                    closedHandler = () =>
                     {
-                        if (_interstitialAd != null)
+                        try
                         {
-                            _interstitialAd.OnAdFullScreenContentClosed -= closedHandler;
-                            _interstitialAd.OnAdFullScreenContentFailed -= failedHandler;
+                            if (_interstitialAd != null)
+                            {
+                                _interstitialAd.OnAdFullScreenContentClosed -= closedHandler;
+                                _interstitialAd.OnAdFullScreenContentFailed -= failedHandler;
+                            }
                         }
-                    }
                     catch { }
                     ResumeMusicAfterAd();
                     _interstitialAd = null;
                     LoadInterstitial();
+                    try { onClosedAfterAd?.Invoke(); } catch (Exception e) { Debug.LogWarning("[AdMob] onClosedAfterAd failed: " + e.Message); }
                 };
                 failedHandler = (AdError e) =>
                 {
@@ -360,19 +425,36 @@ namespace Zoologic
                     ResumeMusicAfterAd();
                     _interstitialAd = null;
                     LoadInterstitial();
+                    try { onClosedAfterAd?.Invoke(); } catch (Exception ex) { Debug.LogWarning("[AdMob] onClosedAfterAd failed: " + ex.Message); }
                 };
-                _interstitialAd.OnAdFullScreenContentClosed += closedHandler;
-                _interstitialAd.OnAdFullScreenContentFailed += failedHandler;
-                try { _interstitialAd.Show(); return; } catch (Exception e) { Debug.LogWarning("[AdMob] Interstitial show failed: " + e.Message); ResumeMusicAfterAd(); }
-                try
-                {
-                    _interstitialAd.OnAdFullScreenContentClosed -= closedHandler;
-                    _interstitialAd.OnAdFullScreenContentFailed -= failedHandler;
+                    _interstitialAd.OnAdFullScreenContentClosed += closedHandler;
+                    _interstitialAd.OnAdFullScreenContentFailed += failedHandler;
+                    try
+                    {
+                        _interstitialAd.Show();
+                        _lastInterstitialShowTime = Time.realtimeSinceStartup;
+                        _lastAnyAdTime = _lastInterstitialShowTime;
+                        _sessionInterstitialCount++;
+                        Debug.Log($"[AdMob] Show level={levelNumber} count={_victoryCount} session={_sessionInterstitialCount}");
+                        return true;
+                    }
+                    catch (Exception e) { Debug.LogWarning("[AdMob] Interstitial show failed: " + e.Message); ResumeMusicAfterAd(); }
+                    try
+                    {
+                        _interstitialAd.OnAdFullScreenContentClosed -= closedHandler;
+                        _interstitialAd.OnAdFullScreenContentFailed -= failedHandler;
+                    }
+                    catch { }
                 }
-                catch { }
-            }
+            Debug.Log("[AdMob] Skipped reason=not_ready");
             LoadInterstitial();
+            return false;
+            }
+            catch (Exception e) { Debug.LogWarning("[AdMob] ShowInterstitialIfNeeded failed: " + e.Message); return false; }
         }
+
+        // Compat anciens appels sans niveau -> 0 < LEVEL_MIN = toujours skipped (sûr).
+        public void ShowInterstitialIfNeeded() { ShowInterstitialIfNeeded(0); }
 
         public void ShowBanner()
         {

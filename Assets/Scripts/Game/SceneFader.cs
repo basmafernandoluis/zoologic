@@ -28,40 +28,46 @@ namespace Zoologic
         private static IEnumerator FadeOutRoutine(Canvas canvas, float duration, System.Action onDone)
         {
             Image overlay = CreateOverlay(canvas);
+            if (overlay == null) { try { onDone?.Invoke(); } catch { } yield break; }
             overlay.raycastTarget = true; // bloque les clics pendant la transition
 
             float elapsed = 0f;
             while (elapsed < duration)
             {
+                if (overlay == null) break; // canvas parent détruit (ex : canvas éphémère du placeholder éditeur)
                 float t = Mathf.Clamp01(elapsed / duration);
                 SetAlpha(overlay, Easing.EaseInQuad(t));
                 elapsed += Time.unscaledDeltaTime;
                 yield return null;
             }
-            SetAlpha(overlay, 1f);
+            if (overlay != null) SetAlpha(overlay, 1f);
 
-            onDone?.Invoke();
+            try { onDone?.Invoke(); } catch { }
         }
 
         private static IEnumerator FadeInRoutine(Canvas canvas, float duration)
         {
             Image overlay = CreateOverlay(canvas);
+            if (overlay == null) yield break;
             overlay.raycastTarget = false;
 
             float elapsed = 0f;
             while (elapsed < duration)
             {
+                if (overlay == null) yield break;
                 float t = Mathf.Clamp01(elapsed / duration);
                 SetAlpha(overlay, 1f - Easing.EaseOutQuad(t));
                 elapsed += Time.unscaledDeltaTime;
                 yield return null;
             }
+            if (overlay == null) yield break;
             SetAlpha(overlay, 0f);
             Object.Destroy(overlay.gameObject);
         }
 
         private static Image CreateOverlay(Canvas canvas)
         {
+            if (canvas == null) return null;
             var go = new GameObject("SceneFade", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             go.transform.SetParent(canvas.transform, false);
             go.transform.SetAsLastSibling();
