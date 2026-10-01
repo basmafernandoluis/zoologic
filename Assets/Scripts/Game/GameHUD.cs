@@ -66,7 +66,7 @@ namespace Zoologic
         private static readonly Color ScorePillTextColor = new Color(0.22f, 0.19f, 0.16f, 1f);
         private static readonly Color HintPillBg = new Color(1f, 0.98f, 0.96f, 1f);
         private static readonly Color HintPillTextColor = new Color(0.22f, 0.19f, 0.16f, 1f);
-        private static readonly Color CoinPillTextColor = new Color(0.22f, 0.19f, 0.16f, 1f);
+
         private static readonly Color CoinInsufficientColor = new Color(0.85f, 0.30f, 0.30f, 1f);
         private static readonly Color GumBgColor = new Color(0.92f, 0.36f, 0.42f, 1f);
         private static readonly Color ScoreLabelColor = new Color(0.50f, 0.52f, 0.56f, 1f);
@@ -208,12 +208,13 @@ namespace Zoologic
             _fontTitle = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
             _fontBody = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF");
             _score = 100;
-            _indiceCount = 3;
+            _indiceCount = HintStockManager.Get();
 
             BuildHeader(canvas, numeroNiveau);
             BuildBarreRegle(canvas);
             BuildFooterWave(canvas);
             BuildGommeBouton(canvas);
+            BuildIndiceBouton(canvas);
             LocalizationManager.ApplyFontsToScene();
         }
 
@@ -478,25 +479,28 @@ namespace Zoologic
             var coinSh = coinCountObj.AddComponent<Shadow>();
             coinSh.effectColor = new Color(0f, 0f, 0f, 0.35f);
             coinSh.effectDistance = new Vector2(0f, -2f);
+        }
 
-            // --- Pilule indices (fond barre b_44, loupe integree) ---
-            float hintW = 188f;
+        // --- Médaillon indice bas-gauche (miroir de la gomme, theme bois) ---
+        private void BuildIndiceBouton(Canvas canvas)
+        {
+            float hintSize = 108f;
 
-            var economyPill = CreerObjetUI("EconomyPill", header);
-            var epRect = economyPill.GetComponent<RectTransform>();
-            epRect.anchorMin = new Vector2(1f, 0.5f);
-            epRect.anchorMax = new Vector2(1f, 0.5f);
-            epRect.pivot = new Vector2(1f, 0.5f);
-            epRect.sizeDelta = new Vector2(hintW, pillH);
-            epRect.anchoredPosition = new Vector2(-HeaderPadding - coinsW - 12f, y);
-            AjouterOmbre(epRect, header, 3f, -5f);
+            var hintGO = CreerObjetUI("IndiceBouton", canvas.transform);
+            var hintRect = hintGO.GetComponent<RectTransform>();
+            hintRect.anchorMin = new Vector2(0f, 0f);
+            hintRect.anchorMax = new Vector2(0f, 0f);
+            hintRect.pivot = new Vector2(0f, 0f);
+            hintRect.sizeDelta = new Vector2(hintSize, hintSize);
+            hintRect.anchoredPosition = new Vector2(48f, Mathf.Max(BottomInset, 48f) + 24f);
+            hintGO.transform.SetAsLastSibling();
 
-            _indiceButtonBg = economyPill.AddComponent<Image>();
-            Sprite hintBarSprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_44") ?? Resources.Load<Sprite>("Sprites/b_44");
-            if (hintBarSprite != null)
+            _indiceButtonBg = hintGO.AddComponent<Image>();
+            Sprite hintMedal = Resources.LoadAll<Sprite>("Sprites/hi").FirstOrDefault(s => s.name == "hi_0");
+            if (hintMedal != null)
             {
-                _indiceButtonBg.sprite = hintBarSprite;
-                _indiceButtonBg.type = Image.Type.Sliced;
+                _indiceButtonBg.sprite = hintMedal;
+                _indiceButtonBg.type = Image.Type.Simple;
                 _indiceButtonBg.color = Color.white;
             }
             else
@@ -505,63 +509,59 @@ namespace Zoologic
                 _indiceButtonBg.type = Image.Type.Simple;
                 _indiceButtonBg.color = HintPillBg;
             }
+            _indiceButtonBg.preserveAspect = true;
             _indiceButtonBg.raycastTarget = true;
+            var hintMedalShadow = hintGO.AddComponent<Shadow>();
+            hintMedalShadow.effectColor = new Color(0f, 0f, 0f, 0.28f);
+            hintMedalShadow.effectDistance = new Vector2(0f, -4f);
 
-            _indiceButton = economyPill.AddComponent<Button>();
+            _indiceButton = hintGO.AddComponent<Button>();
             _indiceButton.targetGraphic = _indiceButtonBg;
             _indiceButton.onClick.AddListener(() => OnIndiceDemande?.Invoke());
 
-            Sprite potionSprite = Resources.Load<Sprite>("UI/potion");
-            var hintIconObj = CreerObjetUI("IndiceIcone", economyPill.transform);
-            var hintIconRect = hintIconObj.GetComponent<RectTransform>();
-            hintIconRect.anchorMin = new Vector2(0f, 0.5f);
-            hintIconRect.anchorMax = new Vector2(0f, 0.5f);
-            hintIconRect.pivot = new Vector2(0.5f, 0.5f);
-            hintIconRect.sizeDelta = new Vector2(40f, 40f);
-            hintIconRect.anchoredPosition = new Vector2(118f, 0f);
+            _indiceIconImage = _indiceButtonBg;
 
-            _indiceIconImage = hintIconObj.AddComponent<Image>();
-            _indiceIconImage.sprite = potionSprite;
-            _indiceIconImage.type = Image.Type.Simple;
-            _indiceIconImage.preserveAspect = true;
-            _indiceIconImage.color = Color.white;
-            _indiceIconImage.raycastTarget = false;
-            hintIconObj.SetActive(false);
+            // Badge compteur / coût (gratuits restants, sinon prix pieces).
+            var hintBadgeGO = CreerObjetUI("BadgeIndice", hintGO.transform);
+            var hintBadgeRect = hintBadgeGO.GetComponent<RectTransform>();
+            hintBadgeRect.anchorMin = new Vector2(1f, 1f);
+            hintBadgeRect.anchorMax = new Vector2(1f, 1f);
+            hintBadgeRect.pivot = new Vector2(0.5f, 0.5f);
+            hintBadgeRect.sizeDelta = new Vector2(72f, 40f);
+            hintBadgeRect.anchoredPosition = new Vector2(6f, -2f);
+            var hintBadgeImg = hintBadgeGO.AddComponent<Image>();
+            hintBadgeImg.sprite = GetPiluleSprite();
+            hintBadgeImg.type = Image.Type.Simple;
+            hintBadgeImg.color = new Color(1f, 0.98f, 0.96f, 0.98f);
+            hintBadgeImg.raycastTarget = false;
+            _indiceBadgeImg = hintBadgeImg;
 
-            var hintCountObj = CreerObjetUI("IndiceNombre", economyPill.transform);
-            var hintCountRect = hintCountObj.GetComponent<RectTransform>();
-            hintCountRect.anchorMin = new Vector2(0f, 0.5f);
-            hintCountRect.anchorMax = new Vector2(0f, 0.5f);
-            hintCountRect.pivot = new Vector2(0f, 0.5f);
-            hintCountRect.sizeDelta = new Vector2(58f, pillH);
-            hintCountRect.anchoredPosition = new Vector2(92f, 0f);
-
-            _indiceCountText = hintCountObj.AddComponent<TextMeshProUGUI>();
+            var hintCountGO = CreerObjetUI("Text", hintBadgeGO.transform);
+            var hintCountRect = hintCountGO.GetComponent<RectTransform>();
+            hintCountRect.anchorMin = Vector2.zero;
+            hintCountRect.anchorMax = Vector2.one;
+            hintCountRect.offsetMin = Vector2.zero;
+            hintCountRect.offsetMax = Vector2.zero;
+            _indiceCountText = hintCountGO.AddComponent<TextMeshProUGUI>();
             _indiceCountText.font = _fontTitle;
             _indiceCountText.text = _indiceCount.ToString();
-            _indiceCountText.fontSize = 34;
-            _indiceCountText.alignment = TextAlignmentOptions.MidlineLeft;
-            _indiceCountText.color = Color.white;
+            _indiceCountText.fontSize = 26;
+            _indiceCountText.alignment = TextAlignmentOptions.Center;
+            _indiceCountText.color = TitleBrown;
             _indiceCountText.fontStyle = FontStyles.Bold;
-            _indiceCountText.outlineWidth = 0.18f;
-            _indiceCountText.outlineColor = new Color(0f, 0f, 0f, 0.45f);
             _indiceCountText.raycastTarget = false;
-            var hintSh = hintCountObj.AddComponent<Shadow>();
-            hintSh.effectColor = new Color(0f, 0f, 0f, 0.35f);
-            hintSh.effectDistance = new Vector2(0f, -2f);
 
-            if (_coinSprite != null)
             {
-                var coinObj = CreerObjetUI("IndiceAchatIcone", economyPill.transform);
-                var coinRect = coinObj.GetComponent<RectTransform>();
-                coinRect.anchorMin = new Vector2(0f, 0.5f);
-                coinRect.anchorMax = new Vector2(0f, 0.5f);
-                coinRect.pivot = new Vector2(0.5f, 0.5f);
-                coinRect.sizeDelta = new Vector2(18f, 18f);
-                coinRect.anchoredPosition = new Vector2(74f, 0f);
+                var playObj = CreerObjetUI("IndicePlayIcone", hintBadgeGO.transform);
+                var playRect = playObj.GetComponent<RectTransform>();
+                playRect.anchorMin = new Vector2(0.5f, 0.5f);
+                playRect.anchorMax = new Vector2(0.5f, 0.5f);
+                playRect.pivot = new Vector2(0.5f, 0.5f);
+                playRect.sizeDelta = new Vector2(30f, 30f);
+                playRect.anchoredPosition = Vector2.zero;
 
-                _indiceCoinIconImage = coinObj.AddComponent<Image>();
-                _indiceCoinIconImage.sprite = _coinSprite;
+                _indiceCoinIconImage = playObj.AddComponent<Image>();
+                _indiceCoinIconImage.sprite = GetPlayTriangleSprite();
                 _indiceCoinIconImage.type = Image.Type.Simple;
                 _indiceCoinIconImage.preserveAspect = true;
                 _indiceCoinIconImage.color = Color.white;
@@ -569,22 +569,8 @@ namespace Zoologic
                 _indiceCoinIconImage.gameObject.SetActive(false);
             }
 
-            var costObj = CreerObjetUI("IndiceCout", economyPill.transform);
-            var costRect = costObj.GetComponent<RectTransform>();
-            costRect.anchorMin = new Vector2(0f, 0.5f);
-            costRect.anchorMax = new Vector2(0f, 0.5f);
-            costRect.pivot = new Vector2(0f, 0.5f);
-            costRect.sizeDelta = new Vector2(44f, pillH);
-            costRect.anchoredPosition = new Vector2(100f, 0f);
-            _indiceCostText = costObj.AddComponent<TextMeshProUGUI>();
-            _indiceCostText.font = _fontTitle;
-            _indiceCostText.text = PuzzleGameController.IndiceCout.ToString();
-            _indiceCostText.fontSize = 26;
-            _indiceCostText.alignment = TextAlignmentOptions.MidlineLeft;
-            _indiceCostText.color = CoinPillTextColor;
-            _indiceCostText.fontStyle = FontStyles.Bold;
-            _indiceCostText.raycastTarget = false;
-            costObj.SetActive(false);
+            // Badge unique : compteur (gratuits) ou coût (achat). Plus d'objet coût séparé.
+            _indiceCostText = null;
 
             UpdateIndiceButtonState();
             StartIndiceBounce();
@@ -782,9 +768,9 @@ namespace Zoologic
 
         private void BuildGommeBouton(Canvas canvas)
         {
-            // 96px ref ~= 37dp sur S22 : cible tactile suffisante, degagee de la
-            // barre de gestes Android via Max(BottomInset, 48).
-            float size = 96f;
+            // 108px ref ~= 41dp sur S22 : miroir du médaillon indice,
+            // degage de la barre de gestes Android via Max(BottomInset, 48).
+            float size = 108f;
 
             var btnObj = CreerObjetUI("GommeBouton", canvas.transform);
             btnObj.name = "ResetButton";
@@ -797,7 +783,9 @@ namespace Zoologic
             btnObj.transform.SetAsLastSibling();
 
             _gommeButtonBg = btnObj.AddComponent<Image>();
-            Sprite resetSprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_11") ?? Resources.Load<Sprite>("Sprites/b_11");
+            Sprite resetSprite = Resources.LoadAll<Sprite>("Sprites/hi").FirstOrDefault(s => s.name == "hi_1")
+                ?? Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_11")
+                ?? Resources.Load<Sprite>("Sprites/b_11");
             _gommeUsesSprite = resetSprite != null;
             if (_gommeUsesSprite)
             {
@@ -824,32 +812,6 @@ namespace Zoologic
             colors.pressedColor = new Color(0.80f, 0.62f, 0.66f, 1f);
             _gommeButton.colors = colors;
             _gommeButton.onClick.AddListener(() => OnGommeDemande?.Invoke());
-
-            var badgeGO = CreerObjetUI("BadgeCout", btnObj.transform);
-            var badgeRect = badgeGO.GetComponent<RectTransform>();
-            badgeRect.anchorMin = new Vector2(1f, 1f);
-            badgeRect.anchorMax = new Vector2(1f, 1f);
-            badgeRect.pivot = new Vector2(0.5f, 0.5f);
-            badgeRect.sizeDelta = new Vector2(56f, 32f);
-            badgeRect.anchoredPosition = new Vector2(4f, 6f);
-            var badgeImg = badgeGO.AddComponent<Image>();
-            badgeImg.sprite = GetPiluleSprite();
-            badgeImg.type = Image.Type.Simple;
-            badgeImg.color = new Color(1f, 0.98f, 0.96f, 0.98f);
-            badgeImg.raycastTarget = false;
-            var badgeTxtGO = CreerObjetUI("Text", badgeGO.transform);
-            var badgeTxtRect = badgeTxtGO.GetComponent<RectTransform>();
-            badgeTxtRect.anchorMin = Vector2.zero;
-            badgeTxtRect.anchorMax = Vector2.one;
-            var badgeTxt = badgeTxtGO.AddComponent<TextMeshProUGUI>();
-            badgeTxt.font = _fontTitle;
-            badgeTxt.text = PuzzleGameController.GommeCout.ToString();
-            badgeTxt.fontSize = 24;
-            badgeTxt.alignment = TextAlignmentOptions.Center;
-            badgeTxt.color = TitleBrown;
-            badgeTxt.fontStyle = FontStyles.Bold;
-            badgeTxt.raycastTarget = false;
-            badgeGO.SetActive(false);
         }
 
         private void BuildFooterWave(Canvas canvas)
@@ -870,7 +832,7 @@ namespace Zoologic
             bgRect.anchorMin = new Vector2(0.5f, 0f);
             bgRect.anchorMax = new Vector2(0.5f, 0f);
             bgRect.pivot = new Vector2(0.5f, 0f);
-            bgRect.sizeDelta = new Vector2(780f, 116f);
+            bgRect.sizeDelta = new Vector2(840f, 116f);
             bgRect.anchoredPosition = new Vector2(0f, -8f);
             var bgImg = bgGO.AddComponent<Image>();
             bgImg.sprite = B1UI.Bubble ?? GetPiluleSprite();
@@ -882,7 +844,7 @@ namespace Zoologic
             trayHolderRect.anchorMin = new Vector2(0.5f, 0f);
             trayHolderRect.anchorMax = new Vector2(0.5f, 0f);
             trayHolderRect.pivot = new Vector2(0.5f, 0f);
-            trayHolderRect.sizeDelta = new Vector2(800f, 100f);
+            trayHolderRect.sizeDelta = new Vector2(820f, 100f);
             trayHolderRect.anchoredPosition = new Vector2(0f, 8f);
             _trayHolder = trayHolderGO.transform;
             var labelGO = CreerObjetUI("FooterLabel", footer.transform);
@@ -927,9 +889,9 @@ namespace Zoologic
 
         /// <summary>
         /// (Re)construit la barre d'animaux du niveau dans le dock.
-        /// À appeler après GridView.Build (icônes mélangées par niveau).
+        /// L'animal glissé EST l'animal posé (inventaire de triplets).
         /// </summary>
-        public void RebuildAnimalTray(System.Collections.Generic.IReadOnlyList<Sprite> sprites, BoardDragController drag)
+        public void RebuildAnimalTray(System.Collections.Generic.List<AnimalIconSet.MoodSet> sets, BoardDragController drag)
         {
             if (_trayHolder == null)
                 return;
@@ -943,17 +905,29 @@ namespace Zoologic
                 _tray = AnimalTray.Build(_trayHolder, drag);
             else
                 _tray.SetDrag(drag);
-            _tray.SetSprites(sprites);
+            _tray.SetInventory(sets, consume: true);
         }
 
-        /// <summary>
-        /// Inventaire du dock : jetons restants = cases à remplir.
-        /// Poser consomme, retirer (y compris retour au dock) rend.
-        /// </summary>
-        public void UpdateTrayCount(int remaining)
+        /// <summary>Consomme le jeton posé (retourne false si déjà consommé).</summary>
+        public bool ConsumeTraySet(AnimalIconSet.MoodSet set)
+        {
+            if (_tray == null)
+                return true;
+            return _tray.Consume(set);
+        }
+
+        /// <summary>Rend un jeton à la barre (retrait, gomme).</summary>
+        public void ReturnTraySet(AnimalIconSet.MoodSet set)
         {
             if (_tray != null)
-                _tray.SetRemaining(remaining);
+                _tray.Return(set);
+        }
+
+        /// <summary>Réinitialise la barre (retry : inventaire plein).</summary>
+        public void ResetTray()
+        {
+            if (_tray != null)
+                _tray.ResetInventory();
         }
 
         /// <summary>Barre d'animaux (pour la main du tutoriel / tests).</summary>
@@ -1096,25 +1070,20 @@ namespace Zoologic
         }
 
         /// <summary>
-        /// Decremente le compteur d'indices de 1. Retourne true si un indice etait disponible.
+        /// Applique le stock global d'indices (persistance + recharge pub).
         /// </summary>
-        public bool DecrementIndice()
+        public void SetIndiceStock(int stock)
         {
-            if (_indiceCount <= 0)
-                return false;
-
-            _indiceCount--;
-            if (_indiceCountText != null)
-                _indiceCountText.text = _indiceCount.ToString();
-
+            _indiceCount = Mathf.Max(0, stock);
             UpdateIndiceButtonState();
-            return true;
         }
 
         private void StartIndiceBounce()
         {
             if (!Application.isPlaying || _indiceIconImage == null)
                 return;
+            if (_indiceBounceRoutine != null)
+                StopCoroutine(_indiceBounceRoutine);
             _indiceBounceRoutine = StartCoroutine(IndiceBounceRoutine());
         }
 
@@ -1122,11 +1091,13 @@ namespace Zoologic
         {
             RectTransform rt = _indiceIconImage.rectTransform;
             Vector2 basePos = rt.anchoredPosition;
-            float amplitude = 3f;
+            float amplitude = 4f;
             float speed = 2.5f;
 
             while (true)
             {
+                if (rt == null)
+                    yield break;
                 float y = basePos.y + Mathf.Sin(Time.unscaledTime * speed) * amplitude;
                 rt.anchoredPosition = new Vector2(basePos.x, y);
                 yield return null;
@@ -1140,39 +1111,37 @@ namespace Zoologic
                 StopCoroutine(_indiceBounceRoutine);
                 _indiceBounceRoutine = null;
             }
-            if (_indiceIconImage != null)
-            {
-                RectTransform rt = _indiceIconImage.rectTransform;
-                rt.anchoredPosition = new Vector2(rt.anchoredPosition.x, 6f);
-            }
         }
 
         /// <summary>
         /// Met à jour l'état visuel du bouton indice.
-        /// - Affiche le stock gratuit ou le coût en pièces.
-        /// - Gère la visibilité de l'icône pièce.
-        /// - Active/désactive l'interactivité selon le stock et la monnaie.
-        /// - Applique les couleurs et l'animation de rebond.
+        /// - Stock global (compteur), "∞" si moins de 5 ans (illimité, sans pub).
+        /// - Stock vide (6+) : icône play, tap = pub rewarded +1.
+        /// - Plus d'achat en pièces.
         /// </summary>
         private void UpdateIndiceButtonState()
         {
-            bool purchaseMode = _indiceCount <= 0;
+            bool unlimited = !AdMobManager.AreAdsAllowed();
+            bool empty = !unlimited && _indiceCount <= 0;
 
-            bool hasEnoughCoins = CurrencyManager.HasCoins(PuzzleGameController.IndiceCout);
-
-            bool canInteract = !_interactionsBloquees && (_indiceCount > 0 || hasEnoughCoins);
+            bool canInteract = !_interactionsBloquees && (unlimited || _indiceCount > 0 || AdMobManager.AreAdsAllowed());
 
             if (_indiceCountText != null)
             {
-                _indiceCountText.text = _indiceCount.ToString();
-                _indiceCountText.color = canInteract ? Color.white : new Color(1f, 1f, 1f, 0.55f);
+                _indiceCountText.text = unlimited ? "∞" : empty ? "" : _indiceCount.ToString();
+                _indiceCountText.color = canInteract ? TitleBrown : new Color(0.55f, 0.48f, 0.42f, 1f);
             }
 
             if (_indiceCostText != null)
                 _indiceCostText.gameObject.SetActive(false);
 
+            bool showPlay = empty && !_interactionsBloquees;
             if (_indiceCoinIconImage != null)
-                _indiceCoinIconImage.gameObject.SetActive(purchaseMode && !_interactionsBloquees);
+                _indiceCoinIconImage.gameObject.SetActive(showPlay);
+            if (_indiceBadgeImg != null)
+                _indiceBadgeImg.color = showPlay
+                    ? new Color(0.22f, 0.65f, 0.30f, 1f)
+                    : new Color(1f, 0.98f, 0.96f, 0.98f);
 
             if (_indiceButton != null)
                 _indiceButton.interactable = canInteract;
@@ -1204,10 +1173,8 @@ namespace Zoologic
         public void AjouterIndices(int n)
         {
             if (n <= 0) return;
-            _indiceCount = Mathf.Max(0, _indiceCount + n);
-            if (_indiceCountText != null)
-                _indiceCountText.text = _indiceCount.ToString();
-            UpdateIndiceButtonState();
+            HintStockManager.Add(n);
+            SetIndiceStock(HintStockManager.Get());
         }
 
         /// <summary>
@@ -2031,6 +1998,16 @@ namespace Zoologic
         }
 
         /// <summary>
+        /// Aucun indice trouvable (solveur en échec ou budget dépassé) : toast
+        /// explicite au lieu d'un silence qui ressemble à un bug. Stock non consommé.
+        /// </summary>
+        public void NotifierIndiceIndisponible()
+        {
+            ShowCoinToast(LocalizationManager.Get("hud.no_hint"));
+            Haptics.VibrateLight();
+        }
+
+        /// <summary>
         /// Conflit expliqué : badge ludique (carte crème + pastille rouge "!" + pop),
         /// cohérent avec la bulle du guide et les cartes de règles. Ne passe plus
         /// par le toast système noir réservé aux pièces/pubs.
@@ -2246,9 +2223,8 @@ namespace Zoologic
 
             SetVies(vies);
 
-            _indiceCount = indices;
-            if (_indiceCountText != null)
-                _indiceCountText.text = _indiceCount.ToString();
+            _indiceCount = HintStockManager.Get();
+            UpdateIndiceButtonState();
 
             SetProgression(0, _progressionTotal);
 
@@ -2610,6 +2586,33 @@ namespace Zoologic
             if (_piluleSprite == null)
                 _piluleSprite = CreerSpriteRectangleArrondi(256, 0.35f);
             return _piluleSprite;
+        }
+
+        /// <summary>Triangle play blanc sur transparent (badge pub du médaillon).</summary>
+        private static Sprite GetPlayTriangleSprite()
+        {
+            if (_playTriangleSprite != null)
+                return _playTriangleSprite;
+            const int res = 64;
+            var tex = new Texture2D(res, res, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+            float cx = res * 0.5f;
+            for (int y = 0; y < res; y++)
+            {
+                for (int x = 0; x < res; x++)
+                {
+                    // Triangle pointe à droite : base x=18, apex (48, 32).
+                    float half = (x - 18f) * (26f / 30f);
+                    float d = Mathf.Abs(y - cx) - half;
+                    float edge = x < 18f || x > 48f ? 99f : d;
+                    float alpha = Mathf.Clamp01(1f - edge);
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+            tex.Apply();
+            _playTriangleSprite = Sprite.Create(tex, new Rect(0f, 0f, res, res), new Vector2(0.5f, 0.5f));
+            return _playTriangleSprite;
         }
 
         private static Sprite GetCarteSprite()

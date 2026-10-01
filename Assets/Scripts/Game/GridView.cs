@@ -70,12 +70,6 @@ namespace Zoologic
         private CellView[,] _cells;
         private RectTransform _boardContainer;
         private readonly Dictionary<int, Color> _regionColors = new Dictionary<int, Color>();
-        private readonly Dictionary<int, Sprite> _regionIcons = new Dictionary<int, Sprite>();
-
-        // Icônes d'animaux mélangées pour le niveau en cours : piochées dans l'ordre,
-        // chaque zone reçoit donc un animal différent des autres zones de la grille.
-        private Sprite[] _levelIcons;
-        private int _iconIndex;
 
         private const float BoardFill = 0.9f;          // part de l'écran occupée par la grille
         private const float PionRatio = 0.78f;         // taille du pion par rapport à la case
@@ -86,14 +80,12 @@ namespace Zoologic
         private static Font _builtinFont;
 
         // Indice / highlight
-        private static readonly Color HighlightColor = new Color(1f, 0.82f, 0.18f, 0.55f);
+        private static readonly Color HighlightColor = new Color(1f, 0.82f, 0.18f, 0.65f);
         private static readonly Color HighlightRingColor = new Color(1f, 0.78f, 0.10f, 1f);
-        private static readonly Color HighlightDimColor = new Color(0.10f, 0.07f, 0.05f, 0.35f);
         private const float HighlightDuration = 5f;
         private const float HighlightPulseSpeed = 3f;
         private GameObject _highlightRoot;
         private Image _highlightImage;
-        private GameObject _highlightDim;
         private Coroutine _highlightRoutine;
         private static Sprite _ringSprite;
 
@@ -170,9 +162,6 @@ namespace Zoologic
             boardShadow.transform.SetAsFirstSibling();
 
             _regionColors.Clear();
-            _regionIcons.Clear();
-            _levelIcons = SkinManager.GetZoneSprites();
-            _iconIndex = 0;
             _cells = new CellView[n, n];
 
             float half = (n - 1) * 0.5f;
@@ -380,6 +369,9 @@ namespace Zoologic
         /// Retourne true si un indice a été trouvé et affiché, false sinon.
         /// Ne consomme pas de pion — sert juste de guide visuel.
         /// </summary>
+        /// <summary>Budget anti-freeze du solveur d'indice (8x8, pions incohérents).</summary>
+        private const long HintSolverBudgetMs = 400;
+
         public bool RequestHint()
         {
             if (_grid == null || _cells == null)
@@ -393,7 +385,7 @@ namespace Zoologic
             if (pionsActuels.Count == 0)
             {
                 var solveurVide = new PuzzleSolver();
-                var solutions = solveurVide.FindAllSolutions(_grid, 1);
+                var solutions = solveurVide.FindAllSolutions(_grid, 1, HintSolverBudgetMs);
                 if (solutions.Count > 0)
                 {
                     foreach (var (r, c) in solutions[0])
@@ -406,7 +398,7 @@ namespace Zoologic
             else
             {
                 var solveur = new PuzzleSolver();
-                var solution = solveur.SolveWithFixedPlacements(_grid, pionsActuels);
+                var solution = solveur.SolveWithFixedPlacements(_grid, pionsActuels, HintSolverBudgetMs);
 
                 if (solution != null)
                 {
@@ -454,15 +446,9 @@ namespace Zoologic
             hlRect.sizeDelta = cellRect.sizeDelta;
             hlRect.anchoredPosition = cellRect.anchoredPosition;
 
-            // Anneau doré opaque par-dessus le tint + voile sur le reste du
-            // plateau : la case saute aux yeux même sur petite grille.
+            // Anneau doré opaque par-dessus le tint : la case saute aux yeux
+            // même sur petite grille (sans voile sur le plateau).
             EnsureHighlightRing(cellRect);
-            EnsureHighlightDim();
-            if (_highlightDim != null)
-            {
-                _highlightDim.SetActive(true);
-                _highlightDim.transform.SetSiblingIndex(_highlightRoot.transform.GetSiblingIndex());
-            }
 
             _highlightRoot.SetActive(true);
             _highlightRoot.transform.localScale = Vector3.one;
@@ -492,35 +478,8 @@ namespace Zoologic
             var ringRect = (RectTransform)ringImg.transform;
             ringRect.anchorMin = Vector2.zero;
             ringRect.anchorMax = Vector2.one;
-            ringRect.offsetMin = new Vector2(-10f, -10f);
-            ringRect.offsetMax = new Vector2(10f, 10f);
-        }
-
-        /// <summary>Voile sombre sur tout le plateau sauf la case (mis sous l'anneau).</summary>
-        private void EnsureHighlightDim()
-        {
-            if (_highlightDim == null)
-            {
-                _highlightDim = new GameObject("HintDim", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                _highlightDim.transform.SetParent(_boardContainer, false);
-                var rect = (RectTransform)_highlightDim.transform;
-                rect.anchorMin = new Vector2(0.5f, 0.5f);
-                rect.anchorMax = new Vector2(0.5f, 0.5f);
-                rect.pivot = new Vector2(0.5f, 0.5f);
-                rect.sizeDelta = _boardContainer.sizeDelta;
-                rect.anchoredPosition = Vector2.zero;
-                var img = _highlightDim.GetComponent<Image>();
-                img.sprite = GetRoundedRectSprite();
-                img.type = Image.Type.Simple;
-                img.color = HighlightDimColor;
-                img.raycastTarget = false;
-                _highlightDim.SetActive(false);
-            }
-            else
-            {
-                var rect = (RectTransform)_highlightDim.transform;
-                rect.sizeDelta = _boardContainer.sizeDelta;
-            }
+            ringRect.offsetMin = new Vector2(-12f, -12f);
+            ringRect.offsetMax = new Vector2(12f, 12f);
         }
 
         private void StopHighlight()
@@ -533,8 +492,6 @@ namespace Zoologic
 
             if (_highlightRoot != null)
                 _highlightRoot.SetActive(false);
-            if (_highlightDim != null)
-                _highlightDim.SetActive(false);
         }
 
         private void EnsureHighlightObject()
@@ -573,7 +530,7 @@ namespace Zoologic
             while (elapsed < HighlightDuration)
             {
                 float t = Mathf.PingPong(elapsed * HighlightPulseSpeed, 1f);
-                float alpha = Mathf.Lerp(0.35f, 0.65f, t);
+                float alpha = Mathf.Lerp(0.50f, 0.75f, t);
                 _highlightImage.color = new Color(baseColor.r, baseColor.g, baseColor.b, alpha);
 
                 if (hlRect != null)
@@ -596,8 +553,6 @@ namespace Zoologic
             if (ring != null)
                 ring.localScale = Vector3.one;
             _highlightRoot.SetActive(false);
-            if (_highlightDim != null)
-                _highlightDim.SetActive(false);
             _highlightRoutine = null;
         }
 
@@ -663,19 +618,29 @@ namespace Zoologic
             }
         }
 
-        /// <summary>
-        /// Animaux des zones du niveau, un par zone (ordre de découverte = ordre
-        /// d'affichage de la barre). Pour les jetons de drag, visuel uniquement.
-        /// </summary>
-        public IReadOnlyList<Sprite> GetZoneAnimalSprites()
+        /// <summary>Triplet d'humeurs du pion posé sur une case (défaut si vide).</summary>
+        public AnimalIconSet.MoodSet GetCellMoodSet(int row, int col)
         {
-            var list = new List<Sprite>();
-            foreach (var kv in _regionIcons)
-            {
-                if (kv.Value != null)
-                    list.Add(kv.Value);
-            }
-            return list;
+            CellView cell = GetCell(row, col);
+            if (cell == null)
+                return default;
+            return cell.GetMoodSet();
+        }
+
+        /// <summary>Bascule l'humeur du pion d'une case.</summary>
+        public void SetPawnMood(int row, int col, AnimalIconSet.PawnMood mood, bool animate = true)
+        {
+            CellView cell = GetCell(row, col);
+            if (cell != null)
+                cell.SetMood(mood, animate);
+        }
+
+        /// <summary>Assigne le triplet d'humeurs au pion d'une case (à la pose).</summary>
+        public void SetCellMoodSet(int row, int col, AnimalIconSet.MoodSet set)
+        {
+            CellView cell = GetCell(row, col);
+            if (cell != null)
+                cell.SetMoodSprites(set);
         }
 
         /// <summary>
@@ -783,14 +748,10 @@ namespace Zoologic
             image.type = Image.Type.Simple;
 
             Color baseColor = GetRegionColor(_grid.GetRegionId(row, col));
-            Sprite pionSprite = GetRegionIcon(_grid.GetRegionId(row, col));
-            if (pionSprite == null || pionSprite.name.StartsWith("bak_"))
-                pionSprite = GetPionSprite();
-            else if (!pionSprite.name.StartsWith("sp1_"))
-                pionSprite = GetPionSprite();
 
             var cell = gameObject.GetComponent<CellView>();
-            cell.Init(baseColor, image, pionSprite, GetFont(), visualSize, PionRatio);
+            cell.Init(baseColor, image, GetPionSprite(), GetFont(), visualSize, PionRatio);
+            cell.SetMoodSprites(default);
             return cell;
         }
 
@@ -830,35 +791,6 @@ namespace Zoologic
             Color color = RegionPalette[index % RegionPalette.Length];
             _regionColors.Add(regionId, color);
             return color;
-        }
-
-        /// <summary>
-        /// Icône d'animal assignée à une zone, piochée sans répétition dans la
-        /// permutation du niveau en cours (voir <see cref="AnimalIconSet.GetShuffled"/>).
-        /// Renvoie null si aucune icône n'est disponible (secours sur cercle blanc).
-        /// </summary>
-        private Sprite GetRegionIcon(int regionId)
-        {
-            if (_regionIcons.TryGetValue(regionId, out Sprite existing))
-                return existing;
-
-            Sprite icon = null;
-            if (_levelIcons != null && _levelIcons.Length > 0)
-            {
-                for (int tries = 0; tries < _levelIcons.Length; tries++)
-                {
-                    Sprite candidate = _levelIcons[_iconIndex % _levelIcons.Length];
-                    _iconIndex++;
-                    if (candidate != null && candidate.name.StartsWith("sp1_"))
-                    {
-                        icon = candidate;
-                        break;
-                    }
-                }
-            }
-
-            _regionIcons.Add(regionId, icon);
-            return icon;
         }
 
         private static Sprite GetPionSprite()

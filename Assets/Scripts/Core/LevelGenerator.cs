@@ -27,6 +27,9 @@ namespace Zoologic.Core
         private readonly Random _rng;
         private readonly PuzzleSolver _solver = new PuzzleSolver();
         private readonly double _tailleMaxFacteur;
+        private readonly bool _voisinage4Dir;
+        private readonly double _serpentFacteur;
+        private readonly int _maxTentativesUnicite;
 
         /// <summary>
         /// Crée un générateur. Un <paramref name="seed"/> fixe permet de rendre la
@@ -36,11 +39,21 @@ namespace Zoologic.Core
         /// le cahier des charges ("environ 2x la moyenne"). Un facteur plus petit
         /// produit des zones plus petites, donc des grilles plus contraintes et plus
         /// souvent à solution unique.
+        ///
+        /// Les paramètres optionnels <paramref name="voisinage4Dir"/>,
+        /// <paramref name="serpentFacteur"/> et <paramref name="maxTentativesUnicite"/>
+        /// activent le mode "secours" (zones 4-connexes, serpents allongés, plus
+        /// d'essais) utilisé en étage 2 par le contrôleur. Leurs valeurs par défaut
+        /// reproduisent EXACTEMENT le comportement historique (compatibilité des
+        /// grilles deterministes seed=niveau).
         /// </summary>
-        public LevelGenerator(int? seed = null, double tailleMaxFacteur = 2.0)
+        public LevelGenerator(int? seed = null, double tailleMaxFacteur = 2.0, bool voisinage4Dir = false, double serpentFacteur = 1.0, int maxTentativesUnicite = MaxTentativesUnicite)
         {
             _rng = seed.HasValue ? new Random(seed.Value) : new Random();
             _tailleMaxFacteur = tailleMaxFacteur;
+            _voisinage4Dir = voisinage4Dir;
+            _serpentFacteur = serpentFacteur;
+            _maxTentativesUnicite = maxTentativesUnicite;
         }
 
         /// <summary>
@@ -106,7 +119,7 @@ namespace Zoologic.Core
             if (size < 3)
                 throw new ArgumentOutOfRangeException(nameof(size), "La taille minimale d'une grille générée est 3.");
 
-            for (int tentative = 0; tentative < MaxTentativesUnicite; tentative++)
+            for (int tentative = 0; tentative < _maxTentativesUnicite; tentative++)
             {
                 List<(int row, int col)> solution = GenererSolutionAleatoire(size);   // étape A
                 int[,] zones = GenererZonesAutourDeLaSolution(size, solution);         // étape B
@@ -117,7 +130,7 @@ namespace Zoologic.Core
             }
 
             throw new InvalidOperationException(
-                $"Impossible de générer une grille {size}x{size} à solution unique après {MaxTentativesUnicite} tentatives.");
+                $"Impossible de générer une grille {size}x{size} à solution unique après {_maxTentativesUnicite} tentatives.");
         }
 
         /// <summary>
@@ -259,11 +272,13 @@ namespace Zoologic.Core
 
             int casesRestantes = size * size - nbZones;
 
+            int cibleSerpent = Math.Max(1, (int)Math.Ceiling(tailleMoyenne * _serpentFacteur));
+
             for (int i = 0; i < nbZones; i++)
             {
                 int directionPrecedente = _rng.Next(direction.Length);
 
-                while (tailles[i] < tailleMoyenne)
+                while (tailles[i] < cibleSerpent)
                 {
                     // Avec 50 % de chances, on prolonge le serpent tout droit pour
                     // obtenir des formes fines et allongées.
@@ -381,6 +396,10 @@ namespace Zoologic.Core
                                     if (dr == 0 && dc == 0)
                                         continue;
 
+                                    // Mode secours : vol 4-dir uniquement (4-connexité garantie).
+                                    if (_voisinage4Dir && dr != 0 && dc != 0)
+                                        continue;
+
                                     int nr = r + dr;
                                     int nc = c + dc;
                                     if (nr < 0 || nr >= size || nc < 0 || nc >= size)
@@ -431,8 +450,10 @@ namespace Zoologic.Core
         }
 
         /// <summary>
-        /// Ajoute à la frontière d'une zone les voisins (8 directions) de la case
-        /// (row, col) qui ne sont pas encore attribués.
+        /// Ajoute à la frontière d'une zone les voisins de la case (row, col) qui
+        /// ne sont pas encore attribués : 8 directions en mode historique, 4
+        /// directions orthogonales en mode secours (zones 4-connexes garanties,
+        /// sans liaisons en coin uniquement).
         /// </summary>
         private void AjouterVoisinsLibres(int[,] zones, List<(int row, int col)> frontiere, int row, int col)
         {
@@ -443,6 +464,9 @@ namespace Zoologic.Core
                 for (int dc = -1; dc <= 1; dc++)
                 {
                     if (dr == 0 && dc == 0)
+                        continue;
+
+                    if (_voisinage4Dir && dr != 0 && dc != 0)
                         continue;
 
                     int nr = row + dr;
@@ -485,8 +509,26 @@ namespace Zoologic.Core
             return actives[actives.Count - 1];
         }
 
-        /// <summary>Retourne la zone d'une case voisine déjà attribuée (fallback rare).</summary>
+        /// <summary>
+        /// Retourne la zone d'une case voisine déjà attribuée (fallback rare).
+        /// En mode secours, préfère un voisin orthogonal (4-connexité), avec repli
+        /// sur les 8 directions si aucun voisin orthogonal n'est attribué.
+        /// En mode historique, balayage 8 directions identique à l'original.
+        /// </summary>
         private int ZoneDUnVoisin(int[,] zones, int row, int col)
+        {
+            if (_voisinage4Dir)
+            {
+                int orthogonal = ZoneDUnVoisinDir(zones, row, col, orthogonalSeulement: true);
+                if (orthogonal != -1)
+                    return orthogonal;
+            }
+
+            int voisin = ZoneDUnVoisinDir(zones, row, col, orthogonalSeulement: false);
+            return voisin != -1 ? voisin : 0;
+        }
+
+        private static int ZoneDUnVoisinDir(int[,] zones, int row, int col, bool orthogonalSeulement)
         {
             int size = zones.GetLength(0);
 
@@ -495,6 +537,9 @@ namespace Zoologic.Core
                 for (int dc = -1; dc <= 1; dc++)
                 {
                     if (dr == 0 && dc == 0)
+                        continue;
+
+                    if (orthogonalSeulement && dr != 0 && dc != 0)
                         continue;
 
                     int nr = row + dr;
@@ -507,7 +552,7 @@ namespace Zoologic.Core
                 }
             }
 
-            return 0;
+            return -1;
         }
 
         /// <summary>

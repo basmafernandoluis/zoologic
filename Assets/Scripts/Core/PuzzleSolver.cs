@@ -23,7 +23,7 @@ namespace Zoologic.Core
         /// <param name="grid">La grille à résoudre (ses pions sont restaurés après l'appel).</param>
         /// <param name="maxSolutions">Nombre maximum de solutions à chercher (&gt; 0).</param>
         /// <returns>Les solutions trouvées, sous forme de liste de positions de pions.</returns>
-        public List<List<(int row, int col)>> FindAllSolutions(PuzzleGrid grid, int maxSolutions = 2)
+        public List<List<(int row, int col)>> FindAllSolutions(PuzzleGrid grid, int maxSolutions = 2, long budgetMs = long.MaxValue)
         {
             if (grid == null)
                 throw new ArgumentNullException(nameof(grid));
@@ -37,8 +37,15 @@ namespace Zoologic.Core
             // Sauvegarde de l'état initial pour restaurer la grille après la recherche.
             var pionsInitiaux = new List<(int row, int col)>(grid.Pions);
 
+            // Budget anti-blocage (indice sur grandes grilles) : passé ce délai, la
+            // recherche s'interrompt et retourne les solutions trouvées jusque-là
+            // (éventuellement aucune). long.MaxValue = comportement historique.
+            System.Diagnostics.Stopwatch sw = budgetMs == long.MaxValue ? null : System.Diagnostics.Stopwatch.StartNew();
+            long noeuds = 0;
+            bool abandon = false;
+
             grid.Clear();
-            Rechercher(grid, zones, 0, solutions, maxSolutions);
+            Rechercher(grid, zones, 0, solutions, maxSolutions, sw, budgetMs, ref noeuds, ref abandon);
 
             // Restauration de la grille (on remet les pions qu'elle contenait au départ).
             grid.Clear();
@@ -64,7 +71,7 @@ namespace Zoologic.Core
         /// La grille est restaurée à son état initial après l'appel.
         /// </summary>
         public List<(int row, int col)> SolveWithFixedPlacements(
-            PuzzleGrid grid, List<(int row, int col)> fixedPlacements)
+            PuzzleGrid grid, List<(int row, int col)> fixedPlacements, long budgetMs = long.MaxValue)
         {
             if (grid == null)
                 throw new ArgumentNullException(nameof(grid));
@@ -92,8 +99,15 @@ namespace Zoologic.Core
                     zonesALiberer.Add(zoneId);
             }
 
+            // Budget anti-blocage : passé ce délai, abandonne et retourne null
+            // (l'appelant dégrade vers un indice "coup valide"). long.MaxValue =
+            // comportement historique (recherche exhaustive).
+            System.Diagnostics.Stopwatch sw = budgetMs == long.MaxValue ? null : System.Diagnostics.Stopwatch.StartNew();
+            long noeuds = 0;
+            bool abandon = false;
+
             var solution = new List<(int row, int col)>();
-            RechercherAvecContraintes(grid, zonesALiberer, 0, solution);
+            RechercherAvecContraintes(grid, zonesALiberer, 0, solution, sw, budgetMs, ref noeuds, ref abandon);
 
             // Restauration de la grille.
             grid.Clear();
@@ -105,13 +119,22 @@ namespace Zoologic.Core
 
         /// <summary>
         /// Recherche récursive avec contraintes : ne résout que les zones non encore occupées.
+        /// Si le budget temps est dépassé, <paramref name="abandon"/> passe à true et
+        /// la recherche se replie en retirant les pions posés (solution vide).
         /// </summary>
         private static void RechercherAvecContraintes(
             PuzzleGrid grid,
             IReadOnlyList<int> zones,
             int indexZone,
-            List<(int row, int col)> solution)
+            List<(int row, int col)> solution,
+            System.Diagnostics.Stopwatch sw,
+            long budgetMs,
+            ref long noeuds,
+            ref bool abandon)
         {
+            if (abandon || solution.Count > 0)
+                return;
+
             if (indexZone == zones.Count)
             {
                 // Vérifie que la grille est entièrement résolue.
@@ -129,6 +152,9 @@ namespace Zoologic.Core
             {
                 for (int col = 0; col < grid.Size; col++)
                 {
+                    if (abandon || solution.Count > 0)
+                        return;
+
                     if (grid.GetRegionId(row, col) != zoneId)
                         continue;
 
@@ -139,11 +165,17 @@ namespace Zoologic.Core
                         continue;
 
                     grid.PlacePion(row, col);
-                    RechercherAvecContraintes(grid, zones, indexZone + 1, solution);
-                    grid.RemovePion(row, col);
 
-                    if (solution.Count > 0)
+                    // Contrôle du budget toutes les 1024 poses (coût négligeable).
+                    if ((++noeuds & 1023) == 0 && sw != null && sw.ElapsedMilliseconds > budgetMs)
+                    {
+                        grid.RemovePion(row, col);
+                        abandon = true;
                         return;
+                    }
+
+                    RechercherAvecContraintes(grid, zones, indexZone + 1, solution, sw, budgetMs, ref noeuds, ref abandon);
+                    grid.RemovePion(row, col);
                 }
             }
         }
@@ -157,10 +189,14 @@ namespace Zoologic.Core
             IReadOnlyList<int> zones,
             int indexZone,
             List<List<(int row, int col)>> solutions,
-            int maxSolutions)
+            int maxSolutions,
+            System.Diagnostics.Stopwatch sw,
+            long budgetMs,
+            ref long noeuds,
+            ref bool abandon)
         {
             // On a déjà trouvé assez de solutions : on coupe la recherche.
-            if (solutions.Count >= maxSolutions)
+            if (abandon || solutions.Count >= maxSolutions)
                 return;
 
             // Toutes les zones ont reçu un pion : c'est une solution candidate.
@@ -178,6 +214,9 @@ namespace Zoologic.Core
             {
                 for (int col = 0; col < grid.Size; col++)
                 {
+                    if (abandon || solutions.Count >= maxSolutions)
+                        return;
+
                     if (grid.GetRegionId(row, col) != zoneId)
                         continue;
 
@@ -185,7 +224,15 @@ namespace Zoologic.Core
                         continue;
 
                     grid.PlacePion(row, col);
-                    Rechercher(grid, zones, indexZone + 1, solutions, maxSolutions);
+
+                    if ((++noeuds & 1023) == 0 && sw != null && sw.ElapsedMilliseconds > budgetMs)
+                    {
+                        grid.RemovePion(row, col);
+                        abandon = true;
+                        return;
+                    }
+
+                    Rechercher(grid, zones, indexZone + 1, solutions, maxSolutions, sw, budgetMs, ref noeuds, ref abandon);
                     grid.RemovePion(row, col); // backtracking : on retire le pion essayé
                 }
             }
