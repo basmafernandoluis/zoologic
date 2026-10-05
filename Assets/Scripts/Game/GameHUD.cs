@@ -755,14 +755,30 @@ namespace Zoologic
         // 3bis) POWER-UP - GOMME : bouton flottant, coin bas-droit.
         // ------------------------------------------------------------------
 
+        /// <summary>
+        /// Marge basse système en pixels écran. Utilise la safe area quand elle
+        /// est significative ; sinon (navigation par gestes : safeArea.yMin ≈ 0
+        /// alors que la barre système recouvre le bas d'écran), estime 48dp
+        /// via Screen.dpi avec garde-fous. Jamais sous 18px.
+        /// </summary>
+        public static float SafeBottomPx()
+        {
+            Rect safe = Screen.safeArea;
+            float insetPx = safe.yMin;
+            if (insetPx > 1f)
+                return insetPx;
+            float dpi = Screen.dpi;
+            if (dpi <= 0f)
+                dpi = 420f;
+            dpi = Mathf.Clamp(dpi, 160f, 640f);
+            return Mathf.Max(48f * dpi / 160f, 18f);
+        }
+
         public float BottomInset
         {
             get
             {
-                Rect safe = Screen.safeArea;
-                float insetPx = safe.yMin;
-                if (insetPx <= 1f) return 18f;
-                return insetPx * (1920f / Mathf.Max(Screen.height, 1));
+                return SafeBottomPx() * (1920f / Mathf.Max(Screen.height, 1));
             }
         }
 
