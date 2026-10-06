@@ -149,6 +149,32 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c472cfb63cb4524c8e1682d3164dcab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Zoodoku.TutorialManager
+  _gridView: {fileID: 0}
+  _canvasRect: {fileID: 0}
+  _fontTitle: {fileID: 0}
+  _fontBody: {fileID: 0}
+  _frameSprite: {fileID: 0}
+  _roundedSprite: {fileID: 0}
+  _acceptTaps: 0
+  _acceptDrops: 0
+  _victory: 0
+  _drag: {fileID: 0}
+  _tray: {fileID: 0}
+  _overlayRoot: {fileID: 0}
+  _overlayTop: {fileID: 0}
+  _overlayBottom: {fileID: 0}
+  _overlayLeft: {fileID: 0}
+  _overlayRight: {fileID: 0}
+  _blocker: {fileID: 0}
+  _bubbleRoot: {fileID: 0}
+  _bubbleText: {fileID: 0}
+  _bubbleNext: {fileID: 0}
+  _nextClicked: 0
+  _hand: {fileID: 0}
+  _lastActivityIsDrop: 0
+  _skipRoot: {fileID: 0}
+  _actionRoot: {fileID: 0}
+  _actionText: {fileID: 0}
 --- !u!114 &843471373
 MonoBehaviour:
   m_ObjectHideFlags: 0

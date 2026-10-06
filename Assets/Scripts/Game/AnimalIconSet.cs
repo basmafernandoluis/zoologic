@@ -135,6 +135,112 @@ namespace Zoologic
             return _flatFaces;
         }
 
+        /// <summary>Humeur d'un pion (mx__ : neutre / heureux / triste).</summary>
+        public enum PawnMood
+        {
+            Neutral = 0,
+            Happy = 1,
+            Sad = 2,
+        }
+
+        /// <summary>Triplet d'humeurs d'un même animal (jamais null si complet).</summary>
+        public readonly struct MoodSet
+        {
+            public readonly Sprite Neutral;
+            public readonly Sprite Happy;
+            public readonly Sprite Sad;
+
+            public MoodSet(Sprite neutral, Sprite happy, Sprite sad)
+            {
+                Neutral = neutral;
+                Happy = happy;
+                Sad = sad;
+            }
+
+            public bool IsComplete => Neutral != null && Happy != null && Sad != null;
+
+            public Sprite For(PawnMood mood)
+            {
+                switch (mood)
+                {
+                    case PawnMood.Happy: return Happy ?? Neutral;
+                    case PawnMood.Sad: return Sad ?? Neutral;
+                    default: return Neutral;
+                }
+            }
+        }
+
+        private static Sprite[] _moodSheet;
+
+        /// <summary>
+        /// Charge la planche mx__ (mx__0..7 neutres, mx__8..15 heureux, mx__16..23
+        /// tristes). Tri NUMÉRIQUE (l'ordre ordinal mettrait mx__10 avant mx__2).
+        /// </summary>
+        public static Sprite[] LoadMoodSheet()
+        {
+            if (_moodSheet != null)
+                return _moodSheet;
+
+            var all = Resources.LoadAll<Sprite>("Sprites/mx_");
+            var indexed = new System.Collections.Generic.SortedDictionary<int, Sprite>();
+            if (all != null)
+            {
+                for (int i = 0; i < all.Length; i++)
+                {
+                    Sprite s = all[i];
+                    if (s == null) continue;
+                    string name = s.name;
+                    if (!name.StartsWith("mx__")) continue;
+                    if (int.TryParse(name.Substring(4), out int index))
+                        indexed[index] = s;
+                }
+            }
+            var list = new System.Collections.Generic.List<Sprite>(indexed.Values);
+            _moodSheet = list.ToArray();
+            if (_moodSheet.Length != 24)
+                Debug.LogWarning("[Zoologic] AnimalIconSet : planche mx__ incomplète (" + _moodSheet.Length + "/24).");
+            return _moodSheet;
+        }
+
+        /// <summary>
+        /// 8 triplets appariés par index (i, i+8, i+16), mélangés. Triplets
+        /// incomplets exclus d'office (jamais de pion invisible).
+        /// </summary>
+        public static System.Collections.Generic.List<MoodSet> GetShuffledMoodSets()
+        {
+            Sprite[] sheet = LoadMoodSheet();
+            var sets = new System.Collections.Generic.List<MoodSet>();
+            for (int i = 0; i < 8; i++)
+            {
+                Sprite n = i < sheet.Length ? sheet[i] : null;
+                Sprite h = i + 8 < sheet.Length ? sheet[i + 8] : null;
+                Sprite s = i + 16 < sheet.Length ? sheet[i + 16] : null;
+                var set = new MoodSet(n, h, s);
+                if (set.IsComplete)
+                    sets.Add(set);
+                else
+                    Debug.LogWarning("[Zoologic] AnimalIconSet : triplet mx__" + i + " incomplet, exclu.");
+            }
+            for (int i = sets.Count - 1; i > 0; i--)
+            {
+                int j = UnityEngine.Random.Range(0, i + 1);
+                MoodSet temp = sets[i];
+                sets[i] = sets[j];
+                sets[j] = temp;
+            }
+            return sets;
+        }
+
+        /// <summary>Neutres mx__ pour aperçu boutique (3 premiers).</summary>
+        public static Sprite[] LoadMoodNeutrals()
+        {
+            Sprite[] sheet = LoadMoodSheet();
+            int n = Mathf.Min(8, sheet.Length);
+            var neutrals = new Sprite[n];
+            Array.Copy(sheet, neutrals, n);
+            return neutrals;
+        }
+
         /// <summary>Version mélangée des têtes plates (même contrat que GetShuffled).</summary>
         public static Sprite[] GetShuffledFlat()
         {

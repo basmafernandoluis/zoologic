@@ -6,10 +6,10 @@ namespace Zoologic
     /// Collection de skins de pions : le but des pièces. Sélection persistée,
     /// appliquée au prochain niveau (pions du plateau + jetons de la barre).
     ///
-    /// - Bois (0) : médailles sp1, gratuit, possédé par défaut ;
-    /// - Flat (1) : têtes plates Art/Animals, 200 pièces ;
-    /// - Doré (2) : médailles sp1 teintées or, 350 pièces ;
-    /// - Nuit (3) : médailles sp1 teintées bleu nuit, 500 pièces.
+    /// - Bois (0) : médaillons mx__ 3 humeurs, gratuit, possédé par défaut ;
+    /// - Flat (1) : têtes plates Art/Animals (sans humeurs), 200 pièces ;
+    /// - Doré (2) : médaillons mx__ teintés or, 350 pièces ;
+    /// - Nuit (3) : médaillons mx__ teintés bleu nuit, 500 pièces.
     /// </summary>
     public static class SkinManager
     {
@@ -92,7 +92,37 @@ namespace Zoologic
         {
             return UsesFlatFacesSelected
                 ? AnimalIconSet.GetShuffledFlat()
-                : AnimalIconSet.GetShuffled();
+                : AnimalIconSet.LoadMoodNeutrals();
+        }
+
+        /// <summary>
+        /// Inventaire du niveau : les `count` premiers triplets mélangés.
+        /// Ce sont EUX les pions (pas les zones) : l'animal glissé = l'animal posé.
+        /// </summary>
+        public static System.Collections.Generic.List<AnimalIconSet.MoodSet> GetLevelMoodSets(int count)
+        {
+            var all = GetZoneMoodSets();
+            var list = new System.Collections.Generic.List<AnimalIconSet.MoodSet>(Mathf.Max(0, count));
+            for (int i = 0; i < count && i < all.Count; i++)
+                list.Add(all[i]);
+            return list;
+        }
+
+        /// <summary>Triplets d'humeurs selon le skin (Flat = même sprite ×3).</summary>
+        public static System.Collections.Generic.List<AnimalIconSet.MoodSet> GetZoneMoodSets()
+        {
+            if (UsesFlatFacesSelected)
+            {
+                Sprite[] faces = AnimalIconSet.GetShuffledFlat();
+                var sets = new System.Collections.Generic.List<AnimalIconSet.MoodSet>(faces.Length);
+                for (int i = 0; i < faces.Length; i++)
+                {
+                    if (faces[i] == null) continue;
+                    sets.Add(new AnimalIconSet.MoodSet(faces[i], faces[i], faces[i]));
+                }
+                return sets;
+            }
+            return AnimalIconSet.GetShuffledMoodSets();
         }
 
         /// <summary>3 premiers sprites d'un skin pour l'aperçu boutique.</summary>
@@ -100,7 +130,7 @@ namespace Zoologic
         {
             Sprite[] all = UsesFlatFaces(skinId)
                 ? AnimalIconSet.LoadFlatFaces()
-                : AnimalIconSet.LoadAll();
+                : AnimalIconSet.LoadMoodNeutrals();
             int n = Mathf.Min(3, all.Length);
             var preview = new Sprite[n];
             for (int i = 0; i < n; i++)

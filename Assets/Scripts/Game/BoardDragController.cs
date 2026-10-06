@@ -23,8 +23,8 @@ namespace Zoologic
             return Time.unscaledTime - LastDropTime < 0.25f;
         }
 
-        /// <summary>Jeton barre → case libre.</summary>
-        public Action<int, int> OnTrayDropOnCell;
+        /// <summary>Jeton barre → case libre (avec le set transporté).</summary>
+        public Action<int, int, AnimalIconSet.MoodSet> OnTrayDropOnCell;
 
         /// <summary>Jeton barre → case occupée.</summary>
         public Action<int, int> OnTrayDropInvalid;
@@ -52,6 +52,7 @@ namespace Zoologic
         private bool _fromTray;
         private int _fromRow = -1;
         private int _fromCol = -1;
+        private AnimalIconSet.MoodSet _dragSet;
 
         // Point écran du FANTÔME (pas du doigt) : cadre et résolution du drop
         // suivent ce que le joueur voit, jamais la case sous le doigt.
@@ -79,30 +80,32 @@ namespace Zoologic
 
         public bool IsDragging => _dragging;
 
-        public void BeginTrayDrag(Sprite sprite, int pointerId)
+        public void BeginTrayDrag(AnimalIconSet.MoodSet set, int pointerId)
         {
-            if (_dragging || sprite == null)
+            if (_dragging || !set.IsComplete)
                 return;
             _dragging = true;
             _fromTray = true;
             _fromRow = -1;
             _fromCol = -1;
+            _dragSet = set;
             _activePointer = pointerId;
-            ShowGhost(sprite);
+            ShowGhost(set.Neutral);
         }
 
-        public void BeginPawnDrag(int row, int col, Sprite sprite, int pointerId)
+        public void BeginPawnDrag(int row, int col, AnimalIconSet.MoodSet set, int pointerId)
         {
-            if (_dragging || sprite == null)
+            if (_dragging || !set.IsComplete)
                 return;
             _dragging = true;
             _fromTray = false;
             _fromRow = row;
             _fromCol = col;
+            _dragSet = set;
             _activePointer = pointerId;
             if (_gridView != null)
                 _gridView.SetCellDimmed(row, col, true);
-            ShowGhost(sprite);
+            ShowGhost(set.Neutral);
         }
 
         public void UpdateDrag(int pointerId, Vector2 screenPosition)
@@ -134,7 +137,7 @@ namespace Zoologic
                     if (overCell)
                     {
                         if (CanPlaceAt != null && CanPlaceAt(row, col))
-                            OnTrayDropOnCell?.Invoke(row, col);
+                            OnTrayDropOnCell?.Invoke(row, col, _dragSet);
                         else
                             OnTrayDropInvalid?.Invoke(row, col);
                     }

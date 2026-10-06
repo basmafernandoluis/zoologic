@@ -89,13 +89,17 @@ namespace Zoologic
         private static IEnumerator FlyOne(RectTransform rt, Vector3 from, Vector3 to, float delay, float dur)
         {
             if (delay > 0f) yield return new WaitForSecondsRealtime(delay);
+            // La scène peut changer mid-vol (ex. Continuer rapide) : le runner
+            // survit (SFXManager) mais flyRoot est détruit. Vérification à
+            // chaque frame (mono-thread : destruction possible entre frames).
             if (rt == null) yield break;
             rt.gameObject.SetActive(true);
-            rt.position = from;
             float el = 0f;
             Vector3 ctrl = (from + to) * 0.5f + new Vector3(60f, 220f, 0f);
+            rt.position = from;
             while (el < dur)
             {
+                if (rt == null) yield break;
                 float t = Mathf.Clamp01(el / dur);
                 float e = Easing.EaseInOutQuad(t);
                 Vector3 a = Vector3.Lerp(from, ctrl, e);
@@ -107,7 +111,8 @@ namespace Zoologic
                 el += Time.unscaledDeltaTime;
                 yield return null;
             }
-            if (rt != null) rt.gameObject.SetActive(false);
+            if (rt == null) yield break;
+            rt.gameObject.SetActive(false);
         }
     }
 }

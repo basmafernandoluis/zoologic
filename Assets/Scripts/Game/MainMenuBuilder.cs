@@ -49,12 +49,17 @@ namespace Zoologic
 
         private void Start()
         {
+            EnsureMainCamera();
             if (!AgeGateManager.HasChosen)
             {
                 var gateCanvasGO = new GameObject("AgeGateCanvas");
                 var gateCanvas = gateCanvasGO.AddComponent<Canvas>();
                 gateCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
                 gateCanvas.sortingOrder = 5000;
+                var gateScaler = gateCanvasGO.AddComponent<CanvasScaler>();
+                gateScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                gateScaler.referenceResolution = new Vector2(1080f, 1920f);
+                gateScaler.matchWidthOrHeight = 0.5f;
                 gateCanvasGO.AddComponent<GraphicRaycaster>();
                 AgeGateManager.Show(gateCanvas, _ =>
                 {
@@ -68,11 +73,6 @@ namespace Zoologic
 
         private void StartContinued()
         {
-            if (TutorialManager.ShouldShow)
-            {
-                UnityEngine.SceneManagement.SceneManager.LoadScene("Tutorial");
-                return;
-            }
             _fontTitle = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
             _fontBody = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF");
 

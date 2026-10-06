@@ -25,7 +25,7 @@ Assets/
 │   │   ├── SettingsPanel.cs       – Panneau settings (SFX, haptics, reset progression)
 │   │   ├── LevelProgressManager.cs – Persistance PlayerPrefs (étoiles, niveau débloqué)
 │   │   ├── LivesManager.cs        – Système de 3 vies
-│   │   ├── TutorialManager.cs     – Tutoriel 4 étapes
+│   │   ├── (guidage intégré au niveau 1 : voir PuzzleGameController)
 │   │   ├── AnimalIconSet.cs       – 30 sprites animaux pour les zones
 │   │   ├── SFXManager.cs          – Système audio procédural
 │   │   └── FeedbackUtils.cs       – Haptics Android
@@ -33,7 +33,6 @@ Assets/
 │   └── Editor/         # Outils de développement
 │       ├── BuildAPK.cs            – Build Android automatique (IL2CPP/ARM64)
 │       ├── TestGridSceneBuilder.cs – Constructeur scène de test
-│       ├── TutorialSceneBuilder.cs – Constructeur scène tutoriel
 │       ├── LevelMapSceneBuilder.cs – Constructeur scène carte niveaux
 │       └── MainMenuSceneBuilder.cs – Constructeur scène menu
 │
@@ -67,13 +66,13 @@ MainMenu → LevelMap → TestGrid → (victoire) → TestGrid (niveau suivant)
 ## Décisions techniques importantes
 
 ### Active Input Handling
-**DOIT rester sur "Input Manager (Old)"** dans Player Settings.
-Les valeurs "New" ou "Both" causent des `NullReferenceException` sur Android car tout le code utilise l'API `Input.*` classique.
+**DOIT rester sur "Input System Package (New)"** dans Player Settings.
+Tout le code utilise la nouvelle API (`Keyboard.*`, `InputSystemUIInputModule`) ; l'ancien `StandaloneInputModule` lève `InvalidOperationException` au tick (retiré de `TestGrid.unity`, supprimé au runtime par `EnsureEventSystem`).
 
 ### Scripting Backend & Architecture
 - **IL2CPP** avec **ARM64** activé (obligatoire pour les téléphones récents)
 - **Mono2x** ne supporte pas ARM64 dans Unity 6000.x (case grise dans Player Settings)
-- Le script `BuildAPK.cs` force `Active Input Handling = 0` (Old) via SerializedObject au build
+- Le script `BuildAPK.cs` force `Active Input Handling = 1` (New) via SerializedObject au build
 
 ### Android Gradle
 - **AGP (Android Gradle Plugin)** : version 9.0.0 (par défaut dans Unity 6000.3.21f1)

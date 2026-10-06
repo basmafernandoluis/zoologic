@@ -6,26 +6,27 @@ using UnityEngine.UI;
 namespace Zoologic
 {
     /// <summary>
-    /// Barre d'animaux du niveau : un jeton par zone, à glisser vers les cases
-    /// pour poser un pion. Visuel uniquement (jetons infinis, aucune règle
-    /// ajoutée : la zone impose toujours son animal).
+    /// Barre d'animaux du niveau : inventaire de triplets d'humeurs. L'animal
+    /// glissé EST l'animal posé (fini le faux-semblant zone→animal).
+    /// Poser consomme (mode jeu), retirer rend ; mode infini pour le tutoriel.
     ///
-    /// Construite dans le dock du bas ; <see cref="SetSprites"/> la repeuple à
-    /// chaque niveau (les icônes sont mélangées par niveau).
+    /// Construite dans le dock du bas ; <see cref="SetInventory"/> la repeuple.
     /// </summary>
     public sealed class AnimalTray : MonoBehaviour
     {
-        private const float ChipSize = 112f;
+        private const float ChipSize = 104f;
         private const float ChipSpacing = 6f;
 
-        // Largeur utile de la rangée (holder 800 − padding 2×12) : au-delà,
-        // les jetons rétrécissent au lieu de déborder.
-        private const float TrayUsableWidth = 776f;
-        private const float ChipMinSize = 52f;
+        // Largeur utile de la rangée (holder 820 − padding 2×12) : au-delà,
+        // les jetons rétrécissent au lieu de déborder (8x8 → ~94px).
+        private const float TrayUsableWidth = 796f;
+        private const float ChipMinSize = 72f;
 
         private BoardDragController _drag;
         private Transform _row;
-        private readonly List<Sprite> _allSprites = new List<Sprite>();
+        private readonly List<AnimalIconSet.MoodSet> _base = new List<AnimalIconSet.MoodSet>();
+        private readonly List<AnimalIconSet.MoodSet> _used = new List<AnimalIconSet.MoodSet>();
+        private bool _consumeMode = true;
 
         public static AnimalTray Build(Transform parent, BoardDragController drag)
         {
@@ -57,45 +58,105 @@ namespace Zoologic
             _drag = drag;
         }
 
-        public void SetSprites(IReadOnlyList<Sprite> sprites)
+        /// <summary>
+        /// (Re)peuple l'inventaire. consume=true (jeu) : poser consomme, retirer
+        /// rend. consume=false (tutoriel) : jetons infinis.
+        /// </summary>
+        public void SetInventory(System.Collections.Generic.List<AnimalIconSet.MoodSet> sets, bool consume)
         {
-            _allSprites.Clear();
-            if (sprites != null)
+            _base.Clear();
+            _used.Clear();
+            _consumeMode = consume;
+            if (sets != null)
             {
-                for (int i = 0; i < sprites.Count; i++)
+                for (int i = 0; i < sets.Count; i++)
                 {
-                    if (sprites[i] != null)
-                        _allSprites.Add(sprites[i]);
+                    if (sets[i].IsComplete)
+                        _base.Add(sets[i]);
                 }
             }
-            ShowFirst(_allSprites.Count, animate: true);
+            Refresh(animate: true);
         }
 
-        /// <summary>
-        /// Inventaire : n'affiche que les `remaining` premiers jetons.
-        /// Poser consomme, retirer au dock rend. Sans appel : infini (tutoriel).
-        /// </summary>
-        public void SetRemaining(int remaining)
+        /// <summary>Inventaire complet (pour reset retry).</summary>
+        public void ResetInventory()
         {
-            ShowFirst(Mathf.Max(0, remaining));
+            _used.Clear();
+            Refresh(animate: false);
         }
 
-        private void ShowFirst(int count, bool animate = false)
+        /// <summary>Consomme le set (pose). Retourne false si déjà consommé.</summary>
+        public bool Consume(AnimalIconSet.MoodSet set)
+        {
+            if (!_consumeMode)
+                return true;
+            if (!ContainsSet(_base, set) || ContainsSet(_used, set))
+                return false;
+            _used.Add(set);
+            Refresh(animate: false);
+            return true;
+        }
+
+        /// <summary>Rend un set consommé (retrait, gomme).</summary>
+        public void Return(AnimalIconSet.MoodSet set)
+        {
+            if (!_consumeMode)
+                return;
+            for (int i = 0; i < _used.Count; i++)
+            {
+                if (SetsEqual(_used[i], set))
+                {
+                    _used.RemoveAt(i);
+                    break;
+                }
+            }
+            Refresh(animate: false);
+        }
+
+        private static bool SetsEqual(AnimalIconSet.MoodSet a, AnimalIconSet.MoodSet b)
+        {
+            return a.Neutral == b.Neutral && a.Happy == b.Happy && a.Sad == b.Sad;
+        }
+
+        private static bool ContainsSet(System.Collections.Generic.List<AnimalIconSet.MoodSet> list, AnimalIconSet.MoodSet set)
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (SetsEqual(list[i], set))
+                    return true;
+            }
+            return false;
+        }
+
+        private System.Collections.Generic.List<AnimalIconSet.MoodSet> VisibleSets()
+        {
+            var visible = new System.Collections.Generic.List<AnimalIconSet.MoodSet>();
+            for (int i = 0; i < _base.Count; i++)
+            {
+                if (_consumeMode && ContainsSet(_used, _base[i]))
+                    continue;
+                visible.Add(_base[i]);
+            }
+            return visible;
+        }
+
+        private void Refresh(bool animate = false)
         {
             if (_row == null)
                 return;
             for (int i = _row.childCount - 1; i >= 0; i--)
                 Destroy(_row.GetChild(i).gameObject);
 
-            int n = Mathf.Min(count, _allSprites.Count);
+            var visible = VisibleSets();
+            int n = visible.Count;
             float size = ChipSize;
             if (n > 1)
                 size = Mathf.Clamp((TrayUsableWidth - (n - 1) * ChipSpacing) / n, ChipMinSize, ChipSize);
             var chips = new System.Collections.Generic.List<TrayChip>(n);
             for (int i = 0; i < n; i++)
-                chips.Add(CreateChip(_allSprites[i], size));
+                chips.Add(CreateChip(visible[i], size));
             // Pop en cascade uniquement à la (re)construction complète, pas à
-            // chaque pose/retrait (SetRemaining) pour éviter le yoyo visuel.
+            // chaque pose/retrait pour éviter le yoyo visuel.
             if (animate && Application.isPlaying && chips.Count > 0)
                 StartCoroutine(PopCascadeRoutine(chips));
         }
@@ -143,8 +204,9 @@ namespace Zoologic
 
         public int ChipCount => _row != null ? _row.childCount : 0;
 
-        private TrayChip CreateChip(Sprite sprite, float size)
+        private TrayChip CreateChip(AnimalIconSet.MoodSet set, float size)
         {
+            Sprite sprite = set.Neutral;
             var go = new GameObject("Chip", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             go.transform.SetParent(_row, false);
             var rect = (RectTransform)go.transform;
@@ -178,7 +240,7 @@ namespace Zoologic
 
             var chip = go.AddComponent<TrayChip>();
             chip.Drag = _drag;
-            chip.Sprite = sprite;
+            chip.Set = set;
             return chip;
         }
 
@@ -186,7 +248,7 @@ namespace Zoologic
         private sealed class TrayChip : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
         {
             public BoardDragController Drag;
-            public Sprite Sprite;
+            public AnimalIconSet.MoodSet Set;
 
             /// <summary>Flottement idle autorisé (coupé pendant pop/punch).</summary>
             public bool IdleAnim = true;
@@ -206,8 +268,8 @@ namespace Zoologic
 
             public void OnBeginDrag(PointerEventData eventData)
             {
-                if (Drag != null)
-                    Drag.BeginTrayDrag(Sprite, eventData.pointerId);
+                if (Drag != null && Set.IsComplete)
+                    Drag.BeginTrayDrag(Set, eventData.pointerId);
             }
 
             public void OnDrag(PointerEventData eventData)

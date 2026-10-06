@@ -529,6 +529,9 @@ namespace Zoologic
             private static IEnumerator FlyOne(RectTransform rt, Vector3 from, Vector3 to, float delay, float dur)
             {
                 if (delay > 0f) yield return new WaitForSecondsRealtime(delay);
+                // Changement de scène mid-vol : le runner survit mais la cible
+                // est détruite. Vérification à chaque frame (mono-thread : une
+                // destruction ne peut survenir qu'entre deux frames).
                 if (rt == null) yield break;
                 rt.gameObject.SetActive(true);
                 rt.position = from;
@@ -537,6 +540,7 @@ namespace Zoologic
                 Vector3 ctrl = (from + to) * 0.5f + new Vector3(60f, 220f, 0f);
                 while (el < dur)
                 {
+                    if (rt == null) yield break;
                     float t = Mathf.Clamp01(el / dur);
                     float e = Easing.EaseInOutQuad(t);
                     Vector3 a = Vector3.Lerp(from, ctrl, e);
@@ -549,11 +553,9 @@ namespace Zoologic
                     el += Time.unscaledDeltaTime;
                     yield return null;
                 }
-                if (rt != null)
-                {
-                    rt.position = to;
-                    rt.gameObject.SetActive(false);
-                }
+                if (rt == null) yield break;
+                rt.position = to;
+                rt.gameObject.SetActive(false);
             }
 
             private static Vector3 FindCoinTargetWorld(Canvas canvas)

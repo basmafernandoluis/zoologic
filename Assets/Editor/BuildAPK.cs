@@ -8,8 +8,8 @@ namespace Zoologic.EditorTools
 {
     public static class BuildAPK
     {
-        private const string ApkPath = "Builds/ZooLogic_v0.8.apk";
-        private const string AabPath = "Builds/ZooLogic_v0.8.aab";
+        private const string ApkPath = "Builds/ZooLogic_v0.9.apk";
+        private const string AabPath = "Builds/ZooLogic_v0.9.aab";
 
         // https://developer.android.com/studio/publish/app-signing
         private const string KeystorePath = "Assets/play store/memorymatrix.keystore";
@@ -125,8 +125,8 @@ namespace Zoologic.EditorTools
 
             PlayerSettings.companyName = "AppWizards";
             PlayerSettings.productName = "Zoo Logic";
-            PlayerSettings.bundleVersion = "0.8";
-            PlayerSettings.Android.bundleVersionCode = 8;
+            PlayerSettings.bundleVersion = "0.9";
+            PlayerSettings.Android.bundleVersionCode = 9;
             PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android, "com.appwizards.zoologic");
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.AutoRotation;
             PlayerSettings.allowedAutorotateToPortrait = true;

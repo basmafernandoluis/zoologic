@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="ad.size" content="width=320,height=480">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Zoo Logic - Fail Challenge 320x480</title>
+<script type="text/javascript">
+var clickTag = "https://play.google.com/store/apps/details?id=com.zoologic.game";
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:320px;height:480px;overflow:hidden;background:#FFF3DE;font-family:Fredoka,Baloo 2,Verdana,Arial,sans-serif}
+#ad{position:relative;width:320px;height:480px;background:linear-gradient(180deg,#FFF8E9 0%,#FFEED2 55%,#DFF7E3 100%);cursor:pointer;overflow:hidden;user-select:none}
+.top-badge{position:absolute;top:12px;left:0;right:0;text-align:center;z-index:10}
+.top-badge span{display:inline-block;background:#FF3B30;color:#fff;font-weight:900;font-size:20px;line-height:1;padding:8px 16px;border-radius:20px;border:3px solid #000;box-shadow:0 4px 0 #000;letter-spacing:.5px;animation:pop .4s ease}
+.sub{margin-top:6px;font-size:13px;font-weight:800;color:#333;background:#fff;display:inline-block;padding:4px 12px;border-radius:12px;border:2px solid #000}
+#board-wrap{position:absolute;top:98px;left:50%;transform:translateX(-50%);width:260px;height:260px}
+#board{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:8px;width:100%;height:100%;background:#fff;border:4px solid #000;border-radius:20px;padding:10px;box-shadow:0 6px 0 rgba(0,0,0,.9)}
+.cell{background:#E8FDF0;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:32px;box-shadow:inset 0 -4px 0 rgba(0,0,0,.08),0 2px 0 rgba(0,0,0,.06);position:relative;transition:transform .2s}
+.cell.zone-panda{background:#D8F5FF}
+.cell.zone-fox{background:#FFE6CC}
+.cell.bad{outline:4px solid #FF3B30;animation:shake .4s 2}
+.cell.good{outline:4px solid #4CAF50}
+.cell.pick{transform:scale(1.15) rotate(-6deg);z-index:5;box-shadow:0 8px 16px rgba(0,0,0,.25)}
+#bigX{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:120px;font-weight:900;color:#FF3B30;text-shadow:4px 4px 0 #000,-2px -2px 0 #000;opacity:0;pointer-events:none;z-index:9}
+#bigX.show{opacity:1;animation:pop .3s ease}
+#bigCheck{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:110px;opacity:0;pointer-events:none;z-index:9}
+#bigCheck.show{opacity:1;animation:pop .3s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+@keyframes pop{0%{transform:scale(.5)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+#finger{position:absolute;width:44px;height:44px;background:radial-gradient(circle at 30% 30%,#FFD9B3,#FF9E6B);border:3px solid #000;border-radius:50% 50% 50% 4px;transform:rotate(-20deg);z-index:20;box-shadow:0 4px 0 #000;transition:left .8s ease-in-out,top .8s ease-in-out;pointer-events:none}
+#finger:after{content:'';position:absolute;left:14px;top:-10px;width:16px;height:20px;background:#FFD9B3;border:3px solid #000;border-bottom:0;border-radius:10px 10px 0 0}
+#rule{position:absolute;top:368px;left:0;right:0;text-align:center;z-index:10}
+#rule span{background:#000;color:#FFEB3B;font-size:13px;font-weight:900;padding:7px 14px;border-radius:20px;letter-spacing:.3px}
+#cta{position:absolute;inset:0;background:linear-gradient(180deg,#FFF8E9 0%,#CFF3FF 100%);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:30;text-align:center;padding:20px}
+#cta.show{display:flex;animation:pop .4s ease}
+.logo{background:#fff;border:4px solid #000;border-radius:18px;padding:10px 22px;font-weight:900;font-size:32px;box-shadow:0 6px 0 #000;letter-spacing:1px}
+.logo b:first-child{color:#4CAF50}.logo b:last-child{color:#FF9800}
+.mini-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:#fff;border:3px solid #000;border-radius:12px;padding:8px;margin:16px 0;width:180px}
+.mini-grid div{background:#E8FDF0;border-radius:6px;font-size:20px;text-align:center;padding:2px}
+.cta-text{font-size:19px;font-weight:900;color:#222;margin:2px 0 12px}
+.cta-text em{color:#FF3B30;font-style:normal}
+#install{background:#4CAF50;color:#fff;font-size:22px;font-weight:900;border:3px solid #000;border-radius:16px;padding:12px 44px;box-shadow:0 5px 0 #000;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+.confetti{position:absolute;top:-20px;width:10px;height:14px;z-index:40;pointer-events:none;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(520px) rotate(720deg)}}
+#ad-id{position:absolute;bottom:4px;right:6px;font-size:9px;color:#999}
+</style>
+</head>
+<body>
+<div id="ad" onclick="window.open(window.clickTag)">
+  <div class="top-badge"><span id="headline">99% FAIL THIS!</span><br><div class="sub">Don't let them touch!</div></div>
+  <div id="board-wrap">
+    <div id="board"></div>
+    <div id="bigX">✕</div>
+    <div id="bigCheck">✅</div>
+    <div id="finger" style="left:150px;top:80px"></div>
+  </div>
+  <div id="rule"><span>1 PER ZONE / ROW / COLUMN</span></div>
+  <div id="cta">
+    <div class="logo"><b>ZOO</b> <b>LOGIC</b></div>
+    <div class="mini-grid" id="mini"></div>
+    <div class="cta-text">Can you solve <em>8x8?</em><br>Play FREE!</div>
+    <div id="install">INSTALL ▸</div>
+  </div>
+  <div id="ad-id">Ad • Zoo Logic</div>
+</div>
+<script>
+(function(){
+var board=document.getElementById('board');
+var finger=document.getElementById('finger');
+var bigX=document.getElementById('bigX');
+var bigCheck=document.getElementById('bigCheck');
+var headline=document.getElementById('headline');
+var cta=document.getElementById('cta');
+var animals={panda:'🐼',fox:'🦊',owl:'🦉',frog:'🐸'};
+function render(state){
+  board.innerHTML='';
+  state.forEach(function(v,i){
+    var d=document.createElement('div');
+    d.className='cell'+((i===5||i===6||i===9||i===10)?' zone-panda':' zone-fox');
+    d.textContent=v||'';
+    if(v==='🦊'&&(i===5||i===10)) d.classList.add('bad');
+    board.appendChild(d);
+  });
+}
+var failState=['🐼','','🦊','','','🦊','','','🐸','','🦊','','','🦉',''];
+var fixState1=['🐼','','','','','🦊','','','🐸','','','','','🦉',''];
+var winState=['🐼','🦉','🦊','🐸','🦊','🐼','🐸','🦉','🐸','🦊','🐼','🦉','🦉','🐸','🦉','🐼'];
+function confettiBurst(){
+  var colors=['#FF3B30','#4CAF50','#FFEB3B','#2196F3','#FF9800','#E040FB'];
+  for(var i=0;i<36;i++){
+    var c=document.createElement('div');
+    c.className='confetti';
+    c.style.left=Math.random()*310+'px';
+    c.style.background=colors[i%colors.length];
+    c.style.animationDuration=(1+Math.random()*1.2)+'s';
+    c.style.transform='rotate('+Math.random()*360+'deg)';
+    document.getElementById('ad').appendChild(c);
+    (function(el){setTimeout(function(){el.remove()},2200)})(c);
+  }
+}
+var mini=document.getElementById('mini');
+for(var m=0;m<16;m++){var md=document.createElement('div');md.textContent=[animals.panda,animals.fox,animals.owl,animals.frog][m%4];mini.appendChild(md);}
+function loop(){
+  cta.classList.remove('show');
+  headline.textContent='99% FAIL THIS!';
+  render(failState);
+  bigX.classList.remove('show');bigCheck.classList.remove('show');
+  finger.style.left='150px';finger.style.top='80px';
+  setTimeout(function(){
+    var cells=board.children;
+    if(cells[5])cells[5].classList.add('bad');
+    if(cells[10])cells[10].classList.add('bad');
+    board.style.animation='shake .4s 2';
+    bigX.classList.add('show');
+  },900);
+  setTimeout(function(){
+    board.style.animation='';
+    bigX.classList.remove('show');
+    headline.textContent='WATCH THIS!';
+    finger.style.left='150px';finger.style.top='80px';
+  },2400);
+  setTimeout(function(){ // pick fox
+    finger.style.left='150px';finger.style.top='80px';
+    var cells=board.children;
+    if(cells[10])cells[10].classList.add('pick');
+  },3000);
+  setTimeout(function(){
+    render(fixState1);
+    finger.style.left='40px';finger.style.top='10px';
+  },3800);
+  setTimeout(function(){ // drop panda
+    finger.style.left='150px';finger.style.top='150px';
+    render(winState);
+    var cells=board.children;
+    for(var i=0;i<cells.length;i++)cells[i].classList.add('good');
+    bigCheck.classList.add('show');
+    confettiBurst();
+    headline.textContent='SO SATISFYING!';
+  },4700);
+  setTimeout(function(){cta.classList.add('show');confettiBurst();},6500);
+  setTimeout(loop,10500);
+}
+loop();
+})();
+</script>
+</body>
+</html>

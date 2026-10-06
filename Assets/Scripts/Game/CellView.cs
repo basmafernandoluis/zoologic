@@ -118,6 +118,69 @@ namespace Zoologic
             _pion.color = dimmed ? new Color(tint.r, tint.g, tint.b, 0.35f) : tint;
         }
 
+        /// <summary>Triplet d'humeurs du pion posé (neutre/heureux/triste).</summary>
+        public AnimalIconSet.MoodSet GetMoodSet()
+        {
+            return _hasMoodSprites ? _moodSprites : default;
+        }
+
+        /// <summary>
+        /// Triplet d'humeurs du pion + visuel neutre immédiat (teinte gardée).
+        /// </summary>
+        public void SetMoodSprites(AnimalIconSet.MoodSet set)
+        {
+            _moodSprites = set;
+            _hasMoodSprites = set.IsComplete;
+            _mood = AnimalIconSet.PawnMood.Neutral;
+            if (_pion != null && set.Neutral != null)
+                _pion.sprite = set.Neutral;
+        }
+
+        /// <summary>Humeur courante du pion (pour diagnostics).</summary>
+        public AnimalIconSet.PawnMood Mood => _mood;
+
+        /// <summary>
+        /// Bascule l'humeur du pion (swap sprite + micro-pop 0.12s si animé).
+        /// Sans effet si le triplet est incomplet ou le pion masqué. Teinte gardée.
+        /// animate=false : swap seul (arrivée en chute, pas de conflit de scale).
+        /// </summary>
+        public void SetMood(AnimalIconSet.PawnMood mood, bool animate = true)
+        {
+            if (_pion == null || !_pion.gameObject.activeSelf)
+                return;
+            if (!_hasMoodSprites)
+                return;
+            if (_mood == mood)
+                return;
+            _mood = mood;
+            Sprite next = _moodSprites.For(mood);
+            if (next != null)
+                _pion.sprite = next;
+            if (!animate || !Application.isPlaying)
+                return;
+            _pionRect.anchoredPosition = Vector2.zero;
+            _pionRect.localRotation = Quaternion.identity;
+            if (_pionLifeRoutine != null)
+                StopCoroutine(_pionLifeRoutine);
+            _pionLifeRoutine = StartCoroutine(MoodPopThenIdleRoutine());
+        }
+
+        private IEnumerator MoodPopThenIdleRoutine()
+        {
+            const float duration = 0.12f;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                float t = Mathf.Clamp01(elapsed / duration);
+                float s = 1f + Mathf.Sin(t * Mathf.PI) * 0.12f;
+                _pionRect.localScale = new Vector3(s, s, s);
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+            _pionRect.localScale = Vector3.one;
+            yield return PionIdleBreathRoutine();
+        }
+
         private Image _background;
         private Image _pion;
         private Image _xMark;
@@ -134,6 +197,10 @@ namespace Zoologic
         private Image _conflictRing;
         private Coroutine _conflictPulseRoutine;
         private static readonly Color ConflictRingColor = new Color(0.90f, 0.20f, 0.20f, 1f);
+
+        private AnimalIconSet.MoodSet _moodSprites;
+        private bool _hasMoodSprites;
+        private AnimalIconSet.PawnMood _mood = AnimalIconSet.PawnMood.Neutral;
 
         private Coroutine _pionLifeRoutine;
         private Coroutine _feedbackRoutine;
@@ -181,6 +248,9 @@ namespace Zoologic
             _pion.color = SkinManager.SelectedTint;
             _pion.raycastTarget = false;
             pionGameObject.SetActive(false);
+            _moodSprites = new AnimalIconSet.MoodSet(pionSprite, pionSprite, pionSprite);
+            _hasMoodSprites = false;
+            _mood = AnimalIconSet.PawnMood.Neutral;
 
             // Marqueur "X" (mode brouillon) : image X.png, gris discret,
             // plus petit qu'un pion, pour ne jamais être confondu avec une pièce posée.
@@ -236,6 +306,7 @@ namespace Zoologic
             else
             {
                 SetConflictMarked(false);
+                _mood = AnimalIconSet.PawnMood.Neutral;
                 if (_pionLifeRoutine != null)
                 {
                     StopCoroutine(_pionLifeRoutine);
@@ -289,64 +360,25 @@ namespace Zoologic
         /// l'atterrissage puis retour à la respiration continue. Une seule
         /// coroutine pilote le pion pour éviter tout conflit entre animations.
         /// </summary>
+        /// <summary>
+        /// Apparition à la pose : pop rapide sur place (0.18s), sans chute.
+        /// La chute du haut de l'écran est réservée au chargement du niveau.
+        /// </summary>
         private IEnumerator PionFallThenIdleRoutine()
         {
-            const float fallDuration = 0.45f;
-            const float squashDuration = 0.16f;
-            // Haut de l'écran : 1400px canvas = hors champ sur tous les formats
-            // (16:9 comme 19.5:9), le pion traverse la scène en tombant.
-            const float fallHeight = 1400f;
-
-            _pionRect.anchoredPosition = new Vector2(0f, fallHeight);
-            _pionRect.localScale = new Vector3(1.05f, 1.05f, 1.05f);
+            const float popDuration = 0.18f;
+            _pionRect.anchoredPosition = Vector2.zero;
+            _pionRect.localScale = Vector3.zero;
             _pionRect.localRotation = Quaternion.identity;
 
-            // 1) Chute visible + léger balancement.
             float elapsed = 0f;
-            while (elapsed < fallDuration)
+            while (elapsed < popDuration)
             {
-                float t = Mathf.Clamp01(elapsed / fallDuration);
-                float fall = Easing.EaseInQuad(t);
-                _pionRect.anchoredPosition = new Vector2(0f, fallHeight * (1f - fall));
-                _pionRect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(t * Mathf.PI * 2f) * 8f);
+                float t = Mathf.Clamp01(elapsed / popDuration);
+                float s = Mathf.Max(0f, Easing.EaseOutBack(t));
+                _pionRect.localScale = new Vector3(s, s, s);
                 elapsed += Time.unscaledDeltaTime;
                 yield return null;
-            }
-            _pionRect.anchoredPosition = Vector2.zero;
-
-            // 2) Rebonds amortis : 2 sauts visibles avec squash à chaque impact.
-            float[] bounceHeights = { 70f, 28f };
-            float[] bounceDurations = { 0.18f, 0.14f };
-            for (int b = 0; b < bounceHeights.Length; b++)
-            {
-                float h = bounceHeights[b];
-                float dur = bounceDurations[b];
-                elapsed = 0f;
-                while (elapsed < dur)
-                {
-                    float t = Mathf.Clamp01(elapsed / dur);
-                    float jump = Mathf.Sin(t * Mathf.PI);
-                    _pionRect.anchoredPosition = new Vector2(0f, h * jump);
-                    float stretch = 1f + 0.10f * jump;
-                    float squash = 1f - 0.06f * jump;
-                    _pionRect.localScale = new Vector3(squash, stretch, 1f);
-                    elapsed += Time.unscaledDeltaTime;
-                    yield return null;
-                }
-                // Impact : écrasement bref.
-                _pionRect.anchoredPosition = Vector2.zero;
-                _pionRect.localScale = new Vector3(1.18f, 0.72f, 1f);
-                Haptics.VibrateLight();
-                float impact = 0f;
-                while (impact < squashDuration * 0.6f)
-                {
-                    float t = Mathf.Clamp01(impact / (squashDuration * 0.6f));
-                    float sy = Mathf.Lerp(0.72f, 1f, Easing.EaseOutCubic(t));
-                    float sx = Mathf.Lerp(1.18f, 1f, Easing.EaseOutCubic(t));
-                    _pionRect.localScale = new Vector3(sx, sy, 1f);
-                    impact += Time.unscaledDeltaTime;
-                    yield return null;
-                }
             }
 
             _pionRect.localScale = Vector3.one;
