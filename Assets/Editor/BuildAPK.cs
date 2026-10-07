@@ -98,6 +98,15 @@ namespace Zoologic.EditorTools
             LogResult(BuildPipeline.BuildPlayer(ScenePaths, ApkPath, BuildTarget.Android, BuildOptions.None), "APK-TEST");
         }
 
+        [MenuItem("Tools/Zoo Logic/Build Android APK (Prod Ads)")]
+        public static void BuildAndroidProd()
+        {
+            SetAdMobTestDefines(false);
+            PrepareAndroidBuild();
+            EditorUserBuildSettings.buildAppBundle = false;
+            LogResult(BuildPipeline.BuildPlayer(ScenePaths, ApkPath, BuildTarget.Android, BuildOptions.None), "APK-PROD");
+        }
+
         [MenuItem("Tools/Zoo Logic/Build Android AAB (Prod Ads)")]
         public static void BuildAndroidAAB()
         {

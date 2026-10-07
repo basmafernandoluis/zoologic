@@ -168,6 +168,7 @@ namespace Zoologic
                         try
                         {
                             int doubled = DailyRewardManager.ClaimDoubled();
+                            if (doubled > 0) AnalyticsManager.LogAdReward("daily_double");
                             var c = Object.FindFirstObjectByType<Canvas>();
                             Vector3 from = x2Btn != null ? x2Btn.transform.position : Vector3.zero;
                             if (_panelRoot != null) { Object.Destroy(_panelRoot); _panelRoot = null; }

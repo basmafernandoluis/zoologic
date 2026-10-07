@@ -74,6 +74,7 @@ namespace Zoologic.EditorTools
             SectionDifficultyAndConfig();
             SectionPuzzleGrid();
             SectionIdentite();
+            SectionAnalytics();
 
             totalSw.Stop();
             PrintConsole(totalSw.ElapsedMilliseconds);
@@ -878,6 +879,31 @@ namespace Zoologic.EditorTools
                 if (diffs.Count > 0)
                     Fail(diffs.Count + "/" + total + " grilles ont changé : " + string.Join(",", diffs.Take(8).ToArray()) + " — chemin legacy altéré !");
                 return (QAStatus.Pass, total + "/" + total + " grilles figées identiques.");
+            });
+        }
+
+        private static void SectionAnalytics()
+        {
+            RunOne("ANALYTICS-01", "Analytics", "Manager no-op sans SDK (pas de throw)", () =>
+            {
+                // Sans le SDK Firebase importé, tout doit être no-op silencieux.
+                bool available = Zoologic.AnalyticsManager.IsAvailable;
+                Zoologic.AnalyticsManager.Initialize();
+                Zoologic.AnalyticsManager.OnConsentResolved();
+                Zoologic.AnalyticsManager.RefreshConsent();
+                Zoologic.AnalyticsManager.SetCollectionEnabled(true);
+                Zoologic.AnalyticsManager.SetCollectionEnabled(false);
+                Zoologic.AnalyticsManager.ResetData();
+                Zoologic.AnalyticsManager.LogLevelStart(1, 4, false);
+                Zoologic.AnalyticsManager.LogLevelEnd(1, true);
+                Zoologic.AnalyticsManager.LogTutorialBegin();
+                Zoologic.AnalyticsManager.LogTutorialComplete();
+                Zoologic.AnalyticsManager.LogHintUsed(1);
+                Zoologic.AnalyticsManager.LogDailyClaim(3);
+                Zoologic.AnalyticsManager.LogAdReward("hints");
+                if (available)
+                    return (QAStatus.Warn, "WARN: SDK Firebase présent — checks no-op non applicables, vérif DebugView requise.");
+                return (QAStatus.Pass, "No-op sans SDK vérifié (IsAvailable=false).");
             });
         }
 

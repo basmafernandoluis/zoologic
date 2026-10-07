@@ -75,6 +75,10 @@ Library/ShaderCompilationReport/
 *.keystore
 *.jks
 
+# Firebase config (contains API key - NEVER commit, keep local only)
+google-services.json
+GoogleService-Info.plist
+
 # Build cache
 .utmp/
 

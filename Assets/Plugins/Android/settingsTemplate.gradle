@@ -1,8 +1,11 @@
 pluginManagement {
     repositories {
         **ARTIFACTORYREPOSITORY**
+        maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
         gradlePluginPortal()
+        maven { url "https://maven.aliyun.com/repository/google" }
         google()
+        maven { url "https://maven.aliyun.com/repository/central" }
         mavenCentral()
     }
 }
@@ -14,12 +17,22 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         **ARTIFACTORYREPOSITORY**
+        maven { url "https://maven.aliyun.com/repository/google" }
         google()
+        maven { url "https://maven.aliyun.com/repository/central" }
         mavenCentral()
+        // Depots locaux Firebase Unity (-unity AAR absents de Maven) : hors marqueurs Resolver pour survivre aux re-resolve.
+        maven { url "file:///E:/projet%20new/FirebasePackages/m2repo" }
 // Android Resolver Repos Start
         def unityProjectPath = $/file:///**DIR_UNITYPROJECT**/$.replace("\\", "/")
         maven {
             url "https://maven.google.com/" // Assets/LevelPlay/Editor/IronSourceSDKDependencies.xml:12, Packages/com.google.ads.mobile/GoogleMobileAds/Editor/GoogleMobileAdsDependencies.xml:7, Packages/com.google.ads.mobile/GoogleMobileAds/Editor/GoogleMobileAdsDependencies.xml:12, Packages/com.google.ads.mobile/GoogleMobileAds/Editor/GoogleMobileAdsDependencies.xml:17, Packages/com.google.ads.mobile/GoogleMobileAds/Editor/GoogleMobileAdsDependencies.xml:22, Packages/com.google.ads.mobile/GoogleMobileAds/Editor/GoogleUmpDependencies.xml:7
+        }
+        maven {
+            url "file:///E:/projet%20new/FirebasePackages/com.google.firebase.app/Firebase/m2repository" // Packages/com.google.firebase.app/Firebase/Editor/AppDependencies.xml:25
+        }
+        maven {
+            url "file:///E:/projet%20new/FirebasePackages/com.google.firebase.analytics/Firebase/m2repository" // Packages/com.google.firebase.analytics/Firebase/Editor/AnalyticsDependencies.xml:21
         }
         mavenLocal()
 // Android Resolver Repos End

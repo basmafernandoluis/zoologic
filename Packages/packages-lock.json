@@ -27,6 +27,22 @@
       "dependencies": {},
       "hash": "b38da4950d8439d50e15c71168d70e16fea731b0"
     },
+    "com.google.firebase.analytics": {
+      "version": "file:../../FirebasePackages/com.google.firebase.analytics",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.google.firebase.app": "13.16.0"
+      }
+    },
+    "com.google.firebase.app": {
+      "version": "file:../../FirebasePackages/com.google.firebase.app",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.google.external-dependency-manager": "1.2.186"
+      }
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,
@@ -136,19 +152,6 @@
       "depth": 1,
       "source": "registry",
       "dependencies": {},
-      "url": "https://packages.unity.com"
-    },
-    "com.unity.purchasing": {
-      "version": "5.4.3",
-      "depth": 0,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.ugui": "1.0.0",
-        "com.unity.services.core": "1.18.0",
-        "com.unity.modules.androidjni": "1.0.0",
-        "com.unity.modules.jsonserialize": "1.0.0",
-        "com.unity.modules.unitywebrequest": "1.0.0"
-      },
       "url": "https://packages.unity.com"
     },
     "com.unity.services.core": {

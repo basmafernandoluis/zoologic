@@ -14,13 +14,16 @@ namespace Zoologic
     /// </summary>
     public sealed class AnimalTray : MonoBehaviour
     {
-        private const float ChipSize = 104f;
-        private const float ChipSpacing = 6f;
+        // DesignDoctor #5 : slots 56dp (148px ref) + spacing 12dp, mini 48dp (132px).
+        // 8x8 : dégradation gracieuse à 72px pour tenir dans 796px (scroll évité).
+        private const float ChipSize = 148f;
+        private const float ChipSpacing = 24f;
 
         // Largeur utile de la rangée (holder 820 − padding 2×12) : au-delà,
-        // les jetons rétrécissent au lieu de déborder (8x8 → ~94px).
+        // les jetons rétrécissent au lieu de déborder (8x8 → ~85px).
         private const float TrayUsableWidth = 796f;
         private const float ChipMinSize = 72f;
+        private const float ChipMinComfort = 132f; // 48dp mini si N<=5
 
         private BoardDragController _drag;
         private Transform _row;
@@ -151,7 +154,13 @@ namespace Zoologic
             int n = visible.Count;
             float size = ChipSize;
             if (n > 1)
-                size = Mathf.Clamp((TrayUsableWidth - (n - 1) * ChipSpacing) / n, ChipMinSize, ChipSize);
+            {
+                float minForCount = n <= 5 ? ChipMinComfort : ChipMinSize;
+                size = Mathf.Clamp((TrayUsableWidth - (n - 1) * ChipSpacing) / n, minForCount, ChipSize);
+                // 8x8 : si min confort déborde, retombe sur min absolu (évite overflow).
+                if (size * n + (n - 1) * ChipSpacing > TrayUsableWidth + 1f)
+                    size = Mathf.Clamp((TrayUsableWidth - (n - 1) * ChipSpacing) / n, ChipMinSize, ChipSize);
+            }
             var chips = new System.Collections.Generic.List<TrayChip>(n);
             for (int i = 0; i < n; i++)
                 chips.Add(CreateChip(visible[i], size));
@@ -244,7 +253,7 @@ namespace Zoologic
             return chip;
         }
 
-        /// <summary>Jeton : drag vers le plateau, punch au tap.</summary>
+        /// <summary>Jeton : drag vers le plateau, punch + sélection 1.15x au tap.</summary>
         private sealed class TrayChip : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
         {
             public BoardDragController Drag;
@@ -254,16 +263,21 @@ namespace Zoologic
             public bool IdleAnim = true;
 
             private Coroutine _punchRoutine;
+            private Image _selectRing;
+            private static TrayChip _selected;
 
             private void Update()
             {
                 if (!IdleAnim) return;
                 if (Drag != null && Drag.IsDragging) return;
+                // Sélection persistante 1.15x (DesignDoctor #5) : pas de yoyo idle.
+                float baseScale = _selected == this ? 1.15f : 1f;
                 float phase = transform.GetSiblingIndex() * 0.9f;
                 float t = Time.unscaledTime * 2f + phase;
-                float s = 1f + Mathf.Sin(t) * 0.03f;
+                float s = baseScale + Mathf.Sin(t) * 0.03f;
                 transform.localScale = new Vector3(s, s, s);
-                transform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.8f) * 3f);
+                if (_selected != this)
+                    transform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.8f) * 3f);
             }
 
             public void OnBeginDrag(PointerEventData eventData)
@@ -286,9 +300,43 @@ namespace Zoologic
 
             public void OnPointerClick(PointerEventData eventData)
             {
+                SetSelected(this);
                 if (_punchRoutine != null)
                     StopCoroutine(_punchRoutine);
                 _punchRoutine = StartCoroutine(PunchRoutine());
+            }
+
+            private static void SetSelected(TrayChip chip)
+            {
+                if (_selected != null && _selected != chip)
+                    _selected.SetRing(false);
+                _selected = chip;
+                chip.SetRing(true);
+            }
+
+            private void SetRing(bool on)
+            {
+                if (on && _selectRing == null)
+                {
+                    var ringGO = new GameObject("SelectRing", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                    ringGO.transform.SetParent(transform, false);
+                    var ringRect = (RectTransform)ringGO.transform;
+                    ringRect.anchorMin = new Vector2(0.5f, 0.5f);
+                    ringRect.anchorMax = new Vector2(0.5f, 0.5f);
+                    ringRect.pivot = new Vector2(0.5f, 0.5f);
+                    var sd = ((RectTransform)transform).sizeDelta;
+                    ringRect.sizeDelta = new Vector2(sd.x * 1.08f, sd.y * 1.08f);
+                    ringRect.anchoredPosition = Vector2.zero;
+                    ringRect.SetAsFirstSibling();
+                    _selectRing = ringGO.GetComponent<Image>();
+                    _selectRing.sprite = GridView.SharedRing;
+                    _selectRing.color = new Color(0.30f, 0.20f, 0.18f, 1f); // #4E342E 3dp
+                    _selectRing.raycastTarget = false;
+                }
+                if (_selectRing != null)
+                    _selectRing.gameObject.SetActive(on);
+                if (!on && _selected == this)
+                    _selected = null;
             }
 
             private System.Collections.IEnumerator PunchRoutine()

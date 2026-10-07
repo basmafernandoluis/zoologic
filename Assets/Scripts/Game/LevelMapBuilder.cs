@@ -32,14 +32,16 @@ namespace Zoologic
         // ------------------------------------------------------------------
 
         private const int TotalLevels = 100;
-        private const int Columns = 4;
-        private const float HeaderHeight = 130f;
-        private const float ContentPad = 30f;
-        private const float CellGap = 20f;
-        private const float SeparatorHeight = 68f;
-        private const float SeparatorMargin = 12f;
+        // Spec refonte : 3 colonnes x 300px, marges 50, gap 40, header 180.
+        private const int Columns = 3;
+        private const float HeaderHeight = 180f;
+        private const float ContentPad = 50f;
+        private const float CellGap = 40f;
+        private const float SeparatorHeight = 110f;
+        private const float SeparatorMargin = 40f;
         private const float SimulatedTopNotch = 70f;
-        private const float FixedDailyHeight = 142f;
+        // Bannière défi aérée : 240px (titre + série sur une ligne, sous-titre dessous).
+        private const float FixedDailyHeight = 240f;
 
         // ------------------------------------------------------------------
         // Palette Pastel Pop chaude - dynamique et douce.
@@ -48,23 +50,30 @@ namespace Zoologic
         private static readonly Color PastelPopBg = new Color(0.992f, 0.973f, 0.949f, 1f);
         private static readonly Color HeaderBg = new Color(1f, 1f, 1f, 0.97f);
         private static readonly Color HeaderSepColor = new Color(0f, 0f, 0f, 0.10f);
-        private static readonly Color TitleColor = new Color(0.15f, 0.13f, 0.10f);
+        private static readonly Color TitleColor = new Color(0.306f, 0.204f, 0.180f, 1f);
         private static readonly Color BubbleWhite = new Color(1.00f, 0.98f, 0.96f, 1f);
-        private static readonly Color BubbleLocked = new Color(0.914f, 0.906f, 0.894f, 1f);
+        // Spec refonte (WCAG sur fond crème #FFF8EC).
+        private static readonly Color SuccessBg = new Color(0.875f, 0.949f, 0.780f, 1f);
+        private static readonly Color SuccessEdge = new Color(0.678f, 0.835f, 0.506f, 1f);
+        private static readonly Color CurrentNumber = new Color(0.365f, 0.251f, 0.216f, 1f);
+        private static readonly Color CurrentEdge = new Color(0.902f, 0.494f, 0.133f, 1f);
+        private static readonly Color LockedEdge = new Color(0.851f, 0.796f, 0.690f, 1f);
+        private static readonly Color StarOutline = new Color(0.553f, 0.353f, 0.000f, 1f);
+        private static readonly Color BubbleLocked = new Color(0.953f, 0.918f, 0.847f, 1f);
         private static readonly Color BubbleBorderLight = new Color(0.92f, 0.89f, 0.86f, 1f);
-        private static readonly Color NumberColor = new Color(0.22f, 0.19f, 0.16f, 1f);
-        private static readonly Color NumberLockedColor = new Color(0.42f, 0.38f, 0.34f, 1f);
-        private static readonly Color GoldStar = new Color(1f, 0.82f, 0.18f, 1f);
+        private static readonly Color NumberColor = new Color(0.306f, 0.204f, 0.180f, 1f);
+        private static readonly Color NumberLockedColor = new Color(0.620f, 0.550f, 0.440f, 1f);
+        private static readonly Color GoldStar = new Color(1f, 0.757f, 0.027f, 1f);
         private static readonly Color EmptyStar = new Color(0.92f, 0.88f, 0.83f, 1f);
         private static readonly Color LockedStar = new Color(0.80f, 0.74f, 0.66f, 1f);
-        private static readonly Color LockColor = new Color(0.62f, 0.54f, 0.46f, 1f);
-        private static readonly Color SeparatorBg = new Color(0.639f, 0.788f, 0.659f, 1f);
-        private static readonly Color SeparatorBgLight = new Color(0.72f, 0.85f, 0.74f, 1f);
+        private static readonly Color LockColor = new Color(0.553f, 0.518f, 0.443f, 1f);
+        private static readonly Color SeparatorBg = new Color(0.290f, 0.486f, 0.349f, 1f);
+        private static readonly Color SeparatorBgLight = new Color(0.329f, 0.541f, 0.392f, 1f);
         private static readonly Color SeparatorBevelLight = new Color(1f, 1f, 1f, 0.55f);
         private static readonly Color SeparatorBevelDark = new Color(0.45f, 0.60f, 0.50f, 0.25f);
         private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.18f);
-        private static readonly Color CurrentLevelGradientTop = new Color(1f, 0.702f, 0.278f, 1f);
-        private static readonly Color CurrentLevelGradientBottom = new Color(1f, 0.549f, 0.259f, 1f);
+        private static readonly Color CurrentLevelGradientTop = new Color(1f, 0.718f, 0.302f, 1f);
+        private static readonly Color CurrentLevelGradientBottom = new Color(1f, 0.851f, 0.651f, 1f);
         private static readonly Color CurrentLevelBorder = new Color(1f, 0.65f, 0.22f, 1f);
         private static readonly Color CurrentLevelGlow = new Color(1f, 0.58f, 0.20f, 0.45f);
 
@@ -280,17 +289,20 @@ namespace Zoologic
             titleRect.anchorMin = new Vector2(0f, 0f);
             titleRect.anchorMax = new Vector2(1f, 1f);
             float contentShift = _topInset * 0.5f;
-            titleRect.offsetMin = new Vector2(140f, -contentShift);
-            titleRect.offsetMax = new Vector2(-210f, -contentShift);
+            titleRect.offsetMin = new Vector2(200f, -contentShift);
+            titleRect.offsetMax = new Vector2(-300f, -contentShift);
 
             var titleText = titleGO.AddComponent<TextMeshProUGUI>();
             titleText.font = _fontTitle;
             titleText.text = Zoologic.Localization.LocalizationManager.Get("levelmap.title");
             Zoologic.Localization.LocalizationManager.ApplyTo(titleText);
-            titleText.fontSize = 48;
+            titleText.fontSize = 72;
             titleText.fontStyle = FontStyles.Bold;
             titleText.color = TitleColor;
             titleText.alignment = TextAlignmentOptions.Center;
+            titleText.enableAutoSizing = true;
+            titleText.fontSizeMin = 56;
+            titleText.fontSizeMax = 72;
             titleText.raycastTarget = false;
 
             CreerPiluleVies(header.transform);
@@ -298,34 +310,41 @@ namespace Zoologic
 
         private void CreerBoutonRetour(Transform parent)
         {
+            // Spec D7 : bouton rond clay (fini le violet), flèche procédurale teintée.
             var btnGO = new GameObject("BtnRetour");
             btnGO.transform.SetParent(parent, false);
             var btnRect = btnGO.AddComponent<RectTransform>();
             btnRect.anchorMin = new Vector2(0f, 0.5f);
             btnRect.anchorMax = new Vector2(0f, 0.5f);
             btnRect.pivot = new Vector2(0f, 0.5f);
-            btnRect.sizeDelta = new Vector2(96f, 96f);
-            btnRect.anchoredPosition = new Vector2(24f, -_topInset * 0.5f);
+            btnRect.sizeDelta = new Vector2(132f, 132f);
+            btnRect.anchoredPosition = new Vector2(48f, -_topInset * 0.5f);
 
-            var bgImg = btnGO.AddComponent<Image>();
-            Sprite backTile = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_13") ?? Resources.Load<Sprite>("Sprites/b_13");
-            if (backTile != null)
-            {
-                bgImg.sprite = backTile;
-                bgImg.type = Image.Type.Simple;
-                bgImg.preserveAspect = true;
-                bgImg.color = Color.white;
-            }
-            else
-            {
-                bgImg.sprite = CreerSpriteArrondi(128, 0.5f);
-                bgImg.type = Image.Type.Simple;
-                bgImg.color = Color.white;
-            }
-            bgImg.raycastTarget = true;
+            // Sprite d'origine b_13 (tuile violette, flèche →) : restauré tel quel,
+            // miroir horizontal pour pointer en arrière, visuel 96px centré dans
+            // une zone tactile 132px (fond invisible).
+            var tileGO = new GameObject("Tile");
+            tileGO.transform.SetParent(btnGO.transform, false);
+            var tileRect = tileGO.AddComponent<RectTransform>();
+            tileRect.anchorMin = new Vector2(0.5f, 0.5f);
+            tileRect.anchorMax = new Vector2(0.5f, 0.5f);
+            tileRect.pivot = new Vector2(0.5f, 0.5f);
+            tileRect.sizeDelta = new Vector2(96f, 96f);
+            tileRect.anchoredPosition = Vector2.zero;
+            tileRect.localScale = new Vector3(-1f, 1f, 1f);
+            var tileImg = tileGO.AddComponent<Image>();
+            tileImg.sprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_13") ?? Resources.Load<Sprite>("Sprites/b_13");
+            tileImg.type = Image.Type.Simple;
+            tileImg.preserveAspect = true;
+            tileImg.color = Color.white;
+            tileImg.raycastTarget = false;
+            // Zone tactile = tout le bouton 132px (fond invisible).
+            var hitImg = btnGO.AddComponent<Image>();
+            hitImg.color = new Color(0f, 0f, 0f, 0f);
+            hitImg.raycastTarget = true;
 
             var btn = btnGO.AddComponent<Button>();
-            btn.targetGraphic = bgImg;
+            btn.targetGraphic = hitImg;
             btn.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayMenuClose();
@@ -345,8 +364,8 @@ namespace Zoologic
             pillRect.anchorMin = new Vector2(1f, 0.5f);
             pillRect.anchorMax = new Vector2(1f, 0.5f);
             pillRect.pivot = new Vector2(1f, 0.5f);
-            pillRect.sizeDelta = new Vector2(168f, 64f);
-            pillRect.anchoredPosition = new Vector2(-24f, -_topInset * 0.5f);
+            pillRect.sizeDelta = new Vector2(240f, 96f);
+            pillRect.anchoredPosition = new Vector2(-48f, -_topInset * 0.5f);
 
             var pillImg = pill.AddComponent<Image>();
             pillImg.sprite = KenneyUI.FlatButton("Grey") ?? CreerSpriteArrondi(128, 0.5f);
@@ -364,8 +383,8 @@ namespace Zoologic
             heartRect.anchorMin = new Vector2(0f, 0.5f);
             heartRect.anchorMax = new Vector2(0f, 0.5f);
             heartRect.pivot = new Vector2(0.5f, 0.5f);
-            heartRect.sizeDelta = new Vector2(42f, 42f);
-            heartRect.anchoredPosition = new Vector2(32f, 1.5f);
+            heartRect.sizeDelta = new Vector2(56f, 56f);
+            heartRect.anchoredPosition = new Vector2(40f, 1.5f);
             var heartImg = heartObj.AddComponent<Image>();
             heartImg.sprite = heart;
             heartImg.preserveAspect = true;
@@ -378,12 +397,12 @@ namespace Zoologic
             var txtRect = txtObj.AddComponent<RectTransform>();
             txtRect.anchorMin = Vector2.zero;
             txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = new Vector2(64f, 0f);
-            txtRect.offsetMax = new Vector2(-12f, 0f);
+            txtRect.offsetMin = new Vector2(84f, 0f);
+            txtRect.offsetMax = new Vector2(-16f, 0f);
             var txt = txtObj.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = LivesManager.GetStoredLives().ToString();
-            txt.fontSize = 38;
+            txt.fontSize = 44;
             txt.fontStyle = FontStyles.Bold;
             txt.color = NumberColor;
             txt.alignment = TextAlignmentOptions.MidlineRight;
@@ -677,10 +696,13 @@ namespace Zoologic
             txt.font = _fontTitle;
             txt.text = Zoologic.Localization.LocalizationManager.Get("levelmap.grids", gridSize);
             Zoologic.Localization.LocalizationManager.ApplyTo(txt);
-            txt.fontSize = 34;
+            txt.fontSize = 44;
             txt.fontStyle = FontStyles.Bold;
             txt.color = Color.white;
             txt.alignment = TextAlignmentOptions.Center;
+            txt.enableAutoSizing = true;
+            txt.fontSizeMin = 32;
+            txt.fontSizeMax = 44;
             txt.textWrappingMode = TextWrappingModes.NoWrap;
             txt.raycastTarget = false;
             txt.outlineWidth = 0.35f;
@@ -729,22 +751,24 @@ namespace Zoologic
             cardSh.effectDistance = new Vector2(0f, -6f);
 
             var hlg = go.AddComponent<HorizontalLayoutGroup>();
-            hlg.padding = new RectOffset(20, 20, 18, 18);
-            hlg.spacing = 14f;
+            hlg.padding = new RectOffset(32, 32, 28, 28);
+            hlg.spacing = 20f;
             hlg.childAlignment = TextAnchor.MiddleLeft;
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = true;
+            // RTL arabe : miroir de lecture (étoile ↔ bouton).
+            try { hlg.reverseArrangement = Zoologic.Localization.LocalizationManager.IsRTL; } catch { }
 
             // Icône trophée dans pastille blanche
             var iconGO = new GameObject("Trophy", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             iconGO.transform.SetParent(go.transform, false);
             var iconRect = iconGO.GetComponent<RectTransform>();
-            iconRect.sizeDelta = new Vector2(88f, 88f);
+            iconRect.sizeDelta = new Vector2(104f, 104f);
             var iconBg = iconGO.GetComponent<Image>();
             iconBg.sprite = CreerSpriteArrondi(64, 0.5f);
             iconBg.color = done ? new Color(1f, 1f, 1f, 0.6f) : Color.white;
             var iconLE = iconGO.AddComponent<LayoutElement>();
-            iconLE.preferredWidth = 88f; iconLE.preferredHeight = 88f;
+            iconLE.preferredWidth = 104f; iconLE.preferredHeight = 104f;
             iconLE.flexibleWidth = 0f; iconLE.flexibleHeight = 0f;
             var starGO = new GameObject("Star", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             starGO.transform.SetParent(iconGO.transform, false);
@@ -768,38 +792,7 @@ namespace Zoologic
             leftVLG.childAlignment = TextAnchor.MiddleLeft;
             leftVLG.childForceExpandWidth = true;
 
-            var titleGO = new GameObject("Title", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            titleGO.transform.SetParent(leftGO.transform, false);
-            var title = titleGO.GetComponent<TextMeshProUGUI>();
-            title.font = _fontTitle;
-            title.text = done ? Zoologic.Localization.LocalizationManager.Get("daily.daily_done") : Zoologic.Localization.LocalizationManager.Get("daily.challenge");
-            Zoologic.Localization.LocalizationManager.ApplyTo(title);
-            title.fontSize = 32;
-            title.fontStyle = FontStyles.Bold;
-            title.color = done ? new Color(0.45f, 0.42f, 0.38f) : Color.white;
-            title.outlineWidth = done ? 0f : 0.18f;
-            title.outlineColor = new Color(0.45f, 0.20f, 0.02f, 0.55f);
-            title.alignment = TextAlignmentOptions.MidlineLeft;
-            title.raycastTarget = false;
-            var titleLE2 = titleGO.AddComponent<LayoutElement>();
-            titleLE2.preferredHeight = 38f;
-
-            var subGO = new GameObject("Sub", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            subGO.transform.SetParent(leftGO.transform, false);
-            var sub = subGO.GetComponent<TextMeshProUGUI>();
-            sub.font = _fontTitle;
-            sub.text = done ? Zoologic.Localization.LocalizationManager.Get("daily.reward_tomorrow") : Zoologic.Localization.LocalizationManager.Get("daily.blurb", DailyPuzzleManager.GetTodaySize());
-            Zoologic.Localization.LocalizationManager.ApplyTo(sub);
-            sub.fontSize = 24;
-            sub.fontStyle = FontStyles.Bold;
-            sub.color = done ? new Color(0.55f, 0.52f, 0.48f) : new Color(0.45f, 0.22f, 0.03f);
-            sub.alignment = TextAlignmentOptions.MidlineLeft;
-            sub.raycastTarget = false;
-            var subLE = subGO.AddComponent<LayoutElement>();
-            subLE.preferredHeight = 32f;
-
-            // Ligne série du défi : visible si une série est en cours ou vient
-            // d'être prolongée (0 si premier jour : on ne l'affiche pas).
+            // Ligne titre : [Titre flexible][Pastille série] — fini les 3 lignes empilées.
             int puzzleStreak = DailyPuzzleManager.GetPuzzleStreak();
             bool streakAlive = DailyPuzzleManager.IsStreakAlive();
             string streakText = "";
@@ -807,18 +800,89 @@ namespace Zoologic
                 streakText = Zoologic.Localization.LocalizationManager.Get("daily.puzzle_streak", puzzleStreak);
             else if (!done && streakAlive && puzzleStreak > 0)
                 streakText = Zoologic.Localization.LocalizationManager.Get("daily.puzzle_streak_bonus", puzzleStreak + 1, DailyPuzzleManager.GetUpcomingBonus());
-            var streakGO = new GameObject("Streak", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            streakGO.transform.SetParent(leftGO.transform, false);
-            var streak = streakGO.GetComponent<TextMeshProUGUI>();
-            streak.font = _fontTitle;
-            streak.text = streakText;
-            streak.fontSize = 22;
-            streak.fontStyle = FontStyles.Bold;
-            streak.color = new Color(0.85f, 0.45f, 0.10f);
-            streak.alignment = TextAlignmentOptions.MidlineLeft;
-            streak.raycastTarget = false;
-            var streakLE = streakGO.AddComponent<LayoutElement>();
-            streakLE.preferredHeight = string.IsNullOrEmpty(streakText) ? 0f : 28f;
+            var titleRowGO = new GameObject("TitleRow", typeof(RectTransform));
+            titleRowGO.transform.SetParent(leftGO.transform, false);
+            var titleRowHLG = titleRowGO.AddComponent<HorizontalLayoutGroup>();
+            titleRowHLG.spacing = 12f;
+            titleRowHLG.childAlignment = TextAnchor.MiddleLeft;
+            titleRowHLG.childForceExpandWidth = false;
+            titleRowHLG.childForceExpandHeight = false;
+            titleRowHLG.childControlWidth = true;
+            try { titleRowHLG.reverseArrangement = Zoologic.Localization.LocalizationManager.IsRTL; } catch { }
+            var titleRowLE = titleRowGO.AddComponent<LayoutElement>();
+            titleRowLE.preferredHeight = 52f;
+            titleRowLE.flexibleWidth = 1f;
+
+            var titleGO = new GameObject("Title", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            titleGO.transform.SetParent(titleRowGO.transform, false);
+            var title = titleGO.GetComponent<TextMeshProUGUI>();
+            title.font = _fontTitle;
+            title.text = done ? Zoologic.Localization.LocalizationManager.Get("daily.daily_done") : Zoologic.Localization.LocalizationManager.Get("daily.challenge");
+            Zoologic.Localization.LocalizationManager.ApplyTo(title);
+            title.fontSize = 40;
+            title.fontStyle = FontStyles.Bold;
+            title.color = done ? new Color(0.45f, 0.42f, 0.38f) : Color.white;
+            title.outlineWidth = done ? 0f : 0.18f;
+            title.outlineColor = new Color(0.45f, 0.20f, 0.02f, 0.55f);
+            title.alignment = TextAlignmentOptions.MidlineLeft;
+            title.enableAutoSizing = true;
+            title.fontSizeMin = 30;
+            title.fontSizeMax = 40;
+            try { title.isRightToLeftText = Zoologic.Localization.LocalizationManager.IsRTL; } catch { }
+            title.raycastTarget = false;
+            var titleLE2 = titleGO.AddComponent<LayoutElement>();
+            titleLE2.flexibleWidth = 1f;
+            titleLE2.preferredHeight = 52f;
+
+            // Pastille série (ex-ligne dédiée) : compacte, à droite du titre.
+            var streakPillGO = new GameObject("StreakPill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            streakPillGO.transform.SetParent(titleRowGO.transform, false);
+            var streakPillImg = streakPillGO.GetComponent<Image>();
+            streakPillImg.sprite = CreerSpriteArrondi(64, 0.5f);
+            streakPillImg.color = new Color(1f, 1f, 1f, 0.92f);
+            streakPillImg.raycastTarget = false;
+            var streakPillLE = streakPillGO.AddComponent<LayoutElement>();
+            streakPillLE.preferredWidth = 150f;
+            streakPillLE.preferredHeight = 44f;
+            streakPillLE.flexibleWidth = 0f;
+            var streakPillTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            streakPillTxtGO.transform.SetParent(streakPillGO.transform, false);
+            var streakPillTxtRect = streakPillTxtGO.GetComponent<RectTransform>();
+            streakPillTxtRect.anchorMin = Vector2.zero;
+            streakPillTxtRect.anchorMax = Vector2.one;
+            streakPillTxtRect.offsetMin = new Vector2(12f, 0f);
+            streakPillTxtRect.offsetMax = new Vector2(-12f, 0f);
+            var streakPillTxt = streakPillTxtGO.GetComponent<TextMeshProUGUI>();
+            streakPillTxt.font = _fontTitle;
+            streakPillTxt.text = streakText;
+            streakPillTxt.fontSize = 24;
+            streakPillTxt.fontStyle = FontStyles.Bold;
+            streakPillTxt.color = new Color(0.75f, 0.38f, 0.08f, 1f);
+            streakPillTxt.alignment = TextAlignmentOptions.Center;
+            streakPillTxt.enableAutoSizing = true;
+            streakPillTxt.fontSizeMin = 18;
+            streakPillTxt.fontSizeMax = 24;
+            streakPillTxt.raycastTarget = false;
+            streakPillGO.SetActive(!string.IsNullOrEmpty(streakText));
+
+            var subGO = new GameObject("Sub", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            subGO.transform.SetParent(leftGO.transform, false);
+            var sub = subGO.GetComponent<TextMeshProUGUI>();
+            sub.font = _fontTitle;
+            sub.text = done ? Zoologic.Localization.LocalizationManager.Get("daily.reward_tomorrow") : Zoologic.Localization.LocalizationManager.Get("daily.blurb", DailyPuzzleManager.GetTodaySize());
+            Zoologic.Localization.LocalizationManager.ApplyTo(sub);
+            sub.fontSize = 26;
+            sub.fontStyle = FontStyles.Bold;
+            sub.color = done ? new Color(0.55f, 0.52f, 0.48f) : new Color(0.45f, 0.22f, 0.03f);
+            sub.alignment = TextAlignmentOptions.MidlineLeft;
+            sub.enableAutoSizing = true;
+            sub.fontSizeMin = 20;
+            sub.fontSizeMax = 26;
+            sub.textWrappingMode = TextWrappingModes.Normal;
+            try { sub.isRightToLeftText = Zoologic.Localization.LocalizationManager.IsRTL; } catch { }
+            sub.raycastTarget = false;
+            var subLE = subGO.AddComponent<LayoutElement>();
+            subLE.preferredHeight = 44f;
 
             // Pilule récompense : pièce + montant, explicite d'un coup d'œil.
             var rewardGO = new GameObject("RewardPill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -828,8 +892,8 @@ namespace Zoologic
             rewardImg.color = new Color(1f, 1f, 1f, 0.92f);
             rewardImg.raycastTarget = false;
             var rewardLE = rewardGO.AddComponent<LayoutElement>();
-            rewardLE.preferredWidth = 150f;
-            rewardLE.preferredHeight = 60f;
+            rewardLE.preferredWidth = 170f;
+            rewardLE.preferredHeight = 88f;
             rewardLE.flexibleWidth = 0f;
             rewardLE.flexibleHeight = 0f;
             var rewardHLG = rewardGO.AddComponent<HorizontalLayoutGroup>();
@@ -844,8 +908,8 @@ namespace Zoologic
             rewardCoinImg.preserveAspect = true;
             rewardCoinImg.raycastTarget = false;
             var rewardCoinLE = rewardCoinGO.AddComponent<LayoutElement>();
-            rewardCoinLE.preferredWidth = 34f;
-            rewardCoinLE.preferredHeight = 34f;
+            rewardCoinLE.preferredWidth = 40f;
+            rewardCoinLE.preferredHeight = 40f;
             var rewardTxtGO = new GameObject("Amount", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             rewardTxtGO.transform.SetParent(rewardGO.transform, false);
             var rewardTxt = rewardTxtGO.GetComponent<TextMeshProUGUI>();
@@ -854,9 +918,9 @@ namespace Zoologic
                 ? DailyPuzzleManager.RewardCoins
                 : DailyPuzzleManager.RewardCoins + DailyPuzzleManager.GetUpcomingBonus());
             Zoologic.Localization.LocalizationManager.ApplyTo(rewardTxt);
-            rewardTxt.fontSize = 28;
+            rewardTxt.fontSize = 32;
             rewardTxt.fontStyle = FontStyles.Bold;
-            rewardTxt.color = new Color(0.45f, 0.22f, 0.03f);
+            rewardTxt.color = new Color(0.361f, 0.251f, 0.216f, 1f);
             rewardTxt.alignment = TextAlignmentOptions.MidlineLeft;
             rewardTxt.raycastTarget = false;
             var rewardTxtLE = rewardTxtGO.AddComponent<LayoutElement>();
@@ -865,11 +929,12 @@ namespace Zoologic
             var btnGO = new GameObject("BtnDaily", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             btnGO.transform.SetParent(go.transform, false);
             var btnRect = btnGO.GetComponent<RectTransform>();
-            btnRect.sizeDelta = new Vector2(220f, 80f);
+            btnRect.sizeDelta = new Vector2(300f, 132f);
             var btnImg = btnGO.GetComponent<Image>();
             btnImg.sprite = KenneyUI.Button(done ? "Grey" : "Green") ?? CreerSpriteArrondi(128, 0.4f);
             btnImg.type = Image.Type.Sliced;
-            btnImg.color = done ? new Color(0.72f, 0.72f, 0.75f) : new Color(0.16f, 0.72f, 0.30f);
+            // Spec D5 : vert profond #2E7D32 (5.1:1 AA), 300x132 ≥ 48dp.
+            btnImg.color = done ? new Color(0.72f, 0.72f, 0.75f) : new Color(0.180f, 0.490f, 0.196f, 1f);
             var btnOl = btnGO.AddComponent<Outline>();
             btnOl.effectColor = new Color(1f, 1f, 1f, 0.7f);
             btnOl.effectDistance = new Vector2(2f, -2f);
@@ -880,8 +945,8 @@ namespace Zoologic
             btn.targetGraphic = btnImg;
             btn.interactable = !done;
             var btnLE = btnGO.AddComponent<LayoutElement>();
-            btnLE.preferredWidth = 220f;
-            btnLE.preferredHeight = 80f;
+            btnLE.preferredWidth = 300f;
+            btnLE.preferredHeight = 132f;
             var btnTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             btnTxtGO.transform.SetParent(btnGO.transform, false);
             var btnTxtRect = btnTxtGO.GetComponent<RectTransform>();
@@ -892,7 +957,10 @@ namespace Zoologic
             var btnTxt = btnTxtGO.GetComponent<TextMeshProUGUI>();
             btnTxt.font = _fontTitle;
             btnTxt.text = done ? Zoologic.Localization.LocalizationManager.Get("daily.done") : Zoologic.Localization.LocalizationManager.Get("daily.play");
-            btnTxt.fontSize = 28;
+            btnTxt.enableAutoSizing = true;
+            btnTxt.fontSizeMin = 28;
+            btnTxt.fontSizeMax = 40;
+            btnTxt.fontSize = 40;
             btnTxt.fontStyle = FontStyles.Bold;
             btnTxt.color = Color.white;
             btnTxt.outlineWidth = 0.12f;
@@ -1060,9 +1128,13 @@ namespace Zoologic
                 bubbleImg.type = Image.Type.Simple;
                 bubbleImg.color = Color.white;
             }
+            else if (unlocked)
+            {
+                bubbleImg.color = SuccessBg;
+            }
             else
             {
-                bubbleImg.color = unlocked ? BubbleWhite : BubbleLocked;
+                bubbleImg.color = BubbleLocked;
             }
             bubbleImg.raycastTarget = unlocked;
 
@@ -1101,12 +1173,18 @@ namespace Zoologic
 
             if (unlocked)
             {
-                CreerTexteNiveau(bubbleGO.transform, level, unlocked);
+                CreerTexteNiveau(bubbleGO.transform, level, isCurrent ? CurrentNumber : NumberColor);
                 CreerEtoiles(bubbleGO.transform, stars, unlocked);
+                CreerBordureBasse(bubbleGO.transform, isCurrent ? CurrentEdge : SuccessEdge);
+                if (isCurrent)
+                    CreerBadgeEnCours(bubbleGO.transform);
             }
             else
             {
+                // Spec bloqué : chiffre fantôme + cadenas 3D 96px bas-droite.
+                CreerTexteNiveau(bubbleGO.transform, level, NumberLockedColor);
                 CreerCadenas(bubbleGO.transform);
+                CreerBordureBasse(bubbleGO.transform, LockedEdge);
             }
 
             _bubbles.Add(new LevelBubble
@@ -1147,26 +1225,78 @@ namespace Zoologic
             img.raycastTarget = false;
         }
 
-        private void CreerTexteNiveau(Transform parent, int level, bool unlocked)
+        private void CreerTexteNiveau(Transform parent, int level, Color color)
         {
             var txtGO = new GameObject("Num");
             txtGO.transform.SetParent(parent, false);
             var rect = txtGO.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.1f, 0.45f);
-            rect.anchorMax = new Vector2(0.9f, 0.85f);
+            rect.anchorMin = new Vector2(0.05f, 0.42f);
+            rect.anchorMax = new Vector2(0.95f, 0.88f);
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
 
             var txt = txtGO.AddComponent<TextMeshProUGUI>();
             txt.font = _fontTitle;
             txt.text = level.ToString();
-            txt.fontSize = 48;
+            txt.fontSize = 96;
             txt.fontStyle = FontStyles.Bold;
-            txt.color = unlocked ? NumberColor : NumberLockedColor;
+            txt.color = color;
             txt.alignment = TextAlignmentOptions.Center;
             txt.enableAutoSizing = true;
-            txt.fontSizeMin = 20f;
-            txt.fontSizeMax = 56f;
+            txt.fontSizeMin = 64f;
+            txt.fontSizeMax = 120f;
+            txt.raycastTarget = false;
+        }
+
+        /// <summary>Bordure basse 3D 12px : relief clay sous chaque carte.</summary>
+        private void CreerBordureBasse(Transform parent, Color color)
+        {
+            var edgeGO = new GameObject("BottomEdge");
+            edgeGO.transform.SetParent(parent, false);
+            var rect = edgeGO.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.08f, 0.02f);
+            rect.anchorMax = new Vector2(0.92f, 0.12f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            var img = edgeGO.AddComponent<Image>();
+            img.sprite = GetRoundedRectSprite();
+            img.color = color;
+            img.raycastTarget = false;
+            edgeGO.transform.SetSiblingIndex(1);
+        }
+
+        /// <summary>Badge "• EN COURS •" sur la carte du niveau courant.</summary>
+        private void CreerBadgeEnCours(Transform parent)
+        {
+            var badgeGO = new GameObject("CurrentBadge");
+            badgeGO.transform.SetParent(parent, false);
+            var rect = badgeGO.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.sizeDelta = new Vector2(200f, 40f);
+            rect.anchoredPosition = new Vector2(0f, -4f);
+            var bg = badgeGO.AddComponent<Image>();
+            bg.sprite = GetRoundedRectSprite();
+            bg.color = new Color(1f, 1f, 1f, 0.95f);
+            bg.raycastTarget = false;
+            var txtGO = new GameObject("Text");
+            txtGO.transform.SetParent(badgeGO.transform, false);
+            var txtRect = txtGO.AddComponent<RectTransform>();
+            txtRect.anchorMin = Vector2.zero;
+            txtRect.anchorMax = Vector2.one;
+            txtRect.offsetMin = Vector2.zero;
+            txtRect.offsetMax = Vector2.zero;
+            var txt = txtGO.AddComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.text = "• " + Zoologic.Localization.LocalizationManager.Get("levelmap.current") + " •";
+            txt.fontSize = 28;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = new Color(0.180f, 0.490f, 0.196f, 1f);
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.enableAutoSizing = true;
+            txt.fontSizeMin = 20;
+            txt.fontSizeMax = 30;
             txt.raycastTarget = false;
         }
 
@@ -1177,13 +1307,13 @@ namespace Zoologic
             var starsGO = new GameObject("Stars");
             starsGO.transform.SetParent(parent, false);
             var rect = starsGO.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.1f, 0.08f);
-            rect.anchorMax = new Vector2(0.9f, 0.40f);
+            rect.anchorMin = new Vector2(0.05f, 0.10f);
+            rect.anchorMax = new Vector2(0.95f, 0.38f);
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
 
             var hlg = starsGO.AddComponent<HorizontalLayoutGroup>();
-            hlg.spacing = 4f;
+            hlg.spacing = 10f;
             hlg.childAlignment = TextAnchor.MiddleCenter;
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = false;
@@ -1198,31 +1328,55 @@ namespace Zoologic
                 bool earned = i < starCount;
                 starImg.sprite = earned ? starSprite : GridView.StarGrey;
                 starImg.preserveAspect = true;
-                starImg.color = earned ? GoldStar : Color.white;
+                starImg.color = earned ? GoldStar : new Color(1f, 1f, 1f, 0.55f);
                 starImg.raycastTarget = false;
+                if (earned)
+                {
+                    // Contour or #8D5A00 : lisible au soleil (deutan-safe).
+                    var outline = starGO.AddComponent<Outline>();
+                    outline.effectColor = StarOutline;
+                    outline.effectDistance = new Vector2(2f, -2f);
+                }
 
                 var starLE = starGO.AddComponent<LayoutElement>();
-                starLE.preferredWidth = 38f;
-                starLE.preferredHeight = 38f;
+                starLE.preferredWidth = 80f;
+                starLE.preferredHeight = 80f;
             }
         }
 
         private void CreerCadenas(Transform parent)
         {
+            // Spec bloqué : cadenas 3D 96px bas-droite (chiffre fantôme reste visible).
             var lockGO = new GameObject("Lock");
             lockGO.transform.SetParent(parent, false);
             var rect = lockGO.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.anchorMin = new Vector2(0.66f, 0.24f);
+            rect.anchorMax = new Vector2(0.66f, 0.24f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(40f, 40f);
+            rect.sizeDelta = new Vector2(96f, 96f);
             rect.anchoredPosition = Vector2.zero;
 
             var lockImg = lockGO.AddComponent<Image>();
-            lockImg.sprite = CreerCadenasSprite();
-            lockImg.color = LockColor;
+            // cadena.png = cadenas clay 3D (vraies couleurs, blanc). Les tuiles
+            // déjà cuites ne sont jamais teintées (taupe = procédural seul).
+            Sprite lockAsset = Resources.Load<Sprite>("Sprites/cadena")
+                ?? Resources.Load<Sprite>("UI/Icons/level_locked")
+                ?? Resources.Load<Sprite>("UI/level_locked");
+            if (lockAsset != null)
+            {
+                lockImg.sprite = lockAsset;
+                lockImg.color = Color.white;
+            }
+            else
+            {
+                lockImg.sprite = CreerCadenasSprite();
+                lockImg.color = LockColor;
+            }
             lockImg.preserveAspect = true;
             lockImg.raycastTarget = false;
+            var lockShadow = lockGO.AddComponent<Shadow>();
+            lockShadow.effectColor = new Color(0f, 0f, 0f, 0.30f);
+            lockShadow.effectDistance = new Vector2(0f, -5f);
         }
 
         private GameObject CreerGlowBorder(Transform parent)
@@ -1539,12 +1693,9 @@ namespace Zoologic
             return Sprite.Create(tex, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), 100f);
         }
 
+        /// <summary>Cadenas procédural de secours (blanc pur, à teinter taupe).</summary>
         private static Sprite CreerCadenasSprite()
         {
-            var loaded = Resources.Load<Sprite>("UI/Icons/level_locked");
-            if (loaded != null) return loaded;
-            loaded = Resources.Load<Sprite>("UI/level_locked");
-            if (loaded != null) return loaded;
             int s = 64;
             var tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
             for (int y = 0; y < s; y++)
@@ -1609,6 +1760,8 @@ namespace Zoologic
             return CreerFlecheRetourSprite();
         }
 
+        /// <summary>Chevron retour "‹" épais (lisible, teintable). Remplace l'ancien
+        /// blob disque+barres illisible.</summary>
         private static Sprite CreerFlecheRetourSprite()
         {
             int s = 64;
@@ -1618,32 +1771,40 @@ namespace Zoologic
                 for (int x = 0; x < s; x++)
                     tex.SetPixel(x, y, new Color(0f, 0f, 0f, 0f));
 
-            float thickness = 5f;
-            float headSize = 18f;
-            float cx = s * 0.55f;
+            float cx = s * 0.5f;
             float cy = s * 0.5f;
+            float half = 5f;
+            // Apex à gauche, bras vers la droite (haut et bas).
+            float ax = cx - 13f, ay = cy;
+            float b1x = cx + 13f, b1y = cy - 22f;
+            float b2x = cx + 13f, b2y = cy + 22f;
 
             for (int y = 0; y < s; y++)
             {
                 for (int x = 0; x < s; x++)
                 {
-                    float dy = Mathf.Abs(y - cy);
-                    if (dy <= thickness && x >= cx - 26f && x <= cx + 6f)
-                        tex.SetPixel(x, y, new Color(1f, 1f, 1f, 1f));
-
-                    float dHead = Mathf.Sqrt((x - (cx - 22f)) * (x - (cx - 22f)) + (y - cy) * (y - cy));
-                    if (dHead <= headSize && x <= cx - 18f)
-                        tex.SetPixel(x, y, new Color(1f, 1f, 1f, 1f));
-
-                    float da = Mathf.Abs(y - (cy - headSize * 0.6f));
-                    float db = Mathf.Abs(y - (cy + headSize * 0.6f));
-                    if ((da <= thickness || db <= thickness) && x >= cx - 40f && x <= cx - 22f)
+                    float px = x + 0.5f;
+                    float py = y + 0.5f;
+                    if (DistToSegment(px, py, ax, ay, b1x, b1y) <= half
+                        || DistToSegment(px, py, ax, ay, b2x, b2y) <= half)
                         tex.SetPixel(x, y, new Color(1f, 1f, 1f, 1f));
                 }
             }
 
             tex.Apply();
             return Sprite.Create(tex, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), 100f);
+        }
+
+        private static float DistToSegment(float px, float py, float ax, float ay, float bx, float by)
+        {
+            float dx = bx - ax;
+            float dy = by - ay;
+            float len2 = dx * dx + dy * dy;
+            float t = len2 > 0f ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0f;
+            t = Mathf.Clamp01(t);
+            float qx = ax + t * dx - px;
+            float qy = ay + t * dy - py;
+            return Mathf.Sqrt(qx * qx + qy * qy);
         }
 
         // ------------------------------------------------------------------

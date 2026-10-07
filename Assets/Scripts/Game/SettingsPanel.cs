@@ -13,6 +13,7 @@ namespace Zoologic
 
         private static GameObject _root;
         private static Canvas _overlayCanvas;
+        private static bool _rebuilding; // garde anti double-tap langue
 
         // Palette chaude pastel, alignée sur MainMenu / LevelMap / GridView
         // (crème, pêche, terracotta, orange "niveau courant", texte brun foncé).
@@ -69,9 +70,22 @@ namespace Zoologic
 
         public static bool HandleBackButton()
         {
+            if (ParentGate.IsOpen) { ParentGate.Close(); return true; }
             if (!IsOpen) return false;
             Close();
             return true;
+        }
+
+        /// <summary>Reconstruit le Settings la frame suivante (évite 2 overlays).</summary>
+        private static System.Collections.IEnumerator DeferredOpen()
+        {
+            yield return null; // laisse le Destroy(_root) s'appliquer
+            try
+            {
+                UiInputGuard.EnsureSingleEventSystem();
+                Open();
+            }
+            finally { _rebuilding = false; }
         }
 
         private static void Build()
@@ -89,15 +103,9 @@ namespace Zoologic
 
             _root.AddComponent<GraphicRaycaster>();
 
-            if (UnityEngine.EventSystems.EventSystem.current == null)
-                _root.AddComponent<UnityEngine.EventSystems.EventSystem>();
-            else
-            {
-                var legacy = Object.FindFirstObjectByType<StandaloneInputModule>();
-                if (legacy != null) Object.Destroy(legacy);
-            }
-            if (Object.FindFirstObjectByType<UnityEngine.InputSystem.UI.InputSystemUIInputModule>() == null)
-                _root.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+            // Un EventSystem unique et vivant (jamais hébergé par _root qui sera
+            // Destroy : sinon le rebuild langue tue l'input de toute la scène).
+            UiInputGuard.EnsureSingleEventSystem();
 
             CreerOverlayFond(_root.transform);
             BuildPanel(_root.transform);
@@ -422,7 +430,7 @@ namespace Zoologic
             labelGO.transform.SetParent(row.transform, false);
             var labelText = labelGO.AddComponent<TextMeshProUGUI>();
             labelText.font = _fontTitle;
-            labelText.text = "Language";
+            labelText.text = LocalizationManager.Get("settings.language");
             labelText.fontSize = 34;
             labelText.fontStyle = FontStyles.Bold;
             labelText.color = TitleText;
@@ -460,13 +468,26 @@ namespace Zoologic
             Localize(txt);
             btn.onClick.AddListener(() =>
             {
-                var all = LocalizationManager.Supported;
-                int i = System.Array.IndexOf(all, LocalizationManager.Current);
-                string next = all[(i + 1) % all.Length];
-                LocalizationManager.SetLanguage(next);
-                SFXManager.Instance.PlayMenuOpen();
-                Close();
-                Open();
+                if (_rebuilding) return; // anti double-tap : 2 rebuilds = canvas fantômes
+                _rebuilding = true;
+                try
+                {
+                    var all = LocalizationManager.Supported;
+                    int i = System.Array.IndexOf(all, LocalizationManager.Current);
+                    string next = all[(i + 1) % all.Length];
+                    LocalizationManager.SetLanguage(next);
+                    try { SFXManager.Instance?.PlayMenuOpen(); } catch { }
+                    // ParentGate a son propre canvas : il survit au rebuild et se
+                    // retraduit seul via OnLanguageChanged. Pas besoin de le fermer.
+                    // Close() est différé d'une frame (Destroy fin de frame) : on
+                    // reconstruit APRES pour ne jamais avoir 2 overlays sorting 1000
+                    // qui se volent les clics pendant 1 frame.
+                    Close();
+                    var runner = SFXManager.Instance;
+                    if (runner != null) runner.StartCoroutine(DeferredOpen());
+                    else Open();
+                }
+                catch { try { Open(); } catch { } _rebuilding = false; }
             });
         }
 

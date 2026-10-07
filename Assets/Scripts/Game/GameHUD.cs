@@ -26,8 +26,11 @@ namespace Zoologic
         // Constantes de layout (reference 1080x1920).
         // ------------------------------------------------------------------
 
-        private const float HeaderPadding = 28f;
+        private const float HeaderPadding = 48f;
         private const float RuleBarHeight = 104f;
+        // Slim HUD DesignDoctor #1 : header 1 ligne ~112px (au lieu de 3 lignes ~340px).
+        // Touch targets 48dp mini = 132px ref (1080 / 360dp * 48 - marge).
+        private const float TouchMin = 132f;
 
         // Encoche simulee (px ref 1080x1920) utilisee quand la safe area reelle
         // est nulle (editeur, desktop) afin de previsualiser l'espacement.
@@ -92,6 +95,8 @@ namespace Zoologic
         // Progression jeu : ?? X/Y chats/animaux places
         private Image _progressionIconImage;
         private TextMeshProUGUI _progressionText;
+        // Premier animal du niveau (icône du compteur = ce qu'il reste à poser).
+        private Sprite _progressionSprite;
         private int _progressionTotal = 5;
         private int _progressionPlaced;
         private int _moveCount;
@@ -158,6 +163,11 @@ namespace Zoologic
         // Distance (px ref) entre le haut de l'ecran et le bas du header.
         private float _headerBottom;
 
+        // --- Slim HUD (DesignDoctor #1/#2) : 9 zones -> 4 zones top 25% ---
+        private GameObject _regleBarRoot;
+        private RulesModal _rulesModal;
+        private bool _slimHudEnabled = true;
+
         /// <summary>Score actuel affiche.</summary>
         public int Score => _score;
 
@@ -190,12 +200,33 @@ namespace Zoologic
         {
             get
             {
-                float topOccupied = _headerBottom + RuleBarHeight;
+                // Slim : RuleBar masquée -> on libère 104px, grille 35% -> 62% hauteur.
+                bool rulesHidden = _slimHudEnabled && (_regleBarRoot == null || !_regleBarRoot.activeSelf);
+                float topOccupied = _headerBottom + (rulesHidden ? 0f : RuleBarHeight);
                 float footerReserve = Mathf.Max(BottomInset, 30f) + 70f;
                 float canvasHeight = 1920f;
                 float availableCenter = (topOccupied + (canvasHeight - footerReserve)) * 0.5f;
                 return -(availableCenter - canvasHeight * 0.5f);
             }
+        }
+
+        /// <summary>Active/coupe le mode slim (1 ligne + règles en modal ?).</summary>
+        public void SetSlimHudEnabled(bool enabled)
+        {
+            _slimHudEnabled = enabled;
+            if (_regleBarRoot != null)
+                _regleBarRoot.SetActive(!enabled);
+        }
+
+        /// <summary>Bascule la modal des règles (bouton ?).</summary>
+        public void ToggleRulesModal() => _rulesModal?.Toggle();
+
+        /// <summary>Montre une seule règle en contexte (tutoriel N1 / erreur).</summary>
+        public void ShowRuleContext(int index)
+        {
+            if (_rulesModal == null) return;
+            if (!_rulesModal.gameObject.activeSelf)
+                _rulesModal.ShowRuleOnly(index);
         }
 
         /// <summary>
@@ -212,9 +243,15 @@ namespace Zoologic
 
             BuildHeader(canvas, numeroNiveau);
             BuildBarreRegle(canvas);
+            _rulesModal = RulesModal.Build(canvas, _fontTitle, _fontBody);
+            SetSlimHudEnabled(true); // Défaut #1/#2 : 3 lignes -> 1 ligne + ? modal
             BuildFooterWave(canvas);
             BuildGommeBouton(canvas);
             BuildIndiceBouton(canvas);
+            // Safe Area iPhone SE / 16:9 / 19.5:9 : header et dock sans casser les layouts.
+            var headerGo = GameObject.Find("Header");
+            if (headerGo != null && headerGo.GetComponent<SafeAreaLayout>() == null)
+                headerGo.AddComponent<SafeAreaLayout>().Apply();
             LocalizationManager.ApplyFontsToScene();
         }
 
@@ -255,7 +292,7 @@ namespace Zoologic
             btnRetourRect.anchorMin = new Vector2(0f, 0.5f);
             btnRetourRect.anchorMax = new Vector2(0f, 0.5f);
             btnRetourRect.pivot = new Vector2(0f, 0.5f);
-            btnRetourRect.sizeDelta = new Vector2(104f, 104f);
+            btnRetourRect.sizeDelta = new Vector2(TouchMin, TouchMin);
             btnRetourRect.anchoredPosition = new Vector2(HeaderPadding, row1Y);
             var btnRetourBg = btnRetourObj.AddComponent<Image>();
             btnRetourBg.sprite = backSprite;
@@ -281,7 +318,7 @@ namespace Zoologic
             btnReglagesRect.anchorMin = new Vector2(1f, 0.5f);
             btnReglagesRect.anchorMax = new Vector2(1f, 0.5f);
             btnReglagesRect.pivot = new Vector2(1f, 0.5f);
-            btnReglagesRect.sizeDelta = new Vector2(104f, 104f);
+            btnReglagesRect.sizeDelta = new Vector2(TouchMin, TouchMin);
             btnReglagesRect.anchoredPosition = new Vector2(-HeaderPadding, row1Y);
             var btnReglagesBg = btnReglagesObj.AddComponent<Image>();
             btnReglagesBg.sprite = gearSprite;
@@ -297,6 +334,51 @@ namespace Zoologic
                 SettingsPanel.Open();
             });
 
+            // Bouton "?" 48dp (DesignDoctor #2) : ouvre la modal des règles.
+            // Décalé à gauche du gear pour garder 12dp de spacing, 48dp touch mini.
+            var btnHelpObj = CreerObjetUI("BtnHelp", header.transform);
+            var btnHelpRect = btnHelpObj.GetComponent<RectTransform>();
+            btnHelpRect.anchorMin = new Vector2(1f, 0.5f);
+            btnHelpRect.anchorMax = new Vector2(1f, 0.5f);
+            btnHelpRect.pivot = new Vector2(1f, 0.5f);
+            btnHelpRect.sizeDelta = new Vector2(TouchMin, TouchMin);
+            btnHelpRect.anchoredPosition = new Vector2(-HeaderPadding - TouchMin - 24f, row1Y);
+            var btnHelpBg = btnHelpObj.AddComponent<Image>();
+            btnHelpBg.sprite = GetPiluleSprite();
+            btnHelpBg.type = Image.Type.Simple;
+            btnHelpBg.color = new Color(1f, 0.98f, 0.96f, 1f);
+            btnHelpBg.raycastTarget = true;
+            var btnHelpTxtGO = CreerObjetUI("Text", btnHelpObj.transform);
+            var btnHelpTxtRect = btnHelpTxtGO.GetComponent<RectTransform>();
+            btnHelpTxtRect.anchorMin = Vector2.zero;
+            btnHelpTxtRect.anchorMax = Vector2.one;
+            btnHelpTxtRect.offsetMin = Vector2.zero;
+            btnHelpTxtRect.offsetMax = Vector2.zero;
+            var btnHelpTxt = btnHelpTxtGO.AddComponent<TextMeshProUGUI>();
+            btnHelpTxt.font = _fontTitle;
+            btnHelpTxt.text = "?";
+            btnHelpTxt.fontSize = 56;
+            btnHelpTxt.fontStyle = FontStyles.Bold;
+            btnHelpTxt.alignment = TextAlignmentOptions.Center;
+            btnHelpTxt.color = TitleBrown;
+            btnHelpTxt.raycastTarget = false;
+            var btnHelp = btnHelpObj.AddComponent<Button>();
+            btnHelp.targetGraphic = btnHelpBg;
+            btnHelp.onClick.AddListener(() =>
+            {
+                SFXManager.Instance.PlayMenuOpen();
+                if (_rulesModal != null) _rulesModal.Toggle();
+                else
+                {
+                    var canvas = header.GetComponentInParent<Canvas>();
+                    if (canvas != null)
+                    {
+                        _rulesModal = RulesModal.Build(canvas, _fontTitle, _fontBody);
+                        _rulesModal.Show();
+                    }
+                }
+            });
+
             // Row 2: [? 100] [???] [??e3] e stats row
             float row2Y = H * 0.5f - dRow2;
             BuildStatsRow(header.transform, row2Y);
@@ -310,8 +392,9 @@ namespace Zoologic
         {
             float pillH = 64f;
 
-            // --- Progression pill (left) : ?? 1/5 e remplace le score technique par un feedback jeu ---
-            float progW = 250f;
+            // --- Compteur animaux restants (left) : [médaillon sp1_] N ---
+            // Simple compteur sans texte (lisible toutes langues, pas de loc).
+            float progW = 190f;
             float progX = HeaderPadding;
 
             var progPill = CreerObjetUI("ProgressionPill", header);
@@ -336,15 +419,21 @@ namespace Zoologic
             progIconRect.anchorMin = new Vector2(0f, 0.5f);
             progIconRect.anchorMax = new Vector2(0f, 0.5f);
             progIconRect.pivot = new Vector2(0.5f, 0.5f);
-            progIconRect.sizeDelta = new Vector2(42f, 42f);
-            progIconRect.anchoredPosition = new Vector2(22f, 0f);
+            progIconRect.sizeDelta = new Vector2(52f, 52f);
+            progIconRect.anchoredPosition = new Vector2(30f, 0f);
             _progressionIconImage = progIconGO.AddComponent<Image>();
-            _progressionIconImage.sprite = Resources.Load<Sprite>("Art/Animals/cat") ?? Resources.Load<Sprite>("Art/Animals/bear");
+            // Icône dossier Sprites (sp1_0 médaillon ours), repli Art/Animals.
+            _progressionIconImage.sprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "sp1_0")
+                ?? Resources.Load<Sprite>("Art/Animals/cat")
+                ?? Resources.Load<Sprite>("Art/Animals/bear");
             if (_progressionIconImage.sprite == null)
             {
                 var all = AnimalIconSet.LoadAll();
                 if (all != null && all.Length > 0) _progressionIconImage.sprite = all[0];
             }
+            // Si le niveau est déjà connu, montre son premier animal à poser.
+            if (_progressionSprite != null)
+                _progressionIconImage.sprite = _progressionSprite;
             _progressionIconImage.type = Image.Type.Simple;
             _progressionIconImage.preserveAspect = true;
             _progressionIconImage.raycastTarget = false;
@@ -353,12 +442,12 @@ namespace Zoologic
             var progTxtRect = progTxtGO.GetComponent<RectTransform>();
             progTxtRect.anchorMin = new Vector2(0f, 0f);
             progTxtRect.anchorMax = new Vector2(1f, 1f);
-            progTxtRect.offsetMin = new Vector2(58f, 0f);
+            progTxtRect.offsetMin = new Vector2(92f, 0f);
             progTxtRect.offsetMax = new Vector2(-10f, 0f);
             _progressionText = progTxtGO.AddComponent<TextMeshProUGUI>();
             _progressionText.font = _fontTitle;
-            _progressionText.text = $"<color=#22C55E>0</color><color=#4A2C12>/{Mathf.Max(_progressionTotal, 5)}</color>";
-            _progressionText.fontSize = 34;
+            _progressionText.text = Mathf.Max(_progressionTotal, 5).ToString();
+            _progressionText.fontSize = 44;
             _progressionText.alignment = TextAlignmentOptions.MidlineLeft;
             _progressionText.fontStyle = FontStyles.Bold;
             _progressionText.raycastTarget = false;
@@ -606,6 +695,7 @@ namespace Zoologic
         private void BuildBarreRegle(Canvas canvas)
         {
             var container = CreerObjetUI("RegleBar", canvas.transform);
+            _regleBarRoot = container; // Slim : masquable via SetSlimHudEnabled(true)
             var rect = container.GetComponent<RectTransform>();
 
             rect.anchorMin = new Vector2(0f, 1f);
@@ -922,6 +1012,20 @@ namespace Zoologic
             else
                 _tray.SetDrag(drag);
             _tray.SetInventory(sets, consume: true);
+            // Le compteur montre le premier animal du niveau à poser.
+            if (sets != null)
+            {
+                foreach (var s in sets)
+                {
+                    if (s.IsComplete && s.Neutral != null)
+                    {
+                        _progressionSprite = s.Neutral;
+                        break;
+                    }
+                }
+            }
+            if (_progressionSprite != null && _progressionIconImage != null)
+                _progressionIconImage.sprite = _progressionSprite;
         }
 
         /// <summary>Consomme le jeton posé (retourne false si déjà consommé).</summary>
@@ -978,10 +1082,21 @@ namespace Zoologic
         {
             if (_progressionText == null)
                 return;
-            string word = LocalizationManager.Get("hud.moves");
-            _progressionText.text = $"<color=#22C55E>{_progressionPlaced}</color>" +
-                $"<color=#4A2C12>/{_progressionTotal}</color>" +
-                $"<color=#8A7968><size=62%> · {_moveCount} {word}</size></color>";
+            // DesignDoctor #3 : 1 seule source de vérité (fini double 🐻1/4 + ❤️ confus).
+            // Slim : "X cases vides" sous le titre. Détail coups en petit, jamais 2 pills.
+            int empty = Mathf.Max(0, _progressionTotal - _progressionPlaced);
+            if (_slimHudEnabled)
+            {
+                // Compteur simple : chiffre seul, pas de mot (aucune trad à gérer).
+                _progressionText.text = $"<color=#4E342E>{empty}</color>";
+            }
+            else
+            {
+                string word = LocalizationManager.Get("hud.moves");
+                _progressionText.text = $"<color=#22C55E>{_progressionPlaced}</color>" +
+                    $"<color=#4A2C12>/{_progressionTotal}</color>" +
+                    $"<color=#8A7968><size=62%> · {_moveCount} {word}</size></color>";
+            }
         }
 
         /// <summary>Petit punch rouge sur la pilule de score quand le score diminue.</summary>

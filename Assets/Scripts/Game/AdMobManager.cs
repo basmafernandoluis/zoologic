@@ -49,7 +49,7 @@ namespace Zoologic
 
         /// <summary>Log info pub : présent en éditeur/dev, strippé à la compilation en release (zéro spam logcat prod).</summary>
         [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
-        internal static void AdLog(string message) { AdLog(message); }
+        internal static void AdLog(string message) { UnityEngine.Debug.Log(message); }
 
         public void OnAgeBandChosen(bool under5) => ApplyAgeBand(under5);
 
@@ -65,6 +65,13 @@ namespace Zoologic
                 _interstitialAd = null;
                 try { _bannerView?.Destroy(); } catch { }
                 _bannerView = null;
+                // Enfants -5 ans : zéro collecte analytics + purge locale.
+                AnalyticsManager.SetCollectionEnabled(false);
+                AnalyticsManager.ResetData();
+            }
+            else
+            {
+                AnalyticsManager.RefreshConsent();
             }
         }
 
@@ -121,6 +128,8 @@ namespace Zoologic
 
         private void ConfigureAndInitialize()
         {
+            // Analytics (réflexion, no-op sans SDK) : liaison + collecte coupée par défaut.
+            AnalyticsManager.Initialize();
             AdLog($"[AdMob] Configure IsProduction={IsProduction} AppId={AppId} Banner={BannerId} Rewarded={RewardedId}");
             try
             {
@@ -156,6 +165,7 @@ namespace Zoologic
                 UmpConsent.RequestConsent(() =>
                 {
                     _consentResolved = true;
+                    AnalyticsManager.OnConsentResolved();
                     TryInitializeAds();
                 });
                 return;

@@ -93,6 +93,7 @@ namespace Zoologic
             PlayerPrefs.SetString(LastClaimKey, today);
             PlayerPrefs.SetInt(StreakKey, streak);
             PlayerPrefs.Save();
+            AnalyticsManager.LogDailyClaim(streak);
             return reward;
         }
 

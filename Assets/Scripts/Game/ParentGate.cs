@@ -11,27 +11,44 @@ namespace Zoologic
     {
         private const float HoldSeconds = 2f;
         private static GameObject _panelRoot;
+        private static TextMeshProUGUI _titleTxt;
+        private static TextMeshProUGUI _holdDescTxt;
+        private static TextMeshProUGUI _holdBtnTxt;
+        private static TextMeshProUGUI _cancelTxt;
+
+        public static bool IsOpen => _panelRoot != null;
+
+        public static void CloseIfOpen() => Close();
 
         public static void Show(Canvas canvas, Action onSuccess, Action onCancel = null)
         {
             if (canvas == null) { onCancel?.Invoke(); return; }
-            if (_panelRoot != null) UnityEngine.Object.Destroy(_panelRoot);
-            AgeGateManager.EnsureEventSystem();
+            Close();
+            UiInputGuard.EnsureSingleEventSystem();
 
             var fontTitle = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Bold SDF");
             var fontBody = Resources.Load<TMP_FontAsset>("Fonts/Fredoka/Fredoka-Regular SDF");
 
-            _panelRoot = new GameObject("ParentGateRoot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            _panelRoot.transform.SetParent(canvas.transform, false);
+            // Canvas dédié top-level (sorting 1001 > Settings 1000) : le rebuild
+            // Settings Close()/Open() au changement de langue ne le détruit plus
+            // et ses boutons restent vivants (propre GraphicRaycaster).
+            _panelRoot = new GameObject("ParentGateRoot", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            var gateCanvas = _panelRoot.GetComponent<Canvas>();
+            gateCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            gateCanvas.overrideSorting = true;
+            gateCanvas.sortingOrder = 1001;
+            var gateScaler = _panelRoot.GetComponent<CanvasScaler>();
+            gateScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            gateScaler.referenceResolution = new Vector2(1080f, 1920f);
+            gateScaler.matchWidthOrHeight = 0.5f;
             var rootRect = _panelRoot.GetComponent<RectTransform>();
             rootRect.anchorMin = Vector2.zero;
             rootRect.anchorMax = Vector2.one;
             rootRect.offsetMin = Vector2.zero;
             rootRect.offsetMax = Vector2.zero;
-            var rootImg = _panelRoot.GetComponent<Image>();
+            var rootImg = _panelRoot.AddComponent<Image>();
             rootImg.color = new Color(0.24f, 0.16f, 0.10f, 0.75f);
             rootImg.raycastTarget = true;
-            _panelRoot.transform.SetAsLastSibling();
 
             var card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             card.transform.SetParent(_panelRoot.transform, false);
@@ -53,8 +70,8 @@ namespace Zoologic
             vlg.childForceExpandHeight = false;
             vlg.childControlWidth = true;
 
-            AddText(card.transform, LocalizationManager.Get("parentgate.title"), fontTitle, 36, FontStyles.Bold, new Color(0.29f, 0.18f, 0.10f));
-            AddText(card.transform, LocalizationManager.Get("parentgate.hold"), fontBody, 24, FontStyles.Normal, new Color(0.50f, 0.42f, 0.35f));
+            _titleTxt = AddText(card.transform, LocalizationManager.Get("parentgate.title"), fontTitle, 36, FontStyles.Bold, new Color(0.29f, 0.18f, 0.10f));
+            _holdDescTxt = AddText(card.transform, LocalizationManager.Get("parentgate.hold"), fontBody, 24, FontStyles.Normal, new Color(0.50f, 0.42f, 0.35f));
 
             var holdGO = new GameObject("HoldButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             holdGO.transform.SetParent(card.transform, false);
@@ -80,6 +97,7 @@ namespace Zoologic
             var holdTxt = holdTxtGO.GetComponent<TextMeshProUGUI>();
             holdTxt.font = fontTitle;
             holdTxt.text = LocalizationManager.Get("parentgate.hold_button");
+            _holdBtnTxt = holdTxt;
             holdTxt.fontSize = 26;
             holdTxt.fontStyle = FontStyles.Bold;
             holdTxt.color = new Color(0.20f, 0.13f, 0.08f);
@@ -113,6 +131,7 @@ namespace Zoologic
             var cancelTxt = cancelTxtGO.GetComponent<TextMeshProUGUI>();
             cancelTxt.font = fontTitle;
             cancelTxt.text = LocalizationManager.Get("parentgate.cancel");
+            _cancelTxt = cancelTxt;
             cancelTxt.fontSize = 24;
             cancelTxt.fontStyle = FontStyles.Bold;
             cancelTxt.color = Color.white;
@@ -124,15 +143,34 @@ namespace Zoologic
                 Close();
                 try { onCancel?.Invoke(); } catch { }
             });
+            LocalizationManager.OnLanguageChanged += RefreshTexts;
             LocalizationManager.ApplyFontsToScene();
         }
 
-        private static void Close()
+        /// <summary>La modale survit au changement de langue : on retraduit en place.</summary>
+        private static void RefreshTexts()
         {
+            try
+            {
+                if (_titleTxt != null) _titleTxt.text = LocalizationManager.Get("parentgate.title");
+                if (_holdDescTxt != null) _holdDescTxt.text = LocalizationManager.Get("parentgate.hold");
+                if (_holdBtnTxt != null) _holdBtnTxt.text = LocalizationManager.Get("parentgate.hold_button");
+                if (_cancelTxt != null) _cancelTxt.text = LocalizationManager.Get("parentgate.cancel");
+            }
+            catch { }
+        }
+
+        public static void Close()
+        {
+            try { LocalizationManager.OnLanguageChanged -= RefreshTexts; } catch { }
+            _titleTxt = null;
+            _holdDescTxt = null;
+            _holdBtnTxt = null;
+            _cancelTxt = null;
             if (_panelRoot != null) { UnityEngine.Object.Destroy(_panelRoot); _panelRoot = null; }
         }
 
-        private static void AddText(Transform parent, string text, TMP_FontAsset font, int size, FontStyles style, Color color)
+        private static TextMeshProUGUI AddText(Transform parent, string text, TMP_FontAsset font, int size, FontStyles style, Color color)
         {
             var go = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             go.transform.SetParent(parent, false);
@@ -148,6 +186,7 @@ namespace Zoologic
             le.preferredHeight = 70f;
             le.flexibleWidth = 1f;
             LocalizationManager.ApplyTo(tmp);
+            return tmp;
         }
 
         private sealed class HoldBehaviour : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
