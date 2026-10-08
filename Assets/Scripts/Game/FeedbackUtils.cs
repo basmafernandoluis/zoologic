@@ -58,12 +58,14 @@ namespace Zoologic
         private static System.Collections.IEnumerator ScaleRoutine(RectTransform rt,
             float targetScale, float duration, bool elastic)
         {
+            if (rt == null) yield break;
             Vector3 baseScale = rt.localScale;
             float elapsed = 0f;
 
             // Montée.
             while (elapsed < duration * 0.5f)
             {
+                if (rt == null) yield break; // cible détruite (changement de scène) : stop propre
                 float t = Mathf.Clamp01(elapsed / (duration * 0.5f));
                 float s = Mathf.Lerp(baseScale.x, targetScale, Easing.EaseOutQuad(t));
                 rt.localScale = new Vector3(s, s, s);
@@ -75,6 +77,7 @@ namespace Zoologic
             elapsed = 0f;
             while (elapsed < duration * 0.5f)
             {
+                if (rt == null) yield break;
                 float t = Mathf.Clamp01(elapsed / (duration * 0.5f));
                 float s = elastic
                     ? Mathf.Lerp(targetScale, baseScale.x, Easing.EaseOutElastic(t))
@@ -84,7 +87,7 @@ namespace Zoologic
                 yield return null;
             }
 
-            rt.localScale = baseScale;
+            if (rt != null) rt.localScale = baseScale;
         }
 
         /// <summary>Fade l'alpha d'une Image entre sa valeur initiale et 0 (puis revient).</summary>
@@ -99,6 +102,7 @@ namespace Zoologic
         private static System.Collections.IEnumerator FlashAlphaRoutine(UnityEngine.UI.Image image,
             float minAlpha, float duration)
         {
+            if (image == null) yield break;
             Color baseColor = image.color;
             Color dimmed = new Color(baseColor.r, baseColor.g, baseColor.b, minAlpha);
             float half = duration * 0.5f;
@@ -106,6 +110,7 @@ namespace Zoologic
 
             while (elapsed < half)
             {
+                if (image == null) yield break;
                 float t = Mathf.Clamp01(elapsed / half);
                 image.color = Color.Lerp(baseColor, dimmed, Easing.EaseInQuad(t));
                 elapsed += Time.unscaledDeltaTime;
@@ -115,13 +120,14 @@ namespace Zoologic
             elapsed = 0f;
             while (elapsed < half)
             {
+                if (image == null) yield break;
                 float t = Mathf.Clamp01(elapsed / half);
                 image.color = Color.Lerp(dimmed, baseColor, Easing.EaseOutQuad(t));
                 elapsed += Time.unscaledDeltaTime;
                 yield return null;
             }
 
-            image.color = baseColor;
+            if (image != null) image.color = baseColor;
         }
     }
 

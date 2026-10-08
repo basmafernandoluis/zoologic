@@ -148,6 +148,16 @@ namespace Zoologic
             LogEvent("ad_reward_granted", P("reward_type", rewardType ?? "unknown"));
         }
 
+        public static void LogChestOpened(int world, int palier)
+        {
+            LogEvent("chest_opened", P("world", (long)world), P("palier", (long)palier));
+        }
+
+        public static void LogMascotUnlocked(string mascotId, string rarity)
+        {
+            LogEvent("mascot_unlocked", P("id", mascotId ?? "unknown"), P("rarity", rarity ?? "?"));
+        }
+
         // ------------------------------------------------------------------
 
         private struct Param

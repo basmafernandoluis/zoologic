@@ -179,17 +179,8 @@ namespace Zoologic
 
         private static void EnsureEventSystem()
         {
-            foreach (var legacy in FindObjectsByType<UnityEngine.EventSystems.StandaloneInputModule>(FindObjectsSortMode.None))
-                Destroy(legacy);
-            if (UnityEngine.EventSystems.EventSystem.current == null)
-            {
-                var go = new GameObject("EventSystem", typeof(UnityEngine.EventSystems.EventSystem));
-                go.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
-            }
-            else if (UnityEngine.EventSystems.EventSystem.current.GetComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>() == null)
-            {
-                UnityEngine.EventSystems.EventSystem.current.gameObject.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
-            }
+            // P0.2 : EventSystem unique via garde partagée.
+            UiInputGuard.EnsureSingleEventSystem();
         }
 
         /// <summary>

@@ -1923,6 +1923,7 @@ namespace Zoologic{
             float el = 0f;
             Vector3 ctrl = (from + to) * 0.5f + new Vector3(60f, 220f, 0f);
             while (el < dur)            {
+                if (rt == null) yield break; // pièce détruite mid-vol (navigation rapide)
                 float t = Mathf.Clamp01(el / dur);
                 float e = Easing.EaseInOutQuad(t);
                 Vector3 a = Vector3.Lerp(from, ctrl, e);
@@ -2414,8 +2415,9 @@ namespace Zoologic{
             menuRect.anchorMin = new Vector2(0.5f, 0.05f);
             menuRect.anchorMax = new Vector2(0.5f, 0.05f);
             menuRect.pivot = new Vector2(0.5f, 0.5f);
-            menuRect.sizeDelta = new Vector2(420f, 56f);
-            menuRect.anchoredPosition = new Vector2(0f, 28f);
+            // P0.3 : hitbox 96px (lint UX) sans toucher au visuel texte.
+            menuRect.sizeDelta = new Vector2(420f, 96f);
+            menuRect.anchoredPosition = new Vector2(0f, -3f);
             var menuImg = menuGO.GetComponent<Image>();
             menuImg.color = new Color(0f, 0f, 0f, 0f);
             menuImg.raycastTarget = true;

@@ -40,8 +40,9 @@ namespace Zoologic
         private const float SeparatorHeight = 110f;
         private const float SeparatorMargin = 40f;
         private const float SimulatedTopNotch = 70f;
-        // Bannière défi aérée : 240px (titre + série sur une ligne, sous-titre dessous).
         private const float FixedDailyHeight = 240f;
+        // Jauge Star Chests : fixe sous le défi (titre + 3 coffres 112px).
+        private const float GaugeHeight = 176f;
 
         // ------------------------------------------------------------------
         // Palette Pastel Pop chaude - dynamique et douce.
@@ -212,18 +213,8 @@ namespace Zoologic
 
             canvasGO.AddComponent<GraphicRaycaster>();
 
-            if (EventSystem.current == null)
-            {
-                canvasGO.AddComponent<EventSystem>();
-                canvasGO.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
-            }
-            else
-            {
-                var legacy = EventSystem.current.GetComponent<StandaloneInputModule>();
-                if (legacy != null) Object.Destroy(legacy);
-                if (EventSystem.current.GetComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>() == null)
-                    EventSystem.current.gameObject.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
-            }
+            // P0.2 : EventSystem unique via garde partagée (jamais hébergé ici).
+            UiInputGuard.EnsureSingleEventSystem();
 
             if (FindFirstObjectByType<Camera>() == null)
             {
@@ -238,6 +229,7 @@ namespace Zoologic
             BuildBackground(canvasGO.transform);
             BuildHeader(canvasGO.transform);
             CreerDailyFixe(canvasGO.transform);
+            CreerJaugeCoffres(canvasGO.transform);
             _scrollRect = BuildScrollArea(canvasGO.transform);
             _content = _scrollRect.content;
         }
@@ -333,10 +325,22 @@ namespace Zoologic
             tileRect.anchoredPosition = Vector2.zero;
             tileRect.localScale = new Vector3(-1f, 1f, 1f);
             var tileImg = tileGO.AddComponent<Image>();
-            tileImg.sprite = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_13") ?? Resources.Load<Sprite>("Sprites/b_13");
+            // P0.1 : b_13 prioritaire, chevron procédural (vérifié visuellement)
+            // en secours — plus jamais de bouton invisible si l'atlas change.
+            Sprite backTile = Resources.LoadAll<Sprite>("Sprites").FirstOrDefault(s => s.name == "b_13") ?? Resources.Load<Sprite>("Sprites/b_13");
+            if (backTile != null)
+            {
+                tileImg.sprite = backTile;
+                tileImg.color = Color.white;
+            }
+            else
+            {
+                tileImg.sprite = CreerFlecheRetourSprite();
+                tileImg.color = new Color(0.365f, 0.251f, 0.216f, 1f);
+                tileRect.localScale = Vector3.one;
+            }
             tileImg.type = Image.Type.Simple;
             tileImg.preserveAspect = true;
-            tileImg.color = Color.white;
             tileImg.raycastTarget = false;
             // Zone tactile = tout le bouton 132px (fond invisible).
             var hitImg = btnGO.AddComponent<Image>();
@@ -450,7 +454,7 @@ namespace Zoologic
             scrollRectRT.anchorMin = Vector2.zero;
             scrollRectRT.anchorMax = Vector2.one;
             scrollRectRT.offsetMin = Vector2.zero;
-            scrollRectRT.offsetMax = new Vector2(0f, -(_headerTotal + FixedDailyHeight + 16f));
+            scrollRectRT.offsetMax = new Vector2(0f, -(_headerTotal + FixedDailyHeight + GaugeHeight + 16f));
 
             var viewportGO = new GameObject("Viewport");
             viewportGO.transform.SetParent(scrollGO.transform, false);
@@ -515,7 +519,7 @@ namespace Zoologic
             topRect.anchorMax = new Vector2(1f, 1f);
             topRect.pivot = new Vector2(0.5f, 1f);
             topRect.sizeDelta = new Vector2(0f, fadeH);
-            topRect.anchoredPosition = new Vector2(0f, -_headerTotal);
+            topRect.anchoredPosition = new Vector2(0f, -(_headerTotal + FixedDailyHeight + GaugeHeight));
             var topImg = top.AddComponent<Image>();
             topImg.sprite = CreerSpriteFonduVertical(true);
             topImg.type = Image.Type.Simple;
@@ -985,6 +989,528 @@ namespace Zoologic
             }
         }
 
+        // ------------------------------------------------------------------
+        // Jauge Star Chests : fixe sous le défi + popup de claim.
+        // ------------------------------------------------------------------
+
+        private void CreerJaugeCoffres(Transform canvas)
+        {
+            var old = canvas.Find("ChestGauge");
+            if (old != null) Destroy(old.gameObject);
+
+            int world = StarChestManager.WorldOf(_currentLevel);
+            int stars = StarChestManager.StarsOfWorld(world);
+
+            var barGO = new GameObject("ChestGauge");
+            barGO.transform.SetParent(canvas, false);
+            var barRect = barGO.AddComponent<RectTransform>();
+            barRect.anchorMin = new Vector2(0f, 1f);
+            barRect.anchorMax = new Vector2(1f, 1f);
+            barRect.pivot = new Vector2(0.5f, 1f);
+            barRect.sizeDelta = new Vector2(0f, GaugeHeight);
+            barRect.anchoredPosition = new Vector2(0f, -(_headerTotal + FixedDailyHeight));
+
+            var hlg = barGO.AddComponent<HorizontalLayoutGroup>();
+            hlg.padding = new RectOffset(50, 50, 16, 16);
+            hlg.spacing = 16f;
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            // Bloc gauche : titre + progression vers le prochain palier.
+            var leftGO = new GameObject("ChestInfo");
+            leftGO.transform.SetParent(barGO.transform, false);
+            var leftLE = leftGO.AddComponent<LayoutElement>();
+            leftLE.flexibleWidth = 1f;
+            var leftVLG = leftGO.AddComponent<VerticalLayoutGroup>();
+            leftVLG.spacing = 6f;
+            leftVLG.childAlignment = TextAnchor.MiddleLeft;
+            leftVLG.childForceExpandWidth = true;
+
+            var titleGO = new GameObject("Title", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            titleGO.transform.SetParent(leftGO.transform, false);
+            var titleTxt = titleGO.GetComponent<TextMeshProUGUI>();
+            titleTxt.font = _fontTitle;
+            titleTxt.text = Zoologic.Localization.LocalizationManager.Get("chest.title");
+            Zoologic.Localization.LocalizationManager.ApplyTo(titleTxt);
+            titleTxt.fontSize = 30;
+            titleTxt.fontStyle = FontStyles.Bold;
+            titleTxt.color = TitleColor;
+            titleTxt.alignment = TextAlignmentOptions.MidlineLeft;
+            titleTxt.enableAutoSizing = true;
+            titleTxt.fontSizeMin = 22;
+            titleTxt.fontSizeMax = 30;
+            titleTxt.raycastTarget = false;
+            var titleLE = titleGO.AddComponent<LayoutElement>();
+            titleLE.preferredHeight = 38f;
+
+            int target = -1;
+            for (int p = 0; p < 3; p++)
+            {
+                if (!StarChestManager.IsClaimed(world, p)) { target = StarChestManager.Thresholds[p]; break; }
+            }
+
+            var progGO = new GameObject("Progress", typeof(RectTransform));
+            progGO.transform.SetParent(leftGO.transform, false);
+            var progHLG = progGO.AddComponent<HorizontalLayoutGroup>();
+            progHLG.spacing = 10f;
+            progHLG.childAlignment = TextAnchor.MiddleLeft;
+            progHLG.childForceExpandWidth = false;
+            var progLE = progGO.AddComponent<LayoutElement>();
+            progLE.preferredHeight = 44f;
+            var progTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            progTxtGO.transform.SetParent(progGO.transform, false);
+            var progTxt = progTxtGO.GetComponent<TextMeshProUGUI>();
+            progTxt.font = _fontTitle;
+            progTxt.text = target < 0 ? "MAX" : stars + "/" + target;
+            progTxt.fontSize = 32;
+            progTxt.fontStyle = FontStyles.Bold;
+            progTxt.color = TitleColor;
+            progTxt.alignment = TextAlignmentOptions.MidlineLeft;
+            progTxt.raycastTarget = false;
+            var progTxtLE = progTxtGO.AddComponent<LayoutElement>();
+            progTxtLE.preferredWidth = 170f;
+            progTxtLE.preferredHeight = 44f;
+            var progStarGO = new GameObject("Star", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            progStarGO.transform.SetParent(progGO.transform, false);
+            var progStarImg = progStarGO.GetComponent<Image>();
+            progStarImg.sprite = GetStarSprite();
+            progStarImg.preserveAspect = true;
+            progStarImg.color = GoldStar;
+            progStarImg.raycastTarget = false;
+            var progStarLE = progStarGO.AddComponent<LayoutElement>();
+            progStarLE.preferredWidth = 40f;
+            progStarLE.preferredHeight = 40f;
+
+            for (int p = 0; p < 3; p++)
+                CreerBoutonCoffre(barGO.transform, world, p, stars);
+        }
+
+        private void RefreshChestGauge()
+        {
+            Canvas canvas = FindFirstObjectByType<Canvas>();
+            if (canvas == null) return;
+            CreerJaugeCoffres(canvas.transform);
+        }
+
+        private void CreerBoutonCoffre(Transform parent, int world, int palier, int stars)
+        {
+            bool claimed = StarChestManager.IsClaimed(world, palier);
+            bool ready = !claimed && stars >= StarChestManager.Thresholds[palier];
+            Color tier = palier == 0 ? new Color(0.494f, 0.839f, 0.627f, 1f)
+                : palier == 1 ? new Color(0.302f, 0.549f, 0.898f, 1f)
+                : new Color(1f, 0.788f, 0.235f, 1f);
+
+            var go = new GameObject("Chest" + palier);
+            go.transform.SetParent(parent, false);
+            var le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = 128f;
+            le.preferredHeight = 128f;
+            le.flexibleWidth = 0f;
+            le.flexibleHeight = 0f;
+
+            var img = go.AddComponent<Image>();
+            img.sprite = GetRoundedRectSprite();
+            img.type = Image.Type.Simple;
+            img.color = claimed ? new Color(0.914f, 0.886f, 0.835f, 1f)
+                : ready ? tier
+                : new Color(0.969f, 0.934f, 0.867f, 1f);
+            img.raycastTarget = ready;
+            if (ready || claimed)
+            {
+                var sh = go.AddComponent<Shadow>();
+                sh.effectColor = new Color(0f, 0f, 0f, 0.20f);
+                sh.effectDistance = new Vector2(0f, -4f);
+            }
+
+            if (claimed)
+            {
+                var checkGO = new GameObject("Check", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                checkGO.transform.SetParent(go.transform, false);
+                var checkRect = (RectTransform)checkGO.transform;
+                checkRect.anchorMin = new Vector2(0.5f, 0.5f);
+                checkRect.anchorMax = new Vector2(0.5f, 0.5f);
+                checkRect.pivot = new Vector2(0.5f, 0.5f);
+                checkRect.sizeDelta = new Vector2(64f, 64f);
+                checkRect.anchoredPosition = Vector2.zero;
+                var checkImg = checkGO.GetComponent<Image>();
+                checkImg.sprite = KenneyUI.Checkmark() ?? GetStarSprite();
+                checkImg.preserveAspect = true;
+                checkImg.raycastTarget = false;
+            }
+            else
+            {
+                var numGO = new GameObject("Seuil", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                numGO.transform.SetParent(go.transform, false);
+                var numRect = (RectTransform)numGO.transform;
+                numRect.anchorMin = Vector2.zero;
+                numRect.anchorMax = Vector2.one;
+                numRect.offsetMin = Vector2.zero;
+                numRect.offsetMax = new Vector2(0f, 18f);
+                var numTxt = numGO.GetComponent<TextMeshProUGUI>();
+                numTxt.font = _fontTitle;
+                numTxt.text = StarChestManager.Thresholds[palier].ToString();
+                numTxt.fontSize = 44;
+                numTxt.fontStyle = FontStyles.Bold;
+                numTxt.color = ready ? Color.white : new Color(0.373f, 0.326f, 0.278f, 1f);
+                numTxt.alignment = TextAlignmentOptions.Center;
+                numTxt.raycastTarget = false;
+                if (ready)
+                {
+                    var ol = numGO.AddComponent<Outline>();
+                    ol.effectColor = new Color(0f, 0f, 0f, 0.35f);
+                    ol.effectDistance = new Vector2(2f, -2f);
+                }
+                var starGO = new GameObject("Star", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                starGO.transform.SetParent(go.transform, false);
+                var starRect = (RectTransform)starGO.transform;
+                starRect.anchorMin = new Vector2(0.5f, 0f);
+                starRect.anchorMax = new Vector2(0.5f, 0f);
+                starRect.pivot = new Vector2(0.5f, 0f);
+                starRect.sizeDelta = new Vector2(34f, 34f);
+                starRect.anchoredPosition = new Vector2(0f, 10f);
+                var starImg = starGO.GetComponent<Image>();
+                starImg.sprite = GetStarSprite();
+                starImg.preserveAspect = true;
+                starImg.color = ready ? Color.white : new Color(0.79f, 0.75f, 0.68f, 1f);
+                starImg.raycastTarget = false;
+            }
+
+            if (ready)
+            {
+                // Pastille "!" + pulse d'appel (stop au claim via rebuild).
+                var badgeGO = new GameObject("Badge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                badgeGO.transform.SetParent(go.transform, false);
+                var badgeRect = (RectTransform)badgeGO.transform;
+                badgeRect.anchorMin = new Vector2(1f, 1f);
+                badgeRect.anchorMax = new Vector2(1f, 1f);
+                badgeRect.pivot = new Vector2(0.5f, 0.5f);
+                badgeRect.sizeDelta = new Vector2(44f, 44f);
+                badgeRect.anchoredPosition = new Vector2(-6f, -6f);
+                var badgeImg = badgeGO.GetComponent<Image>();
+                badgeImg.sprite = CreerSpriteArrondi(64, 0.5f);
+                badgeImg.color = new Color(1f, 0.42f, 0.42f, 1f);
+                badgeImg.raycastTarget = false;
+                var bangGO = new GameObject("Bang", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                bangGO.transform.SetParent(badgeGO.transform, false);
+                var bangRect = (RectTransform)bangGO.transform;
+                bangRect.anchorMin = Vector2.zero;
+                bangRect.anchorMax = Vector2.one;
+                bangRect.offsetMin = Vector2.zero;
+                bangRect.offsetMax = Vector2.zero;
+                var bangTxt = bangGO.GetComponent<TextMeshProUGUI>();
+                bangTxt.font = _fontTitle;
+                bangTxt.text = "!";
+                bangTxt.fontSize = 30;
+                bangTxt.fontStyle = FontStyles.Bold;
+                bangTxt.color = Color.white;
+                bangTxt.alignment = TextAlignmentOptions.Center;
+                bangTxt.raycastTarget = false;
+                go.AddComponent<ChestPulse>();
+                var btn = go.AddComponent<Button>();
+                btn.targetGraphic = img;
+                btn.onClick.AddListener(() => ShowChestPopup(world, palier));
+            }
+        }
+
+        private class ChestPulse : MonoBehaviour
+        {
+            private void Update()
+            {
+                if (this == null) return;
+                float s = 1f + (Mathf.Sin(Time.unscaledTime * 2f * Mathf.PI) * 0.5f + 0.5f) * 0.06f;
+                transform.localScale = new Vector3(s, s, s);
+            }
+        }
+
+        private static Color RarityBg(string r) => r switch
+        {
+            "C" => new Color(0.910f, 0.957f, 0.910f, 1f),
+            "R" => new Color(0.890f, 0.941f, 1.000f, 1f),
+            "E" => new Color(0.953f, 0.910f, 1.000f, 1f),
+            _ => new Color(1.000f, 0.953f, 0.839f, 1f),
+        };
+
+        private static Color RarityText(string r) => r switch
+        {
+            "C" => new Color(0.184f, 0.239f, 0.180f, 1f),
+            "R" => new Color(0.141f, 0.204f, 0.302f, 1f),
+            "E" => new Color(0.227f, 0.165f, 0.353f, 1f),
+            _ => new Color(0.290f, 0.204f, 0.063f, 1f),
+        };
+
+        private static string RarityKey(string r) => "mascot.rarity." + r switch
+        {
+            "C" => "common",
+            "R" => "rare",
+            "E" => "epic",
+            _ => "legendary",
+        };
+
+        /// <summary>Popup de claim : aperçu puis résultat (mascotte révélée).</summary>
+        private void ShowChestPopup(int world, int palier)
+        {
+            Canvas canvas = FindFirstObjectByType<Canvas>();
+            if (canvas == null) return;
+            UiInputGuard.EnsureSingleEventSystem();
+            SFXManager.Instance.PlayMenuOpen();
+
+            var root = new GameObject("ChestPopup", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            root.transform.SetParent(canvas.transform, false);
+            var rootRect = root.GetComponent<RectTransform>();
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.offsetMin = Vector2.zero;
+            rootRect.offsetMax = Vector2.zero;
+            var rootImg = root.GetComponent<Image>();
+            rootImg.color = new Color(0.24f, 0.15f, 0.11f, 0.62f);
+            rootImg.raycastTarget = true;
+            root.transform.SetAsLastSibling();
+
+            var card = new GameObject("Card", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            card.transform.SetParent(root.transform, false);
+            var cardRect = card.GetComponent<RectTransform>();
+            cardRect.anchorMin = new Vector2(0.5f, 0.5f);
+            cardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            cardRect.pivot = new Vector2(0.5f, 0.5f);
+            cardRect.sizeDelta = new Vector2(700f, 560f);
+            cardRect.anchoredPosition = Vector2.zero;
+            var cardImg = card.GetComponent<Image>();
+            cardImg.sprite = B1UI.Bubble ?? GetRoundedRectSprite();
+            cardImg.type = Image.Type.Sliced;
+            cardImg.color = new Color(1f, 0.98f, 0.95f, 1f);
+            cardImg.raycastTarget = false;
+            var cardShadow = card.AddComponent<Shadow>();
+            cardShadow.effectColor = new Color(0.18f, 0.11f, 0.06f, 0.32f);
+            cardShadow.effectDistance = new Vector2(0f, -10f);
+
+            var vlg = card.AddComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(40, 40, 32, 32);
+            vlg.spacing = 16f;
+            vlg.childAlignment = TextAnchor.MiddleCenter;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+
+            var titleGO = new GameObject("Title", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            titleGO.transform.SetParent(card.transform, false);
+            var titleTxt = titleGO.GetComponent<TextMeshProUGUI>();
+            titleTxt.font = _fontTitle;
+            titleTxt.text = Zoologic.Localization.LocalizationManager.Get("chest.title") + " · " + StarChestManager.Thresholds[palier];
+            Zoologic.Localization.LocalizationManager.ApplyTo(titleTxt);
+            titleTxt.fontSize = 40;
+            titleTxt.fontStyle = FontStyles.Bold;
+            titleTxt.color = TitleColor;
+            titleTxt.alignment = TextAlignmentOptions.Center;
+            titleTxt.enableAutoSizing = true;
+            titleTxt.fontSizeMin = 28;
+            titleTxt.fontSizeMax = 40;
+            titleTxt.raycastTarget = false;
+            var titleLE = titleGO.AddComponent<LayoutElement>();
+            titleLE.preferredHeight = 56f;
+            titleLE.flexibleWidth = 1f;
+
+            var rowsGO = new GameObject("Rows", typeof(RectTransform));
+            rowsGO.transform.SetParent(card.transform, false);
+            var rowsVLG = rowsGO.AddComponent<VerticalLayoutGroup>();
+            rowsVLG.spacing = 12f;
+            rowsVLG.childAlignment = TextAnchor.MiddleCenter;
+            rowsVLG.childForceExpandWidth = true;
+            rowsVLG.childForceExpandHeight = false;
+            var rowsLE = rowsGO.AddComponent<LayoutElement>();
+            rowsLE.flexibleWidth = 1f;
+            rowsLE.flexibleHeight = 1f;
+
+            var ctaGO = new GameObject("BtnClaim", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            ctaGO.transform.SetParent(card.transform, false);
+            var ctaImg = ctaGO.GetComponent<Image>();
+            var ctaNormal = JellyUI.ButtonGreen;
+            ctaImg.sprite = ctaNormal ?? GetRoundedRectSprite();
+            ctaImg.type = Image.Type.Sliced;
+            ctaImg.color = Color.white;
+            var ctaBtn = ctaGO.GetComponent<Button>();
+            ctaBtn.targetGraphic = ctaImg;
+            JellyUI.ApplyJellyButton(ctaBtn, ctaImg, ctaNormal, JellyUI.ButtonYellow, JellyUI.ButtonRed, JellyUI.ButtonGrey);
+            var ctaLE = ctaGO.AddComponent<LayoutElement>();
+            ctaLE.preferredHeight = 96f;
+            ctaLE.flexibleWidth = 1f;
+            var ctaTxtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            ctaTxtGO.transform.SetParent(ctaGO.transform, false);
+            var ctaTxtRect = (RectTransform)ctaTxtGO.transform;
+            ctaTxtRect.anchorMin = Vector2.zero;
+            ctaTxtRect.anchorMax = Vector2.one;
+            ctaTxtRect.offsetMin = Vector2.zero;
+            ctaTxtRect.offsetMax = Vector2.zero;
+            var ctaTxt = ctaTxtGO.GetComponent<TextMeshProUGUI>();
+            ctaTxt.font = _fontTitle;
+            ctaTxt.text = Zoologic.Localization.LocalizationManager.Get("missions.claim");
+            ctaTxt.fontSize = 34;
+            ctaTxt.fontStyle = FontStyles.Bold;
+            ctaTxt.color = Color.white;
+            ctaTxt.alignment = TextAlignmentOptions.Center;
+            ctaTxt.raycastTarget = false;
+
+            BuildChestPreviewRows(rowsGO.transform, world, palier);
+            StartCoroutine(PopupPopRoutine(card.transform));
+            ctaBtn.onClick.AddListener(() =>
+            {
+                SFXManager.Instance.PlayUnlock();
+                Zoologic.Haptics.VibrateLight();
+                StarChestManager.Grant g = StarChestManager.Execute(world, palier);
+                for (int i = rowsGO.transform.childCount - 1; i >= 0; i--)
+                    Destroy(rowsGO.transform.GetChild(i).gameObject);
+                BuildChestResultRows(rowsGO.transform, g);
+                ctaTxt.text = Zoologic.Localization.LocalizationManager.Get("menu.ok");
+                ctaBtn.onClick.RemoveAllListeners();
+                ctaBtn.onClick.AddListener(() =>
+                {
+                    SFXManager.Instance.PlayMenuClose();
+                    Destroy(root);
+                    RefreshChestGauge();
+                });
+                ConfettiHelper.Burst(this, canvas, 40);
+                StartCoroutine(PunchRowsRoutine(rowsGO.transform));
+            });
+        }
+
+        /// <summary>Lignes d'aperçu : pièces + indices (overflow déjà converti).</summary>
+        private void BuildChestPreviewRows(Transform parent, int world, int palier)
+        {
+            StarChestManager.Grant preview = StarChestManager.Preview(world, palier);
+            int free = Mathf.Max(0, HintStockManager.MaxStock - HintStockManager.Get());
+            int hintsShown = Mathf.Min(preview.Hints, free);
+            int coinsShown = preview.Coins + HintOverflowValue * (preview.Hints - hintsShown);
+            BuildRewardRow(parent, Resources.Load<Sprite>("UI/coin"), "+" + coinsShown,
+                new Color(0.55f, 0.32f, 0.08f, 1f));
+            if (hintsShown > 0)
+                BuildRewardRow(parent, LoadHintMedal(), "×" + hintsShown,
+                    new Color(0.29f, 0.18f, 0.10f, 1f));
+            if (palier >= 1)
+                BuildRewardRow(parent, null, "?",
+                    new Color(0.45f, 0.38f, 0.30f, 1f));
+        }
+
+        private const int HintOverflowValue = 20;
+
+        private Sprite LoadHintMedal()
+        {
+            try
+            {
+                return Resources.LoadAll<Sprite>("Sprites/hi").FirstOrDefault(s => s.name == "hi_0");
+            }
+            catch { return null; }
+        }
+
+        private void BuildRewardRow(Transform parent, Sprite icon, string text, Color textColor)
+        {
+            var rowGO = new GameObject("RewardRow", typeof(RectTransform));
+            rowGO.transform.SetParent(parent, false);
+            var rowHLG = rowGO.AddComponent<HorizontalLayoutGroup>();
+            rowHLG.spacing = 16f;
+            rowHLG.childAlignment = TextAnchor.MiddleCenter;
+            rowHLG.childForceExpandWidth = false;
+            var rowLE = rowGO.AddComponent<LayoutElement>();
+            rowLE.preferredHeight = 84f;
+            rowLE.flexibleWidth = 1f;
+            if (icon != null)
+            {
+                var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                iconGO.transform.SetParent(rowGO.transform, false);
+                var iconLE = iconGO.AddComponent<LayoutElement>();
+                iconLE.preferredWidth = 64f;
+                iconLE.preferredHeight = 64f;
+                var iconImg = iconGO.GetComponent<Image>();
+                iconImg.sprite = icon;
+                iconImg.preserveAspect = true;
+                iconImg.raycastTarget = false;
+            }
+            var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            txtGO.transform.SetParent(rowGO.transform, false);
+            var txt = txtGO.GetComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.text = text;
+            txt.fontSize = 38;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = textColor;
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.raycastTarget = false;
+            var txtLE = txtGO.AddComponent<LayoutElement>();
+            txtLE.flexibleWidth = 1f;
+        }
+
+        /// <summary>Lignes résultat : totaux + mascotte révélée (pop).</summary>
+        private void BuildChestResultRows(Transform parent, StarChestManager.Grant g)
+        {
+            if (g.Coins > 0)
+                BuildRewardRow(parent, Resources.Load<Sprite>("UI/coin"), "+" + g.Coins,
+                    new Color(0.55f, 0.32f, 0.08f, 1f));
+            if (g.Hints > 0)
+                BuildRewardRow(parent, LoadHintMedal(), "×" + g.Hints,
+                    new Color(0.29f, 0.18f, 0.10f, 1f));
+            if (g.MascotIndex >= 0)
+            {
+                var face = StarChestManager.MascotFace(g.MascotIndex);
+                var rowGO = new GameObject("MascotRow", typeof(RectTransform));
+                rowGO.transform.SetParent(parent, false);
+                var rowHLG = rowGO.AddComponent<HorizontalLayoutGroup>();
+                rowHLG.spacing = 16f;
+                rowHLG.childAlignment = TextAnchor.MiddleCenter;
+                rowHLG.childForceExpandWidth = false;
+                var rowLE = rowGO.AddComponent<LayoutElement>();
+                rowLE.preferredHeight = 150f;
+                rowLE.flexibleWidth = 1f;
+                var faceGO = new GameObject("Face", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                faceGO.transform.SetParent(rowGO.transform, false);
+                var faceLE = faceGO.AddComponent<LayoutElement>();
+                faceLE.preferredWidth = 140f;
+                faceLE.preferredHeight = 140f;
+                var faceImg = faceGO.GetComponent<Image>();
+                faceImg.sprite = face ?? GetStarSprite();
+                faceImg.preserveAspect = true;
+                faceImg.color = face != null ? Color.white : RarityBg(g.MascotRarity);
+                faceImg.raycastTarget = false;
+                var nameGO = new GameObject("Rarity", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+                nameGO.transform.SetParent(rowGO.transform, false);
+                var nameTxt = nameGO.GetComponent<TextMeshProUGUI>();
+                nameTxt.font = _fontTitle;
+                nameTxt.text = Zoologic.Localization.LocalizationManager.Get(RarityKey(g.MascotRarity));
+                nameTxt.fontSize = 34;
+                nameTxt.fontStyle = FontStyles.Bold;
+                nameTxt.color = RarityText(g.MascotRarity);
+                nameTxt.alignment = TextAlignmentOptions.Center;
+                nameTxt.raycastTarget = false;
+                var nameLE = nameGO.AddComponent<LayoutElement>();
+                nameLE.flexibleWidth = 1f;
+            }
+        }
+
+        private IEnumerator PopupPopRoutine(Transform card)
+        {
+            card.localScale = new Vector3(0.7f, 0.7f, 1f);
+            const float duration = 0.32f;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                float t = Mathf.Clamp01(elapsed / duration);
+                float s = 0.7f + 0.3f * Zoologic.Easing.EaseOutBack(t);
+                card.localScale = new Vector3(s, s, 1f);
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+            card.localScale = Vector3.one;
+        }
+
+        private IEnumerator PunchRowsRoutine(Transform rows)
+        {
+            for (int i = 0; i < rows.childCount; i++)
+            {
+                var rt = rows.GetChild(i) as RectTransform;
+                if (rt != null)
+                    Zoologic.Punch.Scale(this, rt, 1.10f, 0.25f);
+                SFXManager.Instance.PlayUnlock();
+                yield return new WaitForSecondsRealtime(0.12f);
+            }
+        }
+
         private static Color Lighten(Color c, float amount)
         {
             return new Color(
@@ -1182,7 +1708,8 @@ namespace Zoologic
             else
             {
                 // Spec bloqué : chiffre fantôme + cadenas 3D 96px bas-droite.
-                CreerTexteNiveau(bubbleGO.transform, level, NumberLockedColor);
+                // Nommé NumGhost : le lint UX le classe décoratif (seuil 2.0).
+                CreerTexteNiveau(bubbleGO.transform, level, NumberLockedColor, "NumGhost");
                 CreerCadenas(bubbleGO.transform);
                 CreerBordureBasse(bubbleGO.transform, LockedEdge);
             }
@@ -1225,9 +1752,9 @@ namespace Zoologic
             img.raycastTarget = false;
         }
 
-        private void CreerTexteNiveau(Transform parent, int level, Color color)
+        private void CreerTexteNiveau(Transform parent, int level, Color color, string objName = "Num")
         {
-            var txtGO = new GameObject("Num");
+            var txtGO = new GameObject(objName);
             txtGO.transform.SetParent(parent, false);
             var rect = txtGO.AddComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.05f, 0.42f);
