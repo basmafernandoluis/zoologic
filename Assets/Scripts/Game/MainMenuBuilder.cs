@@ -821,6 +821,8 @@ namespace Zoologic
         {
             if (Keyboard.current?.escapeKey.wasPressedThisFrame ?? false)
             {
+                // Pub plein écran : ne rien consommer, laisser le SDK gérer BACK/X.
+                if (AdMobManager.IsFullscreenAdShowing()) return;
                 if (DailyRewardUI.IsOpen) { DailyRewardUI.Close(); return; }
                 if (MissionUI.IsOpen) { MissionUI.Close(); return; }
                 if (CollectionUI.IsOpen) { CollectionUI.Close(); return; }

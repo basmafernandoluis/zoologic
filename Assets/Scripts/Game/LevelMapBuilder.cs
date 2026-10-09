@@ -129,6 +129,7 @@ namespace Zoologic
             _topInset = CalcTopInset();
 
             PuzzleGameController.IsDailyPuzzle = false;
+            StarChestManager.CheckAndGrant();
             BuildScene();
             Zoologic.Localization.LocalizationManager.ApplyFontsToScene();
             LoadBubbles(40);
@@ -167,6 +168,8 @@ namespace Zoologic
         {
             if (Keyboard.current?.escapeKey.wasPressedThisFrame ?? false)
             {
+                // Pub plein écran : ne rien consommer, laisser le SDK gérer BACK/X.
+                if (AdMobManager.IsFullscreenAdShowing()) return;
                 if (DailyRewardUI.IsOpen) { DailyRewardUI.Close(); return; }
                 if (MissionUI.IsOpen) { MissionUI.Close(); return; }
                 if (SettingsPanel.HandleBackButton()) return;
@@ -1082,8 +1085,62 @@ namespace Zoologic
             progStarLE.preferredWidth = 40f;
             progStarLE.preferredHeight = 40f;
 
+            // Barre de progression vers le prochain palier (remplissage animé).
+            float nextTarget = target < 0 ? 1f : target;
+            float fillInit = target < 0 ? 1f : Mathf.Clamp01((float)stars / nextTarget);
+            var barBgGO = new GameObject("ChestProgressBg", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            barBgGO.transform.SetParent(leftGO.transform, false);
+            var barBgImg = barBgGO.GetComponent<Image>();
+            barBgImg.sprite = GetRoundedRectSprite();
+            barBgImg.type = Image.Type.Sliced;
+            barBgImg.color = new Color(0.918f, 0.875f, 0.796f, 1f);
+            barBgImg.raycastTarget = false;
+            var barBgLE = barBgGO.AddComponent<LayoutElement>();
+            barBgLE.preferredHeight = 24f;
+            barBgLE.flexibleWidth = 1f;
+            var barFillGO = new GameObject("ChestProgressFill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            barFillGO.transform.SetParent(barBgGO.transform, false);
+            var barFillRect = barFillGO.GetComponent<RectTransform>();
+            barFillRect.anchorMin = new Vector2(0f, 0f);
+            barFillRect.anchorMax = new Vector2(0f, 1f);
+            barFillRect.pivot = new Vector2(0f, 0.5f);
+            barFillRect.offsetMin = new Vector2(4f, 4f);
+            barFillRect.offsetMax = new Vector2(0f, -4f);
+            var barFillImg = barFillGO.GetComponent<Image>();
+            barFillImg.sprite = GetRoundedRectSprite();
+            barFillImg.type = Image.Type.Simple;
+            barFillImg.color = new Color(0.494f, 0.839f, 0.627f, 1f);
+            barFillImg.raycastTarget = false;
+            StartCoroutine(ChestFillRoutine(barFillRect, barBgGO.GetComponent<RectTransform>(), fillInit));
+
+            int firstUnclaimed = -1;
             for (int p = 0; p < 3; p++)
-                CreerBoutonCoffre(barGO.transform, world, p, stars);
+            {
+                if (!StarChestManager.IsClaimed(world, p)) { firstUnclaimed = p; break; }
+            }
+            for (int p = 0; p < 3; p++)
+                CreerBoutonCoffre(barGO.transform, world, p, stars, p == firstUnclaimed);
+        }
+
+        /// <summary>Remplissage animé 600ms EaseOutCubic (dopamine de progression).</summary>
+        private IEnumerator ChestFillRoutine(RectTransform fill, RectTransform bg, float targetFill)
+        {
+            yield return null;
+            if (fill == null || bg == null) yield break;
+            float fullW = bg.rect.width - 8f;
+            float elapsed = 0f;
+            const float duration = 0.6f;
+            while (elapsed < duration)
+            {
+                if (fill == null) yield break;
+                float t = Mathf.Clamp01(elapsed / duration);
+                float eased = 1f - Mathf.Pow(1f - t, 3f);
+                fill.sizeDelta = new Vector2(Mathf.Max(0f, fullW * targetFill * eased), fill.sizeDelta.y);
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+            if (fill != null)
+                fill.sizeDelta = new Vector2(Mathf.Max(0f, fullW * targetFill), fill.sizeDelta.y);
         }
 
         private void RefreshChestGauge()
@@ -1093,10 +1150,12 @@ namespace Zoologic
             CreerJaugeCoffres(canvas.transform);
         }
 
-        private void CreerBoutonCoffre(Transform parent, int world, int palier, int stars)
+        private void CreerBoutonCoffre(Transform parent, int world, int palier, int stars, bool isNext)
         {
             bool claimed = StarChestManager.IsClaimed(world, palier);
             bool ready = !claimed && stars >= StarChestManager.Thresholds[palier];
+            // Prochain palier verrouillé : vivant quand même (incitation), tap = aperçu.
+            bool tease = !claimed && !ready && isNext;
             Color tier = palier == 0 ? new Color(0.494f, 0.839f, 0.627f, 1f)
                 : palier == 1 ? new Color(0.302f, 0.549f, 0.898f, 1f)
                 : new Color(1f, 0.788f, 0.235f, 1f);
@@ -1110,12 +1169,26 @@ namespace Zoologic
             le.flexibleHeight = 0f;
 
             var img = go.AddComponent<Image>();
-            img.sprite = GetRoundedRectSprite();
-            img.type = Image.Type.Simple;
-            img.color = claimed ? new Color(0.914f, 0.886f, 0.835f, 1f)
-                : ready ? tier
-                : new Color(0.969f, 0.934f, 0.867f, 1f);
-            img.raycastTarget = ready;
+            // Visuels générés (repli : boîte procédurale teintée par palier).
+            Sprite art = ChestArt(palier);
+            if (art != null)
+            {
+                img.sprite = art;
+                img.type = Image.Type.Simple;
+                img.preserveAspect = true;
+                img.color = claimed ? new Color(0.62f, 0.62f, 0.62f, 1f)
+                    : ready || tease ? Color.white
+                    : new Color(0.72f, 0.72f, 0.72f, 1f);
+            }
+            else
+            {
+                img.sprite = GetRoundedRectSprite();
+                img.type = Image.Type.Simple;
+                img.color = claimed ? new Color(0.914f, 0.886f, 0.835f, 1f)
+                    : ready ? tier
+                    : new Color(0.969f, 0.934f, 0.867f, 1f);
+            }
+            img.raycastTarget = ready || tease;
             if (ready || claimed)
             {
                 var sh = go.AddComponent<Shadow>();
@@ -1176,6 +1249,12 @@ namespace Zoologic
                 starImg.raycastTarget = false;
             }
 
+            if (tease && !ready)
+            {
+                // Teasing : respiration douce (le gros pulse reste réservé au prêt).
+                var teaser = go.AddComponent<ChestTeaser>();
+                teaser.Amplitude = 0.03f;
+            }
             if (ready)
             {
                 // Pastille "!" + pulse d'appel (stop au claim via rebuild).
@@ -1209,8 +1288,34 @@ namespace Zoologic
                 go.AddComponent<ChestPulse>();
                 var btn = go.AddComponent<Button>();
                 btn.targetGraphic = img;
-                btn.onClick.AddListener(() => ShowChestPopup(world, palier));
+                btn.onClick.AddListener(() => ShowChestPopup(world, palier, false));
             }
+            else if (tease)
+            {
+                // Verrouillé mais prochain : tap = aperçu du contenu + manque.
+                var btn = go.AddComponent<Button>();
+                btn.targetGraphic = img;
+                btn.onClick.AddListener(() => ShowChestPopup(world, palier, true));
+            }
+        }
+
+        /// <summary>Respiration douce du prochain palier (le gros pulse = prêt).</summary>
+        private class ChestTeaser : MonoBehaviour
+        {
+            public float Amplitude = 0.03f;
+            private void Update()
+            {
+                if (this == null) return;
+                float s = 1f + (Mathf.Sin(Time.unscaledTime * 2f * Mathf.PI * 0.5f) * 0.5f + 0.5f) * Amplitude;
+                transform.localScale = new Vector3(s, s, s);
+            }
+        }
+
+        /// <summary>Visuel généré du coffre (Coffre_Mousse/Corail/Aurore).</summary>
+        private static Sprite ChestArt(int palier)
+        {
+            string file = palier == 0 ? "Coffre_Mousse" : palier == 1 ? "Coffre_Corail" : "Coffre_Aurore";
+            try { return Resources.Load<Sprite>("Sprites/" + file); } catch { return null; }
         }
 
         private class ChestPulse : MonoBehaviour
@@ -1248,7 +1353,8 @@ namespace Zoologic
         };
 
         /// <summary>Popup de claim : aperçu puis résultat (mascotte révélée).</summary>
-        private void ShowChestPopup(int world, int palier)
+        /// <param name="previewOnly">Coffre verrouillé : aperçu + manque, sans claim.</param>
+        private void ShowChestPopup(int world, int palier, bool previewOnly = false)
         {
             Canvas canvas = FindFirstObjectByType<Canvas>();
             if (canvas == null) return;
@@ -1273,7 +1379,7 @@ namespace Zoologic
             cardRect.anchorMin = new Vector2(0.5f, 0.5f);
             cardRect.anchorMax = new Vector2(0.5f, 0.5f);
             cardRect.pivot = new Vector2(0.5f, 0.5f);
-            cardRect.sizeDelta = new Vector2(700f, 560f);
+            cardRect.sizeDelta = new Vector2(700f, 640f);
             cardRect.anchoredPosition = Vector2.zero;
             var cardImg = card.GetComponent<Image>();
             cardImg.sprite = B1UI.Bubble ?? GetRoundedRectSprite();
@@ -1285,11 +1391,16 @@ namespace Zoologic
             cardShadow.effectDistance = new Vector2(0f, -10f);
 
             var vlg = card.AddComponent<VerticalLayoutGroup>();
-            vlg.padding = new RectOffset(40, 40, 32, 32);
+            vlg.padding = new RectOffset(32, 32, 28, 28);
             vlg.spacing = 16f;
             vlg.childAlignment = TextAnchor.MiddleCenter;
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
+            // Carte auto-ajustée au contenu (titre + 2-4 lignes + CTA) : fini
+            // les débordements (titre éjecté, CTA à cheval). Largeur fixe 700.
+            var fitter = card.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             var titleGO = new GameObject("Title", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             titleGO.transform.SetParent(card.transform, false);
@@ -1351,6 +1462,20 @@ namespace Zoologic
 
             BuildChestPreviewRows(rowsGO.transform, world, palier);
             StartCoroutine(PopupPopRoutine(card.transform));
+            if (previewOnly)
+            {
+                // Aperçu incitatif : contenu + étoiles manquantes, CTA = fermer.
+                int missing = Mathf.Max(0, StarChestManager.Thresholds[palier] - StarChestManager.StarsOfWorld(world));
+                BuildRewardRow(rowsGO.transform, GetStarSprite(), "+" + missing,
+                    new Color(0.55f, 0.32f, 0.08f, 1f), GoldStar);
+                ctaTxt.text = Zoologic.Localization.LocalizationManager.Get("menu.ok");
+                ctaBtn.onClick.AddListener(() =>
+                {
+                    SFXManager.Instance.PlayMenuClose();
+                    Destroy(root);
+                });
+                return;
+            }
             ctaBtn.onClick.AddListener(() =>
             {
                 SFXManager.Instance.PlayUnlock();
@@ -1385,8 +1510,66 @@ namespace Zoologic
                 BuildRewardRow(parent, LoadHintMedal(), "×" + hintsShown,
                     new Color(0.29f, 0.18f, 0.10f, 1f));
             if (palier >= 1)
-                BuildRewardRow(parent, null, "?",
-                    new Color(0.45f, 0.38f, 0.30f, 1f));
+                BuildMascotPreviewRow(parent, palier);
+        }
+
+        /// <summary>Ligne mascotte intuitive : une face par rareté tirage
+        /// (non-possédées uniquement) + label. Rien si pools épuisés (doublon
+        /// déjà converti en pièces). Fini le "?" cryptique.</summary>
+        private void BuildMascotPreviewRow(Transform parent, int palier)
+        {
+            string[] rarities = palier == 2
+                ? new[] { "R", "E", "L" }
+                : new[] { "C", "R" };
+            var faces = new System.Collections.Generic.List<Sprite>();
+            foreach (string r in rarities)
+            {
+                int idx = StarChestManager.FirstUnowned(r);
+                if (idx < 0) continue;
+                Sprite f = StarChestManager.MascotFace(idx);
+                if (f != null) faces.Add(f);
+            }
+            if (faces.Count == 0) return;
+
+            var rowGO = new GameObject("MascotPreview", typeof(RectTransform));
+            rowGO.transform.SetParent(parent, false);
+            var rowHLG = rowGO.AddComponent<HorizontalLayoutGroup>();
+            rowHLG.spacing = 12f;
+            rowHLG.childAlignment = TextAnchor.MiddleCenter;
+            rowHLG.childForceExpandWidth = false;
+            var rowLE = rowGO.AddComponent<LayoutElement>();
+            rowLE.preferredHeight = 84f;
+            rowLE.flexibleWidth = 1f;
+            foreach (Sprite f in faces)
+            {
+                var iconGO = new GameObject("Face", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                iconGO.transform.SetParent(rowGO.transform, false);
+                var iconLE = iconGO.AddComponent<LayoutElement>();
+                iconLE.preferredWidth = 68f;
+                iconLE.preferredHeight = 68f;
+                var iconImg = iconGO.GetComponent<Image>();
+                iconImg.sprite = f;
+                iconImg.preserveAspect = true;
+                // Aperçu = non-possédés par construction : silhouettes, comme
+                // en collection. Fini les mascottes affichées "débloquées".
+                iconImg.color = new Color(0.10f, 0.09f, 0.11f, 0.45f);
+                iconImg.raycastTarget = false;
+            }
+            var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            txtGO.transform.SetParent(rowGO.transform, false);
+            var txt = txtGO.GetComponent<TextMeshProUGUI>();
+            txt.font = _fontTitle;
+            txt.text = Zoologic.Localization.LocalizationManager.Get("collection.tab_mascots");
+            txt.fontSize = 30;
+            txt.fontStyle = FontStyles.Bold;
+            txt.color = new Color(0.29f, 0.18f, 0.10f, 1f);
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.raycastTarget = false;
+            txt.enableAutoSizing = true;
+            txt.fontSizeMin = 20;
+            txt.fontSizeMax = 30;
+            var txtLE = txtGO.AddComponent<LayoutElement>();
+            txtLE.flexibleWidth = 1f;
         }
 
         private const int HintOverflowValue = 20;
@@ -1400,7 +1583,7 @@ namespace Zoologic
             catch { return null; }
         }
 
-        private void BuildRewardRow(Transform parent, Sprite icon, string text, Color textColor)
+        private void BuildRewardRow(Transform parent, Sprite icon, string text, Color textColor, Color iconTint = default)
         {
             var rowGO = new GameObject("RewardRow", typeof(RectTransform));
             rowGO.transform.SetParent(parent, false);
@@ -1421,6 +1604,7 @@ namespace Zoologic
                 var iconImg = iconGO.GetComponent<Image>();
                 iconImg.sprite = icon;
                 iconImg.preserveAspect = true;
+                iconImg.color = iconTint == default ? Color.white : iconTint;
                 iconImg.raycastTarget = false;
             }
             var txtGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
@@ -2005,6 +2189,10 @@ namespace Zoologic
         {
             var canvas = FindFirstObjectByType<Canvas>();
             if (canvas == null) return;
+            // Singleton : un double-tap créait 2 popups empilés et "Fermer"
+            // semblait mort (il fermait celle du dessus seulement).
+            var prev = canvas.transform.Find("LivesPopup");
+            if (prev != null) Destroy(prev.gameObject);
             var root = new GameObject("LivesPopup", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             root.transform.SetParent(canvas.transform, false);
             var rRect = root.GetComponent<RectTransform>();

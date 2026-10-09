@@ -14,16 +14,14 @@ namespace Zoologic
     /// </summary>
     public sealed class AnimalTray : MonoBehaviour
     {
-        // DesignDoctor #5 : slots 56dp (148px ref) + spacing 12dp, mini 48dp (132px).
-        // 8x8 : dégradation gracieuse à 72px pour tenir dans 796px (scroll évité).
+        // Slots 56dp (148px ref). Largeur utile = espace ENTRE les médaillons
+        // de coin (indice/gomme 108px à 48px des bords) : 924 - 156 = 768,
+        // marge 16 de chaque côté → 736px. Au-delà du Holder, les médaillons
+        // seraient chevauchés (bug device constaté) : on ne dépasse jamais 736.
         private const float ChipSize = 148f;
         private const float ChipSpacing = 24f;
-
-        // Largeur utile de la rangée (holder 820 − padding 2×12) : au-delà,
-        // les jetons rétrécissent au lieu de déborder (8x8 → ~85px).
-        private const float TrayUsableWidth = 796f;
+        private const float TrayUsableWidth = 736f;
         private const float ChipMinSize = 72f;
-        private const float ChipMinComfort = 132f; // 48dp mini si N<=5
 
         private BoardDragController _drag;
         private Transform _row;
@@ -155,11 +153,16 @@ namespace Zoologic
             float size = ChipSize;
             if (n > 1)
             {
-                float minForCount = n <= 5 ? ChipMinComfort : ChipMinSize;
-                size = Mathf.Clamp((TrayUsableWidth - (n - 1) * ChipSpacing) / n, minForCount, ChipSize);
-                // 8x8 : si min confort déborde, retombe sur min absolu (évite overflow).
-                if (size * n + (n - 1) * ChipSpacing > TrayUsableWidth + 1f)
-                    size = Mathf.Clamp((TrayUsableWidth - (n - 1) * ChipSpacing) / n, ChipMinSize, ChipSize);
+                // Espacement adaptatif : 24px, réduit jusqu'à 8px pour garder
+                // des jetons ≥ 96px (~35dp) ; en dessous, dégradation à 72px mini.
+                float spacing = ChipSpacing;
+                size = (TrayUsableWidth - (n - 1) * spacing) / n;
+                while (size < 96f && spacing > 8f)
+                {
+                    spacing -= 4f;
+                    size = (TrayUsableWidth - (n - 1) * spacing) / n;
+                }
+                size = Mathf.Clamp(size, ChipMinSize, ChipSize);
             }
             var chips = new System.Collections.Generic.List<TrayChip>(n);
             for (int i = 0; i < n; i++)

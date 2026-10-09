@@ -42,6 +42,8 @@
 {"k":"shop.select","v":"Choisir"},
 {"k":"shop.selected","v":"Choisi"},
 {"k":"shop.buy","v":"Acheter · {0}"},
+{"k":"collection.tab_skins","v":"Skins"},
+{"k":"collection.tab_mascots","v":"Mascottes"},
 {"k":"hud.moves","v":"coups"},
 {"k":"victory.perfect","v":"PARFAIT !"},
 {"k":"hud.hint_look","v":"Regarde la case dorée !"},

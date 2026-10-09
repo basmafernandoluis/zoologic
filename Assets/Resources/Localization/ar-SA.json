@@ -42,6 +42,8 @@
 {"k":"shop.select","v":"اختيار"},
 {"k":"shop.selected","v":"مختار"},
 {"k":"shop.buy","v":"شراء · {0}"},
+{"k":"collection.tab_skins","v":"سكنات"},
+{"k":"collection.tab_mascots","v":"تمائم"},
 {"k":"hud.moves","v":"نقلات"},
 {"k":"victory.perfect","v":"مثالي!"},
 {"k":"hud.hint_look","v":"انظر إلى الخلية الذهبية!"},

@@ -221,6 +221,9 @@ namespace Zoologic
                 else
                     Debug.LogWarning("[Zoologic] AnimalIconSet : triplet mx__" + i + " incomplet, exclu.");
             }
+            // Les légendaires restent exclusifs collection (jamais en pions
+            // jouables) : les posséder doit signifier quelque chose. Ils restent
+            // visibles via LoadMoodNeutrals (contrôle via déblocages).
             for (int i = sets.Count - 1; i > 0; i--)
             {
                 int j = UnityEngine.Random.Range(0, i + 1);
@@ -231,14 +234,42 @@ namespace Zoologic
             return sets;
         }
 
-        /// <summary>Neutres mx__ pour aperçu boutique (3 premiers).</summary>
+        /// <summary>
+        /// Sprites d'extension (licorne + axolotl doré, triplets N/H/S découpés).
+        /// Ordre vérifié : _0 neutre, _1 heureux, _2 triste.
+        /// </summary>
+        private static Sprite[] LoadExtraSet(string file)
+        {
+            try
+            {
+                var all = Resources.LoadAll<Sprite>("Sprites/" + file);
+                var list = new System.Collections.Generic.List<Sprite>();
+                if (all != null)
+                {
+                    foreach (var s in all)
+                        if (s != null) list.Add(s);
+                    list.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
+                }
+                if (list.Count >= 3)
+                    return new[] { list[0], list[1], list[2] };
+            }
+            catch { }
+            return null;
+        }
+
+        /// <summary>Neutres mx__ (8) + licorne (8) + axolotl (9) pour collection.</summary>
         public static Sprite[] LoadMoodNeutrals()
         {
             Sprite[] sheet = LoadMoodSheet();
-            int n = Mathf.Min(8, sheet.Length);
-            var neutrals = new Sprite[n];
-            Array.Copy(sheet, neutrals, n);
-            return neutrals;
+            var neutrals = new System.Collections.Generic.List<Sprite>();
+            int n = sheet != null ? Mathf.Min(8, sheet.Length) : 0;
+            for (int i = 0; i < n; i++)
+                neutrals.Add(sheet[i]);
+            Sprite[] licorne = LoadExtraSet("Licorne_legendaire");
+            Sprite[] axolotl = LoadExtraSet("Axolotl_dore");
+            if (licorne != null) neutrals.Add(licorne[0]);
+            if (axolotl != null) neutrals.Add(axolotl[0]);
+            return neutrals.ToArray();
         }
 
         /// <summary>Version mélangée des têtes plates (même contrat que GetShuffled).</summary>

@@ -70,6 +70,8 @@ namespace Zoologic
 
         public static bool HandleBackButton()
         {
+            // Pub plein écran : ne rien fermer côté jeu (laisser le SDK gérer).
+            if (AdMobManager.IsFullscreenAdShowing()) return true;
             if (ParentGate.IsOpen) { ParentGate.Close(); return true; }
             if (!IsOpen) return false;
             Close();

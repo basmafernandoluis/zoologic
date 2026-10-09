@@ -78,6 +78,9 @@ Library/ShaderCompilationReport/
 # Firebase config (contains API key - NEVER commit, keep local only)
 google-services.json
 GoogleService-Info.plist
+# Firebase/EDM generated artifacts (regenerated at build, may embed keys)
+Assets/Plugins/Android/FirebaseApp.androidlib/
+Assets/StreamingAssets/
 
 # Build cache
 .utmp/

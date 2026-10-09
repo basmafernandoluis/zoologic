@@ -42,6 +42,8 @@
 {"k":"shop.select","v":"Escolher"},
 {"k":"shop.selected","v":"Escolhido"},
 {"k":"shop.buy","v":"Comprar · {0}"},
+{"k":"collection.tab_skins","v":"Skins"},
+{"k":"collection.tab_mascots","v":"Mascotes"},
 {"k":"hud.moves","v":"jogadas"},
 {"k":"victory.perfect","v":"PERFEITO!"},
 {"k":"hud.hint_look","v":"Olhe a casa dourada!"},

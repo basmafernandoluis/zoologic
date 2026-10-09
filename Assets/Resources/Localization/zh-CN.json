@@ -42,6 +42,8 @@
 {"k":"shop.select","v":"选择"},
 {"k":"shop.selected","v":"已选择"},
 {"k":"shop.buy","v":"购买 · {0}"},
+{"k":"collection.tab_skins","v":"皮肤"},
+{"k":"collection.tab_mascots","v":"吉祥物"},
 {"k":"hud.moves","v":"步"},
 {"k":"victory.perfect","v":"完美！"},
 {"k":"hud.hint_look","v":"看金色格子！"},

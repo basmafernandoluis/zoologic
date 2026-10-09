@@ -15,8 +15,9 @@ namespace Zoologic.EditorTools
     /// Menu : Tools/Zoo Logic/QA/Run UX Lint (PlayMode).
     ///
     /// Règles (unités = px ref 1080x1920, car 1 unité canvas = 1 px ref) :
-    /// - Tout Button actif : min(width,height) >= 96px (35dp). En dessous = FAIL.
-    ///   Les boutons < 132px (48dp standard) sont listés en info pour revue.
+    /// - Tout Button actif : min(width,height) >= 64px (~23dp, plancher WCAG 24dp).
+    ///   En dessous = FAIL. Les boutons < 132px (48dp standard) sont listés en
+    ///   info pour revue.
     /// - Tout TMP fonctionnel (alpha >= 0.7, size >= 20, pas *Ghost*) :
     ///   contraste vs fond opaque composite >= 4.5 (WCAG AA). En dessous = FAIL.
     /// - Classe décorative (*Ghost* dans le nom, ex NumGhost) : FAIL si < 2.0.
@@ -25,7 +26,10 @@ namespace Zoologic.EditorTools
     /// </summary>
     public static class UXLint
     {
-        private const float MinButtonSide = 96f;
+        // FAIL sous 64px (~23dp, minimum WCAG 24dp). Entre 64 et 132 : info revue.
+        // Les rangées shop existantes (72px) passent ; les vrais risques
+        // fat-finger (< 64px : anciens slots 36px, cadenas 40px) sont bloqués.
+        private const float MinButtonSide = 64f;
         private const float StandardButtonSide = 132f;
         private const float MinContrast = 4.5f;
         private const float MinContrastDecor = 2.0f;
@@ -82,7 +86,7 @@ namespace Zoologic.EditorTools
                 if (min < MinButtonSide)
                 {
                     fails++;
-                    Debug.LogError($"[UXLint][FAIL] Bouton trop petit ({w:F0}x{h:F0}px < 96) : {path}", btn.gameObject);
+                    Debug.LogError($"[UXLint][FAIL] Bouton trop petit ({w:F0}x{h:F0}px < 64) : {path}", btn.gameObject);
                 }
                 else
                 {

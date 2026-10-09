@@ -47,6 +47,16 @@ namespace Zoologic
         public static bool Under5Mode { get; private set; } = true;
         public static bool AreAdsAllowed() => !Under5Mode;
 
+        /// <summary>
+        /// Pub plein écran affichée (interstitiel/rewarded) : tant que vrai,
+        /// Unity doit IGNORER le bouton RETOUR/système (dialogues quitter,
+        /// fermeture de panels) pour le laisser à la pub — sinon le 1er appui
+        /// est avalé par le jeu et le X/Retour semble mort (régression constatée).
+        /// </summary>
+        private bool _fullscreenAdShowing;
+        public static bool IsFullscreenAdShowing() =>
+            Instance != null && Instance._fullscreenAdShowing;
+
         /// <summary>Log info pub : présent en éditeur/dev, strippé à la compilation en release (zéro spam logcat prod).</summary>
         [System.Diagnostics.Conditional("UNITY_EDITOR"), System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
         internal static void AdLog(string message) { UnityEngine.Debug.Log(message); }
@@ -299,6 +309,7 @@ namespace Zoologic
                 {
                     if (settled) return;
                     settled = true;
+                    _fullscreenAdShowing = false;
                     unsubscribe();
                     try { _lastAnyAdTime = Time.realtimeSinceStartup; } catch { } // fin du rewarded = début du gap 30s
                     StartCoroutine(RewardedCloseSequence(rewardEarned, onRewarded, onClosedNoReward));
@@ -308,6 +319,7 @@ namespace Zoologic
                 {
                     if (settled) return;
                     settled = true;
+                    _fullscreenAdShowing = false;
                     unsubscribe();
                     Debug.LogWarning("[AdMob] Rewarded show failed: " + e);
                     StartCoroutine(RewardedCloseSequence(false, null, onClosedNoReward));
@@ -318,17 +330,20 @@ namespace Zoologic
                 ad.OnAdFullScreenContentFailed += failedHandler;
                 try
                 {
+                    _fullscreenAdShowing = true;
                     ad.Show((Reward r) =>
                     {
                         rewardEarned = true;
                         AdLog($"[AdMob] Reward earned {r.Amount} {r.Type}");
                     });
                     try { _lastAnyAdTime = Time.realtimeSinceStartup; } catch { }
+                    StartCoroutine(RewardedStuckWatchdog(() => settled));
                     return;
                 }
                 catch (Exception e)
                 {
                     Debug.LogWarning("[AdMob] Show exception: " + e.Message);
+                    _fullscreenAdShowing = false;
                     if (settled) return;
                     settled = true;
                     unsubscribe();
@@ -336,16 +351,63 @@ namespace Zoologic
                 }
             }
             Debug.LogWarning("[AdMob] Rewarded not ready -> no grant (Families: no fake ad)");
+            _fullscreenAdShowing = false;
             ResumeMusicAfterAd();
             LoadRewarded();
             try { onClosedNoReward?.Invoke(); } catch (Exception e) { Debug.LogError("[AdMob] onClosedNoReward exception: " + e); }
             return;
         }
 
+        /// <summary>
+        /// Filet de sécurité : si le SDK n'envoie ni close ni fail (X natif
+        /// inerte, webview figée), on restaure au moins musique + stock après
+        /// 120s. Ne grante et ne navigue JAMAIS (pas de faux positifs).
+        /// </summary>
+        private IEnumerator RewardedStuckWatchdog(Func<bool> isSettled)
+        {
+            yield return new WaitForSecondsRealtime(120f);
+            bool done = false;
+            try { done = isSettled != null && isSettled(); } catch { done = true; }
+            if (done) yield break;
+            Debug.LogWarning("[AdMob] Watchdog : aucun event close/fail après 120s (X inerte ?). Restauration état, pas de grant.");
+            _fullscreenAdShowing = false;
+            ResumeMusicAfterAd();
+            LoadRewarded();
+        }
+
+        /// <summary>
+        /// Remise en route systématique après chaque pub (close/fail/timeout) :
+        /// un EventSystem mort, un drag fantôme ou des interactions verrouillées
+        /// = jeu figé derrière une pub fermée. Ne grante ni ne navigue jamais.
+        /// </summary>
+        private void RecoverUiAfterAd()
+        {
+            try { UiInputGuard.EnsureSingleEventSystem(); } catch { }
+            try
+            {
+                var hud = FindFirstObjectByType<GameHUD>();
+                if (hud == null) return;
+                // Hors défaite (drapeau réservé à l'écran d'échec) : déverrouille
+                // + rafraîchit les compteurs (indices/pièces post-récompense).
+                if (!hud.InteractionsBloquees)
+                    hud.BloquerInteractions(false);
+                hud.RefreshCoins();
+                hud.RefreshIndiceDisplay();
+            }
+            catch { }
+            try
+            {
+                var drag = FindFirstObjectByType<BoardDragController>();
+                if (drag != null) drag.Cancel();
+            }
+            catch { }
+        }
+
         private IEnumerator RewardedCloseSequence(bool earned, Action onRewarded, Action onClosedNoReward)
         {
             yield return null;
             yield return null;
+            RecoverUiAfterAd();
             ResumeMusicAfterAd();
             if (earned)
             {
@@ -409,10 +471,14 @@ namespace Zoologic
                 if (_interstitialAd != null && _interstitialAd.CanShowAd())
                 {
                     PauseMusicForAd();
+                    bool interstitialSettled = false;
                     Action closedHandler = null;
                     Action<AdError> failedHandler = null;
                     closedHandler = () =>
                     {
+                        interstitialSettled = true;
+                        _fullscreenAdShowing = false;
+                        AdLog("[AdMob] Interstitial closed (event SDK reçu)");
                         try
                         {
                             if (_interstitialAd != null)
@@ -422,6 +488,7 @@ namespace Zoologic
                             }
                         }
                     catch { }
+                    RecoverUiAfterAd();
                     ResumeMusicAfterAd();
                     _interstitialAd = null;
                     LoadInterstitial();
@@ -429,6 +496,9 @@ namespace Zoologic
                 };
                 failedHandler = (AdError e) =>
                 {
+                    interstitialSettled = true;
+                    _fullscreenAdShowing = false;
+                    AdLog("[AdMob] Interstitial failed (event SDK reçu): " + e);
                     try
                     {
                         if (_interstitialAd != null)
@@ -439,6 +509,7 @@ namespace Zoologic
                     }
                     catch { }
                     Debug.LogWarning("[AdMob] Interstitial failed: " + e);
+                    RecoverUiAfterAd();
                     ResumeMusicAfterAd();
                     _interstitialAd = null;
                     LoadInterstitial();
@@ -446,6 +517,11 @@ namespace Zoologic
                 };
                     _interstitialAd.OnAdFullScreenContentClosed += closedHandler;
                     _interstitialAd.OnAdFullScreenContentFailed += failedHandler;
+                    _fullscreenAdShowing = true;
+                    // Filet : si le SDK n'envoie ni close ni fail (X natif inerte),
+                    // on restaure musique + stock. JAMAIS de continuation auto ici
+                    // (une navigation surprise 120s plus tard serait pire).
+                    StartCoroutine(InterstitialStuckWatchdog(() => interstitialSettled));
                     try
                     {
                         _interstitialAd.Show();
@@ -455,7 +531,7 @@ namespace Zoologic
                         AdLog($"[AdMob] Show level={levelNumber} count={_victoryCount} session={_sessionInterstitialCount}");
                         return true;
                     }
-                    catch (Exception e) { Debug.LogWarning("[AdMob] Interstitial show failed: " + e.Message); ResumeMusicAfterAd(); }
+                    catch (Exception e) { Debug.LogWarning("[AdMob] Interstitial show failed: " + e.Message); _fullscreenAdShowing = false; ResumeMusicAfterAd(); }
                     try
                     {
                         _interstitialAd.OnAdFullScreenContentClosed -= closedHandler;
@@ -468,6 +544,19 @@ namespace Zoologic
             return false;
             }
             catch (Exception e) { Debug.LogWarning("[AdMob] ShowInterstitialIfNeeded failed: " + e.Message); return false; }
+        }
+
+        /// <summary>Voir RewardedStuckWatchdog : restauration seule, pas de navigation.</summary>
+        private IEnumerator InterstitialStuckWatchdog(Func<bool> isSettled)
+        {
+            yield return new WaitForSecondsRealtime(120f);
+            bool done = false;
+            try { done = isSettled != null && isSettled(); } catch { done = true; }
+            if (done) yield break;
+            Debug.LogWarning("[AdMob] Watchdog interstitiel : 120s sans close/fail (X inerte ?), restauration état.");
+            _fullscreenAdShowing = false;
+            ResumeMusicAfterAd();
+            LoadInterstitial();
         }
 
         // Compat anciens appels sans niveau -> 0 < LEVEL_MIN = toujours skipped (sûr).

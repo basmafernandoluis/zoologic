@@ -248,6 +248,8 @@ namespace Zoologic{
         private void Update()        {
             if (Keyboard.current?.escapeKey.wasPressedThisFrame ?? false)
             {
+                // Pub plein écran : ne rien consommer, laisser le SDK gérer BACK/X.
+                if (AdMobManager.IsFullscreenAdShowing()) return;
                 if (SettingsPanel.HandleBackButton()) return;
                 ShowQuitConfirmation();
             }
@@ -1441,6 +1443,7 @@ namespace Zoologic{
             }
             SetupVictoryRewardRow();
             SetVictoryButtonsEnabled(false);
+            StarChestManager.CheckAndGrant();
             if (_victoryLevelText != null)                _victoryLevelText.text = IsDailyPuzzle ? Zoologic.Localization.LocalizationManager.Get("victory.daily_badge") : Zoologic.Localization.LocalizationManager.Get("victory.level_badge", _numeroNiveau);
             if (_victoryText != null)                _victoryText.text = IsDailyPuzzle ? Zoologic.Localization.LocalizationManager.Get("victory.daily_title") : Zoologic.Localization.LocalizationManager.Get("victory.title");
             if (_drag != null)                _drag.Cancel();

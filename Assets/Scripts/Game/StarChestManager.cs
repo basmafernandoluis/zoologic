@@ -19,6 +19,8 @@ namespace Zoologic
         public const int Worlds = 4;
         public const int WorldSize = 25;
         public static readonly int[] Thresholds = { 10, 25, 50 };
+        /// <summary>Nombre de mascottes : mx__0-7 + licorne (8) + axolotl (9).</summary>
+        public const int MascotCount = 10;
 
         private const string ClaimKey = "StarChest_W{0}_P{1}";
         private const string OwnKey = "Mascot_Owned_mx{0}";
@@ -58,11 +60,20 @@ namespace Zoologic
             if (mxIndex <= 3) return "C";
             if (mxIndex <= 5) return "R";
             if (mxIndex == 6) return "E";
-            return "L";
+            return "L"; // mx7 + licorne (8) + axolotl (9)
         }
 
         public static bool OwnsMascot(int mxIndex) =>
             PlayerPrefs.GetInt(string.Format(OwnKey, mxIndex), 0) == 1;
+
+        /// <summary>Premier non-possédé d'une rareté (-1 si épuisée).</summary>
+        public static int FirstUnowned(string rarity)
+        {
+            for (int i = 0; i < MascotCount; i++)
+                if (RarityOf(i) == rarity && !OwnsMascot(i))
+                    return i;
+            return -1;
+        }
 
         public static void SetOwned(int mxIndex)
         {
@@ -105,7 +116,7 @@ namespace Zoologic
             if (pity >= PityEpicAt && rarity != "L")
                 rarity = "E";
             var pool = new List<int>();
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < MascotCount; i++)
                 if (RarityOf(i) == rarity && !OwnsMascot(i))
                     pool.Add(i);
             bool epicOrBetter = rarity == "E" || rarity == "L";
@@ -144,6 +155,68 @@ namespace Zoologic
             else if (palier == 1) { g.Coins = 60; g.Hints = 1; }
             else { g.Coins = 100; g.Hints = 2; }
             return g;
+        }
+
+        /// <summary>Total d'étoiles tous niveaux (voies A/B).</summary>
+        public static int TotalStars()
+        {
+            int total = 0;
+            for (int lvl = 1; lvl <= 100; lvl++)
+                total += LevelProgressManager.GetStars(lvl);
+            return total;
+        }
+
+        public static bool IsWorldComplete(int world)
+        {
+            for (int lvl = world * StarChestManager.WorldSize + 1; lvl < world * StarChestManager.WorldSize + 26; lvl++)
+                if (LevelProgressManager.GetStars(lvl) <= 0)
+                    return false;
+            return true;
+        }
+
+        /// <summary>Prix boutique par rareté (-1 = jamais achetable).</summary>
+        public static int ShopPrice(string rarity) => rarity switch
+        {
+            "C" => 80,
+            "R" => 200,
+            "E" => 450,
+            _ => -1,
+        };
+
+        public static void CheckAndGrant()
+        {
+            try
+            {
+                int total = TotalStars();
+                GrantThreshold(total, 30, "C");
+                GrantThreshold(total, 80, "R");
+                GrantThreshold(total, 150, "E");
+                GrantThreshold(total, 250, "L");
+                if (IsWorldComplete(0)) GrantFixed(4);
+                if (IsWorldComplete(1)) GrantFixed(6);
+                if (IsWorldComplete(3)) GrantFixed(7);
+            }
+            catch { }
+        }
+
+        private static void GrantThreshold(int total, int need, string rarity)
+        {
+            if (total < need) return;
+            for (int i = 0; i < MascotCount; i++)
+            {
+                if (StarChestManager.RarityOf(i) != rarity || StarChestManager.OwnsMascot(i))
+                    continue;
+                StarChestManager.SetOwned(i);
+                try { AnalyticsManager.LogMascotUnlocked("mx" + i, rarity); } catch { }
+                return;
+            }
+        }
+
+        private static void GrantFixed(int index)
+        {
+            if (StarChestManager.OwnsMascot(index)) return;
+            StarChestManager.SetOwned(index);
+            try { AnalyticsManager.LogMascotUnlocked("mx" + index, StarChestManager.RarityOf(index)); } catch { }
         }
 
         /// <summary>Applique le claim : pièces, indices (overflow +20), mascotte.</summary>

@@ -10,9 +10,10 @@ using Zoologic.Core;
 namespace Zoologic.EditorTools
 {
     /// <summary>
-    /// QA Gate pré-prod, périmètre Core puzzle uniquement.
+    /// QA Gate pré-prod : Core puzzle + méta-progression (coffres, niveaux,
+    /// skins, loc), testable en batch Éditeur Windows.
     /// Éditeur Windows, rapport seul : ne bloque jamais le build prod.
-    /// Menu : Tools/Zoo Logic/QA/Run Core Gate. Batchmode : QAGate.RunBatch.
+    /// Menu : Tools/Zoo Logic/QA/Run Core Gate (log + .md). Batchmode : QAGate.RunBatch.
     /// </summary>
     public static class QAGate
     {
@@ -75,6 +76,10 @@ namespace Zoologic.EditorTools
             SectionPuzzleGrid();
             SectionIdentite();
             SectionAnalytics();
+            SectionStarChest();
+            SectionProgression();
+            SectionSkins();
+            SectionLoc();
 
             totalSw.Stop();
             PrintConsole(totalSw.ElapsedMilliseconds);
@@ -905,6 +910,505 @@ namespace Zoologic.EditorTools
                     return (QAStatus.Warn, "WARN: SDK Firebase présent — checks no-op non applicables, vérif DebugView requise.");
                 return (QAStatus.Pass, "No-op sans SDK vérifié (IsAvailable=false).");
             });
+        }
+
+        // ------------------------------------------------------------------
+        // Isolation PlayerPrefs : snapshot/restaure les clés touchées par les
+        // tests méta-progression (le batch Éditeur persiste sur disque).
+        // ------------------------------------------------------------------
+
+        private static System.Action SnapshotPrefs(
+            IEnumerable<string> intKeys, IEnumerable<string> stringKeys)
+        {
+            var ints = new Dictionary<string, KeyValuePair<bool, int>>();
+            foreach (string k in intKeys)
+                ints[k] = new KeyValuePair<bool, int>(PlayerPrefs.HasKey(k), PlayerPrefs.GetInt(k, 0));
+            var strs = new Dictionary<string, KeyValuePair<bool, string>>();
+            foreach (string k in stringKeys)
+                strs[k] = new KeyValuePair<bool, string>(PlayerPrefs.HasKey(k), PlayerPrefs.GetString(k, ""));
+            return () =>
+            {
+                foreach (var kv in ints)
+                {
+                    if (kv.Value.Key) PlayerPrefs.SetInt(kv.Key, kv.Value.Value);
+                    else PlayerPrefs.DeleteKey(kv.Key);
+                }
+                foreach (var kv in strs)
+                {
+                    if (kv.Value.Key) PlayerPrefs.SetString(kv.Key, kv.Value.Value);
+                    else PlayerPrefs.DeleteKey(kv.Key);
+                }
+                PlayerPrefs.Save();
+            };
+        }
+
+        private static List<string> StarKeysAll()
+        {
+            var keys = new List<string> { "highest_unlocked" };
+            for (int lvl = 1; lvl <= 100; lvl++)
+                keys.Add("stars_level_" + lvl);
+            return keys;
+        }
+
+        private static List<string> ChestKeysAll()
+        {
+            var keys = new List<string> { "Mascot_PityEpic" };
+            for (int w = 0; w < 4; w++)
+                for (int p = 0; p < 3; p++)
+                    keys.Add("StarChest_W" + w + "_P" + p);
+            for (int i = 0; i < 10; i++)
+                keys.Add("Mascot_Owned_mx" + i);
+            return keys;
+        }
+
+        private static readonly List<string> EconKeys =
+            new List<string> { "player_coins", "hint_stock" };
+
+        private static readonly List<string> SkinIntKeys =
+            new List<string> { "skin_selected" };
+
+        private static readonly List<string> SkinStringKeys =
+            new List<string> { "skin_owned" };
+
+        private static void ClearMascots()
+        {
+            for (int i = 0; i < 10; i++)
+                PlayerPrefs.DeleteKey("Mascot_Owned_mx" + i);
+            PlayerPrefs.DeleteKey("Mascot_PityEpic");
+        }
+
+        // ------------------------------------------------------------------
+        // Section StarChest (P1) : paliers, pity, prix, exécution, monde 2.
+        // ------------------------------------------------------------------
+
+        private static void SectionStarChest()
+        {
+            RunOne("CHEST-WORLD", "StarChest", "WorldOf bornes + StarsOfWorld", () =>
+            {
+                var restore = SnapshotPrefs(StarKeysAll(), new List<string>());
+                try
+                {
+                    Expect(Zoologic.StarChestManager.WorldOf(1) == 0, "niv.1 → monde 0.");
+                    Expect(Zoologic.StarChestManager.WorldOf(25) == 0, "niv.25 → monde 0.");
+                    Expect(Zoologic.StarChestManager.WorldOf(26) == 1, "niv.26 → monde 1.");
+                    Expect(Zoologic.StarChestManager.WorldOf(100) == 3, "niv.100 → monde 3.");
+                    for (int lvl = 1; lvl <= 5; lvl++)
+                        Zoologic.LevelProgressManager.SetStars(lvl, 3);
+                    Expect(Zoologic.StarChestManager.StarsOfWorld(0) == 15, "5×3⭐ monde 0 = 15.");
+                    Expect(Zoologic.StarChestManager.TotalStars() == 15, "TotalStars = 15.");
+                    return (QAStatus.Pass, "Bornes mondes + sommes OK.");
+                }
+                finally { restore(); }
+            });
+
+            RunOne("CHEST-READY", "StarChest", "IsReady seuils + claim", () =>
+            {
+                var restore = SnapshotPrefs(StarKeysAll().Concat(ChestKeysAll()).ToList(), new List<string>());
+                try
+                {
+                    for (int lvl = 26; lvl <= 30; lvl++)
+                        Zoologic.LevelProgressManager.SetStars(lvl, 1);
+                    Expect(!Zoologic.StarChestManager.IsReady(1, 0), "5⭐ < 10 : pas prêt.");
+                    for (int lvl = 31; lvl <= 35; lvl++)
+                        Zoologic.LevelProgressManager.SetStars(lvl, 1);
+                    Expect(Zoologic.StarChestManager.IsReady(1, 0), "10⭐ : prêt P0.");
+                    Expect(!Zoologic.StarChestManager.IsReady(1, 2), "10⭐ < 50 : P2 pas prêt.");
+                    Zoologic.StarChestManager.SetClaimed(1, 0);
+                    Expect(Zoologic.StarChestManager.IsClaimed(1, 0), "Claim enregistré.");
+                    Expect(!Zoologic.StarChestManager.IsReady(1, 0), "Réclamé : plus prêt.");
+                    return (QAStatus.Pass, "Seuils 10/25/50 + claim OK.");
+                }
+                finally { restore(); }
+            });
+
+            RunOne("CHEST-PREVIEW", "StarChest", "Preview exact + pur (sans effet)", () =>
+            {
+                var restore = SnapshotPrefs(
+                    StarKeysAll().Concat(ChestKeysAll()).Concat(EconKeys).ToList(), new List<string>());
+                try
+                {
+                    int c0 = Zoologic.CurrencyManager.GetCoins();
+                    int h0 = Zoologic.HintStockManager.Get();
+                    var p0 = Zoologic.StarChestManager.Preview(0, 0);
+                    var p1 = Zoologic.StarChestManager.Preview(0, 1);
+                    var p2 = Zoologic.StarChestManager.Preview(0, 2);
+                    Expect(p0.Coins == 30 && p0.Hints == 1 && p0.MascotIndex == -1, "P0 = 30c+1.");
+                    Expect(p1.Coins == 60 && p1.Hints == 1, "P1 = 60c+1.");
+                    Expect(p2.Coins == 100 && p2.Hints == 2, "P2 = 100c+2.");
+                    Expect(Zoologic.CurrencyManager.GetCoins() == c0
+                        && Zoologic.HintStockManager.Get() == h0, "Preview sans effet.");
+                    return (QAStatus.Pass, "P0/P1/P2 exacts, zéro effet de bord.");
+                }
+                finally { restore(); }
+            });
+
+            RunOne("CHEST-EXEC0", "StarChest", "Execute P0 + overflow + idempotence", () =>
+            {
+                var restore = SnapshotPrefs(
+                    StarKeysAll().Concat(ChestKeysAll()).Concat(EconKeys).ToList(), new List<string>());
+                try
+                {
+                    for (int lvl = 76; lvl <= 80; lvl++)
+                        Zoologic.LevelProgressManager.SetStars(lvl, 2);
+                    Zoologic.HintStockManager.Set(Zoologic.HintStockManager.MaxStock);
+                    int c0 = Zoologic.CurrencyManager.GetCoins();
+                    var g = Zoologic.StarChestManager.Execute(3, 0);
+                    Expect(g.Coins == 50 && g.Hints == 0,
+                        "Stock plein : 30 + 20 overflow = 50c, 0 indice (obtenu " + g.Coins + "c/" + g.Hints + ").");
+                    Expect(Zoologic.StarChestManager.IsClaimed(3, 0), "Claim enregistré.");
+                    Expect(Zoologic.CurrencyManager.GetCoins() == c0 + 50, "Cagnotte +50.");
+                    var g2 = Zoologic.StarChestManager.Execute(3, 0);
+                    Expect(g2.Coins == 0 && g2.Hints == 0, "2e claim : zéro (anti double).");
+                    Expect(Zoologic.CurrencyManager.GetCoins() == c0 + 50, "Pas de double crédit.");
+                    return (QAStatus.Pass, "P0 overflow + idempotence OK.");
+                }
+                finally { restore(); }
+            });
+
+            RunOne("CHEST-EXEC1", "StarChest", "Execute P1 + mascotte cohérente", () =>
+            {
+                var restore = SnapshotPrefs(
+                    StarKeysAll().Concat(ChestKeysAll()).Concat(EconKeys).ToList(), new List<string>());
+                try
+                {
+                    for (int lvl = 1; lvl <= 9; lvl++)
+                        Zoologic.LevelProgressManager.SetStars(lvl, 3);
+                    ClearMascots();
+                    Zoologic.HintStockManager.Set(1);
+                    UnityEngine.Random.InitState(1234);
+                    var g = Zoologic.StarChestManager.Execute(0, 1);
+                    Expect(g.Coins == 60 && g.Hints == 1, "60c+1 sans overflow (obtenu " + g.Coins + "c/" + g.Hints + ").");
+                    Expect(Zoologic.HintStockManager.Get() == 2, "Stock 1 → 2.");
+                    if (g.MascotIndex >= 0)
+                    {
+                        Expect(Zoologic.StarChestManager.OwnsMascot(g.MascotIndex), "Mascotte possédée.");
+                        Expect(Zoologic.StarChestManager.RarityOf(g.MascotIndex) == g.MascotRarity, "Rareté cohérente.");
+                    }
+                    else
+                    {
+                        Expect(g.DuplicateCoins == 40 || g.DuplicateCoins == 100,
+                            "Doublon converti (obtenu " + g.DuplicateCoins + ").");
+                    }
+                    return (QAStatus.Pass, "P1 mascotte cohérente, stock OK.");
+                }
+                finally { restore(); }
+            });
+
+            RunOne("CHEST-PITY", "StarChest", "Pity Épique à 8 + doublon", () =>
+            {
+                var restore = SnapshotPrefs(ChestKeysAll().Concat(EconKeys).ToList(), new List<string>());
+                try
+                {
+                    ClearMascots();
+                    PlayerPrefs.SetInt("Mascot_PityEpic", 8);
+                    UnityEngine.Random.InitState(777);
+                    string rarity;
+                    int dup;
+                    int pick = Zoologic.StarChestManager.RollMascot(false, out rarity, out dup);
+                    Expect(rarity == "E", "Pity 8 force E (obtenu " + rarity + ").");
+                    Expect(pick == 6 && Zoologic.StarChestManager.OwnsMascot(6), "mx6 attribué.");
+                    Expect(PlayerPrefs.GetInt("Mascot_PityEpic", -1) == 0, "Pity reset à 0.");
+                    PlayerPrefs.SetInt("Mascot_PityEpic", 8);
+                    int pick2 = Zoologic.StarChestManager.RollMascot(false, out string rarity2, out int dup2);
+                    Expect(pick2 == -1 && dup2 == 200, "E épuisé → doublon 200 (obtenu " + dup2 + ").");
+                    return (QAStatus.Pass, "Pity 8 → E, doublon 200 OK.");
+                }
+                finally { restore(); }
+            });
+
+            RunOne("CHEST-RARITY", "StarChest", "Raretés + prix + FirstUnowned", () =>
+            {
+                var restore = SnapshotPrefs(ChestKeysAll(), new List<string>());
+                try
+                {
+                    for (int i = 0; i <= 3; i++)
+                        Expect(Zoologic.StarChestManager.RarityOf(i) == "C", "mx" + i + " = C.");
+                    for (int i = 4; i <= 5; i++)
+                        Expect(Zoologic.StarChestManager.RarityOf(i) == "R", "mx" + i + " = R.");
+                    Expect(Zoologic.StarChestManager.RarityOf(6) == "E", "mx6 = E.");
+                    for (int i = 7; i <= 9; i++)
+                        Expect(Zoologic.StarChestManager.RarityOf(i) == "L", "mx" + i + " = L.");
+                    Expect(Zoologic.StarChestManager.ShopPrice("C") == 80, "Shop C 80.");
+                    Expect(Zoologic.StarChestManager.ShopPrice("R") == 200, "Shop R 200.");
+                    Expect(Zoologic.StarChestManager.ShopPrice("E") == 450, "Shop E 450.");
+                    Expect(Zoologic.StarChestManager.ShopPrice("L") == -1, "Shop L inachetable.");
+                    ClearMascots();
+                    Expect(Zoologic.StarChestManager.FirstUnowned("C") == 0, "1er C libre = 0.");
+                    Zoologic.StarChestManager.SetOwned(0);
+                    Expect(Zoologic.StarChestManager.FirstUnowned("C") == 1, "Après mx0 → 1.");
+                    return (QAStatus.Pass, "Raretés/prix/FirstUnowned OK.");
+                }
+                finally { restore(); }
+            });
+
+            RunOne("CHEST-FACES", "StarChest", "10 visages mascottes non-null", () =>
+            {
+                Sprite[] neutrals = Zoologic.AnimalIconSet.LoadMoodNeutrals();
+                int count = neutrals != null ? neutrals.Length : 0;
+                Expect(count >= 10, "LoadMoodNeutrals >= 10 (obtenu " + count + ").");
+                for (int i = 0; i < 10; i++)
+                    Expect(Zoologic.StarChestManager.MascotFace(i) != null, "Face mx" + i + " non-null.");
+                return (QAStatus.Pass, count + " visages, 10/10 non-null.");
+            });
+
+            RunOne("CHEST-THRESHOLD", "StarChest", "Seuils A 30/80/150/250 + monde 2 verrouillé", () =>
+            {
+                var restore = SnapshotPrefs(
+                    StarKeysAll().Concat(ChestKeysAll()).Concat(EconKeys).ToList(), new List<string>());
+                try
+                {
+                    ClearMascots();
+                    for (int lvl = 1; lvl <= 10; lvl++)
+                        Zoologic.LevelProgressManager.SetStars(lvl, 3);
+                    Zoologic.StarChestManager.CheckAndGrant();
+                    Expect(Zoologic.StarChestManager.OwnsMascot(0), "Seuil 30 → mx0 (1er C).");
+                    Expect(!Zoologic.StarChestManager.OwnsMascot(1), "Un seul octroi par seuil.");
+                    // Monde 2 seul complet, total < 30 : aucun octroi (asymétrie voulue).
+                    ClearMascots();
+                    for (int lvl = 1; lvl <= 100; lvl++)
+                        PlayerPrefs.DeleteKey("stars_level_" + lvl);
+                    for (int lvl = 51; lvl <= 75; lvl++)
+                        Zoologic.LevelProgressManager.SetStars(lvl, 1);
+                    Zoologic.StarChestManager.CheckAndGrant();
+                    bool anyOwned = false;
+                    for (int i = 0; i < 10; i++)
+                        anyOwned |= Zoologic.StarChestManager.OwnsMascot(i);
+                    Expect(!anyOwned, "Monde 2 seul : zéro octroi (voulu, verrouillé).");
+                    return (QAStatus.Pass, "Seuils A + monde-2 verrouillé OK.");
+                }
+                finally { restore(); }
+            });
+
+            RunOne("CHEST-DIST", "StarChest", "Distribution P2 ~70% C (seed fixe)", () =>
+            {
+                var restore = SnapshotPrefs(ChestKeysAll(), new List<string>());
+                try
+                {
+                    UnityEngine.Random.InitState(42);
+                    var savedState = UnityEngine.Random.state;
+                    int c = 0, n = 200;
+                    for (int i = 0; i < n; i++)
+                    {
+                        ClearMascots();
+                        PlayerPrefs.SetInt("Mascot_PityEpic", 0);
+                        UnityEngine.Random.InitState(42 + i);
+                        string rarity;
+                        int dup;
+                        Zoologic.StarChestManager.RollMascot(false, out rarity, out dup);
+                        if (rarity == "C") c++;
+                    }
+                    UnityEngine.Random.state = savedState;
+                    int pct = c * 100 / n;
+                    Expect(pct >= 40 && pct <= 90, "Taux C hors bornes [40,90] : " + pct + "%.");
+                    return (QAStatus.Pass, "Distribution C = " + pct + "% (cible 70).");
+                }
+                finally { restore(); }
+            });
+        }
+
+        // ------------------------------------------------------------------
+        // Section Progression : monotonie, pas de downgrade, bornes.
+        // ------------------------------------------------------------------
+
+        private static void SectionProgression()
+        {
+            RunOne("PROG-UNLOCK", "Progression", "UnlockNextLevel monotone", () =>
+            {
+                var restore = SnapshotPrefs(new List<string> { "highest_unlocked" }, new List<string>());
+                try
+                {
+                    Zoologic.LevelProgressManager.UnlockNextLevel(900);
+                    Expect(Zoologic.LevelProgressManager.GetHighestUnlockedLevel() == 901, "Unlock 900 → 901.");
+                    Zoologic.LevelProgressManager.UnlockNextLevel(5);
+                    Expect(Zoologic.LevelProgressManager.GetHighestUnlockedLevel() == 901, "Pas de downgrade.");
+                    return (QAStatus.Pass, "Monotonie OK.");
+                }
+                finally { restore(); }
+            });
+
+            RunOne("PROG-STARS", "Progression", "SetStars pas de downgrade", () =>
+            {
+                var restore = SnapshotPrefs(new List<string> { "stars_level_999" }, new List<string>());
+                try
+                {
+                    Expect(Zoologic.LevelProgressManager.GetStars(999) == 0, "Défaut 0.");
+                    Zoologic.LevelProgressManager.SetStars(999, 2);
+                    Expect(Zoologic.LevelProgressManager.GetStars(999) == 2, "Set 2.");
+                    Zoologic.LevelProgressManager.SetStars(999, 1);
+                    Expect(Zoologic.LevelProgressManager.GetStars(999) == 2, "Pas de downgrade.");
+                    return (QAStatus.Pass, "No-downgrade OK.");
+                }
+                finally { restore(); }
+            });
+
+            RunOne("PROG-SCOPE", "Progression", "TotalStars 1..100 + ResetAll non couvert", () =>
+            {
+                var restore = SnapshotPrefs(new List<string> { "stars_level_500" }, new List<string>());
+                try
+                {
+                    int before = Zoologic.StarChestManager.TotalStars();
+                    Zoologic.LevelProgressManager.SetStars(500, 3);
+                    Expect(Zoologic.StarChestManager.TotalStars() == before, "Niv.500 hors TotalStars (portée 1..100).");
+                    return (QAStatus.Warn, "WARN: TotalStars 1..100 mais ResetAll 1..1000 (divergence doc) ; ResetAll destructif non couvert en batch.");
+                }
+                finally { restore(); }
+            });
+        }
+
+        // ------------------------------------------------------------------
+        // Section Skins (P2) : coûts, ownership, sélection.
+        // ------------------------------------------------------------------
+
+        private static void SectionSkins()
+        {
+            RunOne("SKIN-COSTS", "Skins", "Coûts + hors-bornes", () =>
+            {
+                Expect(Zoologic.SkinManager.CostOf(0) == 0, "Bois 0.");
+                Expect(Zoologic.SkinManager.CostOf(1) == 200, "Flat 200.");
+                Expect(Zoologic.SkinManager.CostOf(2) == 350, "Doré 350.");
+                Expect(Zoologic.SkinManager.CostOf(3) == 500, "Nuit 500.");
+                Expect(Zoologic.SkinManager.CostOf(-1) == int.MaxValue, "Hors-bornes MaxValue.");
+                Expect(Zoologic.SkinManager.CostOf(99) == int.MaxValue, "Hors-bornes MaxValue.");
+                return (QAStatus.Pass, "Coûts 0/200/350/500 OK.");
+            });
+
+            RunOne("SKIN-TINT", "Skins", "Teintes opaques + FlatFaces", () =>
+            {
+                for (int i = 0; i < 4; i++)
+                    Expect(System.Math.Abs(Zoologic.SkinManager.TintOf(i).a - 1f) < 0.001f, "Teinte " + i + " opaque.");
+                Expect(Zoologic.SkinManager.TintOf(99) == UnityEngine.Color.white, "Hors-bornes blanc.");
+                Expect(Zoologic.SkinManager.UsesFlatFaces(1), "Seul Flat utilise flat faces.");
+                Expect(!Zoologic.SkinManager.UsesFlatFaces(0)
+                    && !Zoologic.SkinManager.UsesFlatFaces(2)
+                    && !Zoologic.SkinManager.UsesFlatFaces(3), "Autres : non.");
+                return (QAStatus.Pass, "Teintes + FlatFaces OK.");
+            });
+
+            RunOne("SKIN-OWN", "Skins", "Own/Select + persistance", () =>
+            {
+                var restore = SnapshotPrefs(SkinIntKeys, SkinStringKeys);
+                try
+                {
+                    int sel0 = Zoologic.SkinManager.Selected;
+                    Zoologic.SkinManager.Own(2);
+                    Expect(Zoologic.SkinManager.IsOwned(2), "Own(2).");
+                    Expect(Zoologic.SkinManager.IsOwned(0), "Bois toujours possédé.");
+                    Zoologic.SkinManager.Select(2);
+                    Expect(Zoologic.SkinManager.Selected == 2, "Select(2).");
+                    Zoologic.SkinManager.Select(1);
+                    Expect(Zoologic.SkinManager.Selected == 2, "Select non-possédé ignoré.");
+                    Zoologic.SkinManager.Select(99);
+                    Expect(Zoologic.SkinManager.Selected == 2, "Select hors-bornes ignoré.");
+                    Expect(sel0 >= 0, "Sélection initiale lisible.");
+                    return (QAStatus.Pass, "Own/Select OK.");
+                }
+                finally { restore(); }
+            });
+        }
+
+        // ------------------------------------------------------------------
+        // Section Loc : complétude des clés (code vs 8 langues).
+        // ------------------------------------------------------------------
+
+        private static void SectionLoc()
+        {
+            RunOne("LOC-KEYS-FR", "Loc", "Toutes les clés code existent en FR", () =>
+            {
+                var codeKeys = CollectLocKeys();
+                var frKeys = LoadLocKeys("fr-FR");
+                Expect(frKeys.Count > 0, "fr-FR.json lisible et non vide.");
+                var missing = new List<string>();
+                foreach (string k in codeKeys)
+                    if (!frKeys.Contains(k))
+                        missing.Add(k);
+                if (missing.Count > 0)
+                    Fail("Clés code absentes de fr-FR : " + string.Join(",", missing.Take(8).ToArray()));
+                return (QAStatus.Pass, codeKeys.Count + " clés code couvertes en FR (" + frKeys.Count + " clés).");
+            });
+
+            RunOne("LOC-COVERAGE", "Loc", "Couverture 7 autres langues + valeurs FR", () =>
+            {
+                var codeKeys = CollectLocKeys();
+                var frValues = LoadLocValues("fr-FR");
+                var warns = new List<string>();
+                foreach (string k in codeKeys)
+                {
+                    string v;
+                    if (!frValues.TryGetValue(k, out v) || string.IsNullOrEmpty(v))
+                        warns.Add("FR vide:" + k);
+                }
+                string[] langs = { "en-US", "ar-SA", "hi-IN", "ja-JP", "pt-BR", "ru-RU", "zh-CN" };
+                foreach (string lang in langs)
+                {
+                    var keys = LoadLocKeys(lang);
+                    int miss = 0;
+                    string first = "";
+                    foreach (string k in codeKeys)
+                    {
+                        if (!keys.Contains(k))
+                        {
+                            if (miss == 0) first = k;
+                            miss++;
+                        }
+                    }
+                    if (miss > 0)
+                        warns.Add(lang + " -" + miss + " (ex:" + first + ")");
+                }
+                if (warns.Count > 0)
+                    return (QAStatus.Warn, "WARN loc : " + string.Join(" | ", warns.Take(6).ToArray()));
+                return (QAStatus.Pass, "7 langues complètes, valeurs FR non vides.");
+            });
+        }
+
+        private static HashSet<string> CollectLocKeys()
+        {
+            var keys = new HashSet<string>();
+            string dir = System.IO.Path.Combine(UnityEngine.Application.dataPath, "Scripts");
+            if (!System.IO.Directory.Exists(dir))
+                return keys;
+            var rx = new System.Text.RegularExpressions.Regex(
+                "LocalizationManager\\.Get\\(\\s*\"([^\"]+)\"");
+            foreach (string file in System.IO.Directory.GetFiles(dir, "*.cs",
+                System.IO.SearchOption.AllDirectories))
+            {
+                string text;
+                try { text = System.IO.File.ReadAllText(file); }
+                catch { continue; }
+                foreach (string line in text.Split('\n'))
+                {
+                    string t = line.TrimStart();
+                    if (t.StartsWith("//") || t.StartsWith("*"))
+                        continue;
+                    var m = rx.Match(line);
+                    if (m.Success && !m.Groups[1].Value.EndsWith("."))
+                        keys.Add(m.Groups[1].Value);
+                }
+            }
+            return keys;
+        }
+
+        private static HashSet<string> LoadLocKeys(string lang)
+        {
+            var keys = new HashSet<string>();
+            var values = LoadLocValues(lang);
+            foreach (var kv in values)
+                keys.Add(kv.Key);
+            return keys;
+        }
+
+        private static Dictionary<string, string> LoadLocValues(string lang)
+        {
+            var dict = new Dictionary<string, string>();
+            string path = System.IO.Path.Combine(UnityEngine.Application.dataPath,
+                "Resources/Localization/" + lang + ".json");
+            string text;
+            try { text = System.IO.File.ReadAllText(path); }
+            catch { return dict; }
+            var rx = new System.Text.RegularExpressions.Regex(
+                "\"k\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"v\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+            foreach (System.Text.RegularExpressions.Match m in rx.Matches(text))
+                dict[m.Groups[1].Value] = m.Groups[2].Value;
+            return dict;
         }
 
         // ------------------------------------------------------------------

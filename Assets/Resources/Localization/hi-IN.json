@@ -42,6 +42,8 @@
 {"k":"shop.select","v":"चुनें"},
 {"k":"shop.selected","v":"चुना हुआ"},
 {"k":"shop.buy","v":"खरीदें · {0}"},
+{"k":"collection.tab_skins","v":"स्किन"},
+{"k":"collection.tab_mascots","v":"मस्कट"},
 {"k":"hud.moves","v":"चालें"},
 {"k":"victory.perfect","v":"एकदम सही!"},
 {"k":"hud.hint_look","v":"सुनहरे खाने को देखो!"},

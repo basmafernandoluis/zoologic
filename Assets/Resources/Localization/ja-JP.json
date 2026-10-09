@@ -42,6 +42,8 @@
 {"k":"shop.select","v":"えらぶ"},
 {"k":"shop.selected","v":"選択中"},
 {"k":"shop.buy","v":"買う · {0}"},
+{"k":"collection.tab_skins","v":"スキン"},
+{"k":"collection.tab_mascots","v":"マスコット"},
 {"k":"hud.moves","v":"手"},
 {"k":"victory.perfect","v":"パーフェクト！"},
 {"k":"hud.hint_look","v":"金色のマスを見て！"},

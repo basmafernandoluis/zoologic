@@ -42,6 +42,8 @@
 {"k":"shop.select","v":"Select"},
 {"k":"shop.selected","v":"Selected"},
 {"k":"shop.buy","v":"Buy · {0}"},
+{"k":"collection.tab_skins","v":"Skins"},
+{"k":"collection.tab_mascots","v":"Mascots"},
 {"k":"hud.moves","v":"moves"},
 {"k":"victory.perfect","v":"PERFECT!"},
 {"k":"hud.hint_look","v":"Look at the golden cell!"},

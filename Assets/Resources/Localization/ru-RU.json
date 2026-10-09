@@ -42,6 +42,8 @@
 {"k":"shop.select","v":"Выбрать"},
 {"k":"shop.selected","v":"Выбрано"},
 {"k":"shop.buy","v":"Купить · {0}"},
+{"k":"collection.tab_skins","v":"Скины"},
+{"k":"collection.tab_mascots","v":"Маскоты"},
 {"k":"hud.moves","v":"ходов"},
 {"k":"victory.perfect","v":"ИДЕАЛЬНО!"},
 {"k":"hud.hint_look","v":"Смотри на золотую клетку!"},
